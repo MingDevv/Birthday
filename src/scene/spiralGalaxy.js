@@ -31,6 +31,21 @@ function createSmoothNebulaTexture(colorA = '#38bdf8', colorB = '#a855f7') {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 256);
 
+  // Break the circular sprite silhouette into uneven gas filaments. This is a
+  // lightweight procedural fallback for a volume texture, not an opaque blob.
+  const image = ctx.getImageData(0, 0, 256, 256);
+  for (let y = 0; y < 256; y++) {
+    for (let x = 0; x < 256; x++) {
+      const index = (y * 256 + x) * 4;
+      const broad = Math.sin(x * 0.032 + Math.sin(y * 0.024) * 3.2)
+        + Math.cos(y * 0.041 + Math.sin(x * 0.028) * 2.6);
+      const filament = Math.sin(x * 0.13 + y * 0.047 + Math.sin(y * 0.075) * 1.5);
+      const density = THREE.MathUtils.clamp(0.68 + broad * 0.09 + filament * 0.13, 0.18, 1.0);
+      image.data[index + 3] = Math.round(image.data[index + 3] * density);
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
   return texture;
@@ -46,7 +61,7 @@ export function createSpiralGalaxy(scene, quality = {}) {
   galaxyGroup.rotation.z = THREE.MathUtils.degToRad(-4);
 
   const parameters = {
-    count: ({ low: 80000, medium: 150000, high: 220000, ultra: 220000 }[quality.tier])
+    count: ({ low: 32000, medium: 72000, high: 135000, ultra: 180000 }[quality.tier])
       ?? quality.galaxyStars
       ?? 130000,
     innerRadius: 92.0,    // Clear open center! Solar system (R=0-90) is completely unobstructed
@@ -271,13 +286,13 @@ export function createSpiralGalaxy(scene, quality = {}) {
     const spriteMat = new THREE.SpriteMaterial({
       map: chosenTex,
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.016,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
 
     const sprite = new THREE.Sprite(spriteMat);
-    const spriteScale = 40 + Math.random() * 26;
+    const spriteScale = 28 + Math.random() * 18;
     sprite.scale.set(spriteScale, spriteScale, 1);
     sprite.position.set(x, y, z);
     galaxyGroup.add(sprite);

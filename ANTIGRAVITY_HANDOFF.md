@@ -11,7 +11,7 @@
 
 ## สถานะโปรเจกต์
 
-- สาขาปัจจุบัน: `upgrade/gateway`
+- สาขางานล่าสุด: `upgrade/cinematic-galaxy` (ตรวจ remote/status ก่อนเริ่มรับช่วง)
 - แผนถูกคัดลอกเข้าโปรเจกต์เป็น `แผนใหม่.md`
 - เพิ่มสคริปต์ `npm run visual:qa` และภาพตรวจ 3 ขนาดไว้ใน `qa/p0` ถึง `qa/p3`
 - เพิ่มระบบตั้งค่าคุณภาพ/ปรับตามประสิทธิภาพใน `src/core/quality.js`, กล้องตามสัดส่วนจอใน `src/core/responsive.js`, นาฬิกาวงโคจรใน `src/core/orbitClock.js`
@@ -22,24 +22,28 @@
 - แยกไฟล์ฉากเก่าที่ไม่ได้ import ไปไว้ใน `legacy/scene/`
 - เพิ่ม `ASSETS_TODO.md`, `CREDITS.md`; ลดการ preload เพลงจนกว่าผู้ใช้จะเริ่มเล่น
 - ติดตั้งเครื่องมือ QA ใน devDependencies: Playwright, pngjs, lil-gui, stats.js
+- ปรับกล้องให้คำนวณขอบเขตวงโคจรจาก perspective projection จริง และตั้งมุม portrait ให้เห็นวงโคจรชัดขึ้น
+- ปรับ HUD สำหรับอัตราส่วนแนวตั้ง, ปรับ pointer raycast ตามขอบ canvas, ลดสี/เงาปุ่มอวยพรให้คุมแสงฟุ้ง
+- เปลี่ยนวงโคจรจาก `THREE.Line` เป็น tube mesh บางที่มีความกว้างจริงบน WebGL
+- เพิ่ม texture ดาวจริงของ Solar System Scope (CC BY 4.0) ใน `public/textures/planets/`; โหลดแบบ async และเก็บ procedural fallback ไว้
+- เพิ่ม Earth cloud layer, bump map fallback, Saturn ring alpha/รายละเอียด และขยายชื่อ 3D สีแดงใน galaxy view
+- ปรับ nebula sprite ให้จางลงและใช้ procedural alpha noise เพื่อลดทรงวงกลมฟุ้ง
+- `npm run build` ผ่าน และ `npm run visual:qa -- --phase=cinematic-ready` ผ่านโดยไม่มี console/page errors; ภาพอยู่ใน `qa/cinematic-ready/`
 
 ## จุดที่ต้องทำต่อก่อนส่งงาน
 
-1. รัน `npm run build` และแก้ error ถ้ามี (ครั้งก่อน build ผ่านก่อนการปรับไฟแสงล่าสุด จึงต้องรันซ้ำ)
-2. รัน `npm run visual:qa -- --phase=handoff` แล้วตรวจภาพจริงใน `qa/handoff/` อย่างน้อย desktop, portrait, mobile และกาแล็กซี
-3. ตรวจแสงล่าสุดด้วยตา: ภาพจาก Playwright ก่อนหน้าเห็นดาวเคราะห์และหัวใจมืดเกินไป แม้เพิ่มแสงแล้ว อย่าสรุปว่าภาพผ่านจนกว่าจะดูภาพรอบล่าสุดบน GPU จริงด้วย
-4. ตัวเลข FPS จาก Playwright ที่ใช้ SwiftShader เป็นซอฟต์แวร์เรนเดอร์ จึงไม่ใช่ผลวัดประสิทธิภาพบนเครื่องจริง ให้ทดสอบบนเบราว์เซอร์/GPU จริงด้วย
-5. ตรวจว่า `scripts/visual-qa.mjs` มีภาพ `galaxy-desktop.png` จริงหรือไม่; ถ้ายังไม่มีให้เพิ่มขั้นตอนเปิดปุ่มกาแล็กซีและจับภาพ
-6. แก้ chunk warning จาก bundle หลักที่เกิน 500 kB หากทำได้ด้วยการแยก import โดยไม่ทำให้หน้าเริ่มต้นช้าลง
-7. ตรวจ `npm audit` ที่เคยรายงานช่องโหว่ 2 รายการ (ระดับ moderate 1, high 1) ระบุ dependency ต้นเหตุและทางแก้ที่ไม่ใช้ `--force`; อย่าอัปเกรด major โดยไม่ตรวจผลกระทบ
-8. เช็กสถานะ git ก่อน commit; ขณะทำ handoff มีไฟล์แก้ไขและไฟล์ใหม่ที่ยังไม่ commitจำนวนมาก
+1. ทดสอบ performance บน GPU จริงทั้ง desktop และมือถือ; FPS จาก SwiftShader ใน Playwright ใช้ benchmark ไม่ได้
+2. ตรวจชื่อ “ข้าวหอม” และภาพดาวบน browser จริงเพิ่มเติม; ชื่อยังเป็น texture-plane หลายชั้น ไม่ใช่ SVG extrusion จริง
+3. ต่อ P4–P8 ตาม [แผนใหม่.md](./แผนใหม่.md): ทำกาแล็กซีให้มี dust lane/มิติ, ปรับ director/arrival, เพิ่ม director recording ถ้าต้องการคลิปอัตโนมัติ
+4. ตรวจ `npm audit` ที่เคยรายงานช่องโหว่ 2 รายการและหาทางแก้แบบไม่ใช้ `--force`
+5. เปลี่ยนภาพ Unsplash placeholder ด้วยภาพที่เจ้าของเลือกก่อนเผยแพร่
 
 ## แนวทางภาพและ UX ที่ผู้ใช้ต้องการ
 
 - ลดหมอก/แสงฟุ้งและ bloom ให้มีเฉพาะจุดเด่น ภาพต้องอ่านง่ายและขอบวัตถุคม
 - ตอนเดินทางในกาแล็กซี ให้ชื่อ **ข้าวหอม** แบบ 3D สีแดงอยู่ด้านหลังเฉพาะโหมด “ท่องกาแล็กซี่ 3D” ตามที่ผู้ใช้เคยระบุ
 - อย่าเปลี่ยนข้อความภาษาไทยเดิมใน UI หรือ `src/config/memoriesData.js` โดยไม่มีคำขอ
-- เพลงที่ผู้ใช้เลือกไว้คือไฟล์ `Y2Mate.st - Velika -  Official Audio.mp3` ใน Downloads; ตรวจว่าไฟล์ถูกคัดลอกเข้าพาธ asset ของโปรเจกต์แล้วหรือยัง ก่อนเปลี่ยน path หรือส่งมอบ
+- เพลงที่ผู้ใช้เลือกไว้ถูกคัดลอกไว้ที่ `public/audio/velika-official-audio.mp3`; สิทธิ์เผยแพร่ยังต้องตรวจสอบ
 - ผู้ใช้ต้องการเซอร์ไพรส์ที่ดูมีความตั้งใจ น่ารัก แต่ไม่รกหรือเอฟเฟกต์ฟุ้งเกินไป
 
 ## ไอเดียเสริมที่แนะนำ (ยังไม่ใช่สิ่งที่ต้องทำโดยอัตโนมัติ)
@@ -59,7 +63,7 @@ npm run build
 npm run visual:qa -- --phase=handoff
 ```
 
-ดูภาพ QA เดิมใน `qa/p0/`, `qa/p1/`, `qa/p2/`, `qa/p3/` และใช้ URL ที่ใส่ query flags ตามด้านบนเพื่อเปิดแต่ละโหมด
+ดู baseline ที่ `qa/plan-baseline/`, ภาพล่าสุดที่ `qa/cinematic-ready/` และชุดเดิมใน `qa/p0/` ถึง `qa/p3/`; ใช้ query flags ที่ระบุใน `src/core/quality.js` เปิดแต่ละโหมด
 
 ## หมายเหตุเรื่องขอบเขต
 

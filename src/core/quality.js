@@ -1,8 +1,8 @@
 const TIERS = {
-  ultra: { pixelRatio: 2, galaxyStars: 220000, backgroundStars: 30000 },
-  high: { pixelRatio: 2, galaxyStars: 150000, backgroundStars: 20000 },
-  medium: { pixelRatio: 1.5, galaxyStars: 80000, backgroundStars: 10000 },
-  low: { pixelRatio: 1, galaxyStars: 35000, backgroundStars: 5000 }
+  ultra: { pixelRatio: 2, galaxyStars: 180000, backgroundStars: 24000 },
+  high: { pixelRatio: 1.75, galaxyStars: 135000, backgroundStars: 18000 },
+  medium: { pixelRatio: 1.35, galaxyStars: 72000, backgroundStars: 10000 },
+  low: { pixelRatio: 1, galaxyStars: 32000, backgroundStars: 5000 }
 };
 
 function detectTier() {

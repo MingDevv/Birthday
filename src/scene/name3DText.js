@@ -13,8 +13,8 @@ import gsap from 'gsap';
  */
 
 const TEXT = 'ข้าวหอม';
-const TEXT_WIDTH = 220;
-const TEXT_HEIGHT = 100;
+const TEXT_WIDTH = 280;
+const TEXT_HEIGHT = 128;
 
 function createTextTexture(isExtrusion = false) {
   const canvas = document.createElement('canvas');
@@ -54,10 +54,10 @@ function createTextTexture(isExtrusion = false) {
 
     // Front Ruby-to-Crimson Gradient
     const grad = ctx.createLinearGradient(0, y - 180, 0, y + 180);
-    grad.addColorStop(0, '#fda4af');  // Rose Diamond Highlight
-    grad.addColorStop(0.22, '#f43f5e'); // Vivid Ruby
-    grad.addColorStop(0.65, '#e11d48'); // Rich Crimson
-    grad.addColorStop(1, '#9f1239');   // Deep Wine Red
+    grad.addColorStop(0, '#fff1f2');
+    grad.addColorStop(0.18, '#ff718c');
+    grad.addColorStop(0.52, '#f52255');
+    grad.addColorStop(1, '#b80f3e');
     ctx.fillStyle = grad;
     ctx.fillText(TEXT, x, y);
 
@@ -146,7 +146,7 @@ export function createGiant3DNameText(scene) {
     depthTest: true
   });
   const glowSprite = new THREE.Sprite(glowMaterial);
-  glowSprite.scale.set(TEXT_WIDTH * 1.5, TEXT_HEIGHT * 1.5, 1);
+  glowSprite.scale.set(TEXT_WIDTH * 1.3, TEXT_HEIGHT * 1.3, 1);
   glowSprite.position.set(0, 0, -4);
   nameGroup.add(glowSprite);
 
@@ -204,7 +204,7 @@ export function createGiant3DNameText(scene) {
         opacity: (_idx, target) => {
           if (target === frontMaterial) return 1.0;
           if (target === extrusionMaterial) return 0.75;
-          if (target === glowMaterial) return 0.5;
+          if (target === glowMaterial) return 0.36;
           return 0.9;
         },
         duration: 1.5,

@@ -1,13 +1,13 @@
 :root {
-  --primary-pink: #ff9a9e;
-  --secondary-lilac: #fecfef;
-  --stardust-gold: #ffd700;
-  --cyan-periwinkle: #a1c4fd;
-  --deep-space-dark: #08081a;
-  --deep-space-purple: #140c2e;
-  --glass-bg: rgba(20, 16, 38, 0.78);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-glow: rgba(255, 154, 158, 0.35);
+  --primary-pink: #c4a1ff;
+  --secondary-lilac: #e9d5ff;
+  --stardust-gold: #f4d98b;
+  --cyan-periwinkle: #9bb8e8;
+  --deep-space-dark: #070612;
+  --deep-space-purple: #100b22;
+  --glass-bg: rgba(15, 12, 30, 0.84);
+  --glass-border: rgba(225, 215, 255, 0.16);
+  --glass-glow: rgba(167, 139, 250, 0.18);
   --font-family: 'Prompt', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -44,6 +44,7 @@ body::after {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   z-index: 1;
   outline: none;
   cursor: grab;
@@ -580,7 +581,7 @@ body.cinema-portrait #webgl-canvas {
 }
 
 .wish-btn {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.92), rgba(236, 72, 153, 0.92), rgba(192, 132, 252, 0.92));
+  background: linear-gradient(135deg, #6840b6, #8751c8 56%, #6840b6);
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.4);
@@ -594,15 +595,15 @@ body.cinema-portrait #webgl-canvas {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  box-shadow: 0 8px 32px rgba(168, 85, 247, 0.55), 0 0 24px rgba(236, 72, 153, 0.45);
+  box-shadow: 0 8px 26px rgba(115, 73, 190, 0.3), 0 0 18px rgba(167, 139, 250, 0.2);
   transition: all 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   animation: breathingPulse 2.8s infinite ease-in-out;
 }
 
 .wish-btn:hover {
   transform: translateY(-4px) scale(1.05);
-  background: linear-gradient(135deg, rgba(192, 132, 252, 1), rgba(244, 114, 182, 1), rgba(168, 85, 247, 1));
-  box-shadow: 0 14px 44px rgba(168, 85, 247, 0.8), 0 0 38px rgba(236, 72, 153, 0.65);
+  background: linear-gradient(135deg, #7950c4, #9a62d7 56%, #7950c4);
+  box-shadow: 0 12px 30px rgba(115, 73, 190, 0.4), 0 0 24px rgba(167, 139, 250, 0.3);
 }
 
 .wish-btn:active {
@@ -984,7 +985,7 @@ body.cinema-portrait #webgl-canvas {
 }
 
 /* Mobile Responsiveness */
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-aspect-ratio: 3/4) {
   .hud-container {
     padding: max(0.65rem, env(safe-area-inset-top)) max(0.65rem, env(safe-area-inset-right)) max(0.65rem, env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
   }
@@ -1061,6 +1062,59 @@ body.cinema-portrait #webgl-canvas {
   .memory-title {
     font-size: 1.25rem;
   }
+}
+
+/* Keep the interface aligned to a centered 9:16 recording canvas. */
+body.cinema-portrait .hud-container {
+  width: min(100vw, 56.25dvh);
+  height: min(100dvh, 177.78vw);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: max(0.7rem, env(safe-area-inset-top)) max(0.65rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
+}
+
+body.cinema-portrait .hud-header {
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+body.cinema-portrait .hud-top-actions {
+  order: -1;
+  width: 100%;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+body.cinema-portrait .hud-top-actions .btn-label,
+body.cinema-portrait .hud-hints {
+  display: none;
+}
+
+body.cinema-portrait .hud-left-panel,
+body.cinema-portrait .hud-brand,
+body.cinema-portrait .hud-beacons-tracker {
+  width: 100%;
+  max-width: none;
+}
+
+body.cinema-portrait .hud-brand {
+  padding: 0.55rem 0.75rem;
+}
+
+body.cinema-portrait .hud-main-title {
+  font-size: clamp(0.88rem, 4vw, 1.05rem);
+}
+
+body.cinema-portrait .hud-wish-wrap {
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+body.cinema-portrait .wish-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 /* Skip Flight Button during approach journey */

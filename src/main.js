@@ -9,7 +9,7 @@ import gsap from 'gsap';
 import { MEMORIES_LIST, PLANET_CONFIG } from './config/memoriesData.js';
 import { createGalaxySkybox } from './scene/galaxySkybox.js';
 import { createSpiralGalaxy } from './scene/spiralGalaxy.js';
-import { createSolarSystemHeart } from './scene/solarSystemHeart.js';
+import { createSolarSystemHeart, loadPlanetTextures } from './scene/solarSystemHeart.js';
 import { createFireworksSystem } from './scene/fireworks.js';
 import { SoundManager } from './audio/soundManager.js';
 import { PolaroidModal } from './ui/polaroidModal.js';
@@ -93,6 +93,7 @@ controls.minDistance = 16.0;
 controls.autoRotate = false;
 controls.autoRotateSpeed = 0.45;
 controls.target.copy(defaultCameraTarget);
+controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
 
 // -----------------------------------------------------------------------------
 // 2. Post-Processing Bloom (Give Love Studio Signature Glowing Galaxy)
@@ -176,6 +177,7 @@ soundManager.isMuted = queryFlags.mute;
 const galaxy = createGalaxySkybox(scene, currentQuality);
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
 const solarSystem = createSolarSystemHeart(scene);
+loadPlanetTextures().then((textures) => solarSystem.setPlanetTextures(textures));
 const fireworks = createFireworksSystem(scene, soundManager);
 const name3DText = createGiant3DNameText(scene);
 const wormhole = createWormhole(scene);
@@ -695,7 +697,7 @@ function returnToCenterOrbit() {
   isCinematicFlying = true;
   controls.autoRotate = true;
   controls.minDistance = 16.0;
-  controls.maxDistance = 240;
+  controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
   isGalaxyView = false;
   gsap.to(orbitClock, { scale: 1, duration: 0.8, ease: 'power2.out' });
   hud.setGalaxyMode(false);
@@ -848,16 +850,25 @@ const pointer = new THREE.Vector2();
 let pointerDownPosition = null;
 
 function updatePointer(e) {
-  const x = e.clientX || (e.touches && e.touches[0].clientX);
-  const y = e.clientY || (e.touches && e.touches[0].clientY);
+  const x = e.clientX ?? e.touches?.[0]?.clientX;
+  const y = e.clientY ?? e.touches?.[0]?.clientY;
   if (x === undefined || y === undefined) return;
-
-  pointer.x = (x / window.innerWidth) * 2 - 1;
-  pointer.y = -(y / window.innerHeight) * 2 + 1;
+  const rect = canvas.getBoundingClientRect();
+  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    pointer.set(2, 2);
+    return false;
+  }
+  pointer.x = ((x - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((y - rect.top) / rect.height) * 2 + 1;
+  return true;
 }
 
 window.addEventListener('pointermove', (e) => {
-  updatePointer(e);
+  if (!updatePointer(e)) {
+    if (currentHoveredMesh) solarSystem.setHover(currentHoveredMesh, false);
+    currentHoveredMesh = null;
+    return;
+  }
   if (polaroidModal.isOpen || isCinematicFlying) {
     solarSystem.setHover(null, false);
     return;
@@ -893,7 +904,7 @@ window.addEventListener('pointerup', (e) => {
   if (wasDrag) return;
   if (polaroidModal.isOpen || isCinematicFlying) return;
 
-  updatePointer(e);
+  if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
   const intersects = raycaster.intersectObjects(solarSystem.interactiveMeshes, false);
 
@@ -922,6 +933,7 @@ window.addEventListener('resize', () => {
   heroPose = heroCamera(camera.aspect);
   defaultCameraPos.set(heroPose.position.x, heroPose.position.y, heroPose.position.z);
   defaultCameraTarget.set(heroPose.target.x, heroPose.target.y, heroPose.target.z);
+  if (!isGalaxyView) controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
   if (!isGalaxyView && !isCinematicFlying && !polaroidModal.isOpen) {
     camera.fov = heroPose.fov;
     gsap.to(camera.position, { ...heroPose.position, duration: 0.45, ease: 'power2.out' });

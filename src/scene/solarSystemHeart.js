@@ -2,6 +2,36 @@ import * as THREE from 'three';
 import { createGlowTexture } from './galaxySkybox.js';
 import { MEMORIES_LIST } from '../config/memoriesData.js';
 
+const PLANET_TEXTURE_URLS = {
+  venus: '/textures/planets/2k_venus_atmosphere.jpg',
+  venusSurface: '/textures/planets/2k_venus_surface.jpg',
+  earth: '/textures/planets/2k_earth_daymap.jpg',
+  earthClouds: '/textures/planets/2k_earth_clouds.jpg',
+  moon: '/textures/planets/2k_moon.jpg',
+  mars: '/textures/planets/2k_mars.jpg',
+  jupiter: '/textures/planets/2k_jupiter.jpg',
+  saturn: '/textures/planets/2k_saturn.jpg',
+  saturnRing: '/textures/planets/2k_saturn_ring_alpha.png'
+};
+
+export async function loadPlanetTextures() {
+  const loader = new THREE.TextureLoader();
+  const entries = await Promise.all(Object.entries(PLANET_TEXTURE_URLS).map(async ([key, url]) => {
+    try {
+      const texture = await loader.loadAsync(url);
+      texture.colorSpace = key === 'venusSurface' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+      texture.anisotropy = 4;
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      return [key, texture];
+    } catch (error) {
+      console.warn(`Planet texture unavailable (${key}); using procedural fallback.`, error);
+      return [key, null];
+    }
+  }));
+  return Object.fromEntries(entries);
+}
+
 /**
  * =============================================================================
  * 💖 ระบบสุริยะแห่งความรัก (Solar System of Love) — Masterclass Edition
@@ -162,33 +192,94 @@ function createPlanetTexture(type) {
     }
   }
 
+  // Fine, seeded surface grain breaks up the flat vector look without adding
+  // noisy high-contrast speckles at the planet's displayed size.
+  ctx.save();
+  ctx.globalCompositeOperation = 'soft-light';
+  for (let i = 0; i < 18000; i++) {
+    const shade = random() > 0.5 ? 255 : 8;
+    const alpha = 0.025 + random() * 0.045;
+    ctx.fillStyle = `rgba(${shade}, ${shade}, ${shade}, ${alpha})`;
+    const dot = 0.6 + random() * 2.2;
+    ctx.fillRect(random() * w, random() * h, dot, dot * 0.65);
+  }
+  ctx.restore();
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+
+  const heightCanvas = document.createElement('canvas');
+  heightCanvas.width = w;
+  heightCanvas.height = h;
+  const heightCtx = heightCanvas.getContext('2d');
+  heightCtx.drawImage(canvas, 0, 0);
+  const heightImage = heightCtx.getImageData(0, 0, w, h);
+  for (let i = 0; i < heightImage.data.length; i += 4) {
+    const luminance = heightImage.data[i] * 0.2126 + heightImage.data[i + 1] * 0.7152 + heightImage.data[i + 2] * 0.0722;
+    const relief = THREE.MathUtils.clamp(128 + (luminance - 128) * 0.42, 0, 255);
+    heightImage.data[i] = relief;
+    heightImage.data[i + 1] = relief;
+    heightImage.data[i + 2] = relief;
+    heightImage.data[i + 3] = 255;
+  }
+  heightCtx.putImageData(heightImage, 0, 0);
+  const bumpMap = new THREE.CanvasTexture(heightCanvas);
+  bumpMap.wrapS = THREE.RepeatWrapping;
+  bumpMap.wrapT = THREE.ClampToEdgeWrapping;
+  bumpMap.generateMipmaps = true;
+  bumpMap.minFilter = THREE.LinearMipmapLinearFilter;
+  bumpMap.anisotropy = texture.anisotropy;
+  texture.userData.bumpMap = bumpMap;
   return texture;
 }
 
 // Saturn's crisp rings texture
 function createSaturnRingTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 32;
+  canvas.width = 1024;
+  canvas.height = 64;
   const ctx = canvas.getContext('2d');
 
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(0.06, 'rgba(254, 240, 138, 0.25)');
-  grad.addColorStop(0.2, 'rgba(234, 179, 8, 0.88)');
-  grad.addColorStop(0.48, 'rgba(253, 224, 71, 0.95)');
-  grad.addColorStop(0.54, 'rgba(0, 0, 0, 0.04)'); // Cassini Division
-  grad.addColorStop(0.62, 'rgba(250, 204, 21, 0.85)');
-  grad.addColorStop(0.9, 'rgba(245, 158, 11, 0.6)');
+  grad.addColorStop(0.07, 'rgba(232, 219, 193, 0.16)');
+  grad.addColorStop(0.16, 'rgba(202, 177, 129, 0.68)');
+  grad.addColorStop(0.32, 'rgba(235, 221, 185, 0.52)');
+  grad.addColorStop(0.49, 'rgba(180, 151, 101, 0.46)');
+  grad.addColorStop(0.535, 'rgba(24, 20, 29, 0.76)'); // Cassini Division
+  grad.addColorStop(0.57, 'rgba(223, 201, 159, 0.64)');
+  grad.addColorStop(0.78, 'rgba(197, 171, 125, 0.48)');
+  grad.addColorStop(0.94, 'rgba(226, 210, 177, 0.24)');
   grad.addColorStop(1, 'rgba(0,0,0,0)');
 
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Thousands of low-contrast radial gaps give the rings layered structure.
+  let seed = 0x5a7a9;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  for (let i = 0; i < 180; i++) {
+    const x = random() * canvas.width;
+    const alpha = 0.025 + random() * 0.13;
+    ctx.fillStyle = random() > 0.5
+      ? `rgba(255, 247, 225, ${alpha})`
+      : `rgba(30, 23, 34, ${alpha})`;
+    ctx.fillRect(x, 0, 1 + random() * 3, canvas.height);
+  }
+
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   return texture;
 }
 
@@ -473,26 +564,23 @@ export function createSolarSystemHeart(scene) {
       ).applyEuler(tilt);
     };
 
-    // 1. Ethereal Luminous Orbit Path (Anti-aliased Line Loop with Stardust Glow)
-    const curveSegments = 128;
-    const pathPositions = new Float32Array((curveSegments + 1) * 3);
-    for (let i = 0; i <= curveSegments; i++) {
-      const a = (i / curveSegments) * Math.PI * 2;
-      const point = orbitPoint(a);
-      pathPositions[i * 3] = point.x;
-      pathPositions[i * 3 + 1] = point.y;
-      pathPositions[i * 3 + 2] = point.z;
-    }
-    const pathGeo = new THREE.BufferGeometry();
-    pathGeo.setAttribute('position', new THREE.BufferAttribute(pathPositions, 3));
+    // A fine tube gives the orbit a stable, antialiased width on WebGL devices
+    // where LineBasicMaterial linewidth is ignored.
+    const curvePoints = Array.from({ length: 192 }, (_, i) => orbitPoint((i / 192) * Math.PI * 2));
+    const orbitCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
+    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.15 : 0.11, 5, true);
 
-    const pathMat = new THREE.LineBasicMaterial({
+    const pathMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
       transparent: true,
-      opacity: 0.18
+      opacity: idx === 4 ? 0.24 : 0.2,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false
     });
-    const pathLine = new THREE.Line(pathGeo, pathMat);
-    rootGroup.add(pathLine);
+    const orbitRibbon = new THREE.Mesh(pathGeo, pathMat);
+    orbitRibbon.name = `orbitRibbon_${pConfig.id}`;
+    rootGroup.add(orbitRibbon);
     orbitPathMaterials.set(pConfig.id, pathMat);
 
     // 2. Orbital Stardust Sparkle Stream (อนุภาคดาวระยิบระยับวิ่งตามวงโคจร)
@@ -544,10 +632,12 @@ export function createSolarSystemHeart(scene) {
     const texture = createPlanetTexture(pConfig.type);
     const sphereMat = new THREE.MeshStandardMaterial({
       map: texture,
-      roughness: 0.38,
-      metalness: 0.08,
+      bumpMap: texture.userData.bumpMap,
+      bumpScale: pConfig.type === 'mars' ? 0.12 : pConfig.type === 'jupiter' ? 0.08 : 0.035,
+      roughness: 0.78,
+      metalness: 0.015,
       emissive: new THREE.Color(pConfig.color),
-      emissiveIntensity: 0.04
+      emissiveIntensity: 0.015
     });
     const planetMesh = new THREE.Mesh(sphereGeo, sphereMat);
     planetMesh.userData.baseEmissiveIntensity = sphereMat.emissiveIntensity;
@@ -578,10 +668,12 @@ export function createSolarSystemHeart(scene) {
       const moonTex = createPlanetTexture('moon');
       const moonMat = new THREE.MeshStandardMaterial({
         map: moonTex,
-        roughness: 0.72,
-        metalness: 0.1,
-        emissive: 0xd8b4fe,
-        emissiveIntensity: 0.02
+        bumpMap: moonTex.userData.bumpMap,
+        bumpScale: 0.16,
+        roughness: 0.92,
+        metalness: 0.0,
+        emissive: 0x6b5a8c,
+        emissiveIntensity: 0.008
       });
       moonMesh = new THREE.Mesh(moonGeo, moonMat);
       moonMesh.position.set(7.0, 1.0, 0);
@@ -627,9 +719,9 @@ export function createSolarSystemHeart(scene) {
         map: ringTex,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.92,
-        roughness: 0.35,
-        metalness: 0.25,
+        opacity: 0.78,
+        roughness: 0.72,
+        metalness: 0.025,
         blending: THREE.NormalBlending
       });
       saturnRingMesh = new THREE.Mesh(ringGeo, ringMat);
@@ -652,12 +744,27 @@ export function createSolarSystemHeart(scene) {
     planetNode.add(hitMesh);
     interactiveMeshes.push(hitMesh);
 
+    let cloudLayer = null;
+    if (pConfig.type === 'earth') {
+      const cloudMaterial = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0.34,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false
+      });
+      cloudLayer = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.012, 64, 64), cloudMaterial);
+      cloudLayer.name = 'earthCloudLayer';
+      planetMesh.add(cloudLayer);
+    }
+
     planetsList.push({
       id: pConfig.id,
       config: pConfig,
       memory: memData,
       group: planetNode,
       mesh: planetMesh,
+      cloudLayer,
       moonNode: moonNode,
       saturnRing: saturnRingMesh,
       hitMesh: hitMesh
@@ -681,6 +788,37 @@ export function createSolarSystemHeart(scene) {
     heartGroup: heartGroup,
     interactiveMeshes: interactiveMeshes,
     planetsList: planetsList,
+
+    setPlanetTextures(textures) {
+      const assignMap = (material, texture, fallbackTexture) => {
+        if (!texture) return;
+        material.map = texture;
+        material.bumpMap = null;
+        material.needsUpdate = true;
+        fallbackTexture?.dispose();
+        fallbackTexture?.userData?.bumpMap?.dispose();
+      };
+      planetsList.forEach((planet) => {
+        assignMap(planet.mesh.material, textures[planet.config.type], planet.mesh.material.map);
+        if (planet.config.type === 'venus' && textures.venusSurface) {
+          planet.mesh.material.bumpMap = textures.venusSurface;
+          planet.mesh.material.bumpScale = 0.025;
+          planet.mesh.material.needsUpdate = true;
+        }
+        if (planet.cloudLayer && textures.earthClouds) {
+          planet.cloudLayer.material.map = textures.earthClouds;
+          planet.cloudLayer.material.needsUpdate = true;
+        }
+        if (planet.config.hasMoon && textures.moon) {
+          const moonMesh = planet.moonNode?.children.find((child) => child.isMesh);
+          if (moonMesh) assignMap(moonMesh.material, textures.moon, moonMesh.material.map);
+        }
+        if (planet.saturnRing && textures.saturnRing) {
+          planet.saturnRing.material.map = textures.saturnRing;
+          planet.saturnRing.material.needsUpdate = true;
+        }
+      });
+    },
 
     update(delta, orbitTime, realTime = orbitTime) {
       // 1. Realistic Biomimetic Heartbeat Pulse
@@ -722,6 +860,7 @@ export function createSolarSystemHeart(scene) {
         const orbitSystem = orbitalParticleSystems[p.id - 1];
         p.group.position.applyEuler(orbitSystem.tilt);
         p.mesh.rotation.y += delta * p.config.spinSpeed;
+        if (p.cloudLayer) p.cloudLayer.rotation.y -= delta * 0.24;
 
         if (p.moonNode) {
           p.moonNode.rotation.y += delta * 2.4;
@@ -760,7 +899,7 @@ export function createSolarSystemHeart(scene) {
         planetMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.16 : baseIntensity;
       }
       const orbitMaterial = orbitPathMaterials.get(planetConfig.id);
-      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.3 : 0.18);
+      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.5 : (planetMesh?.userData.visited ? 0.3 : (planetConfig.id === 5 ? 0.24 : 0.2));
 
       if (tooltipEl) {
         if (isHovered && clientX !== undefined && clientY !== undefined) {
