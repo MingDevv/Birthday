@@ -22,8 +22,8 @@ export function createGlowTexture(size = 64, innerColor = 'rgba(255,255,255,1)',
     size / 2, size / 2, size / 2
   );
   gradient.addColorStop(0, innerColor);
-  gradient.addColorStop(0.35, 'rgba(245, 208, 254, 0.85)'); // Diamond Lilac
-  gradient.addColorStop(0.7, 'rgba(168, 85, 247, 0.2)');   // Cosmic Purple
+  gradient.addColorStop(0.35, 'rgba(255, 255, 255, 0.28)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.05)');
   gradient.addColorStop(1, outerColor);
 
   ctx.fillStyle = gradient;
@@ -88,18 +88,42 @@ export function createDiamondCrossTexture(size = 128) {
   return texture;
 }
 
-export function createGalaxySkybox(scene) {
+function kelvinToLinearColor(kelvin) {
+  const temperature = kelvin / 100;
+  let red;
+  let green;
+  let blue;
+  if (temperature <= 66) {
+    red = 255;
+    green = 99.4708025861 * Math.log(temperature) - 161.1195681661;
+    blue = temperature <= 19 ? 0 : 138.5177312231 * Math.log(temperature - 10) - 305.0447927307;
+  } else {
+    red = 329.698727446 * Math.pow(temperature - 60, -0.1332047592);
+    green = 288.1221695283 * Math.pow(temperature - 60, -0.0755148492);
+    blue = 255;
+  }
+  const color = new THREE.Color();
+  color.setRGB(
+    THREE.MathUtils.clamp(red / 255, 0, 1),
+    THREE.MathUtils.clamp(green / 255, 0, 1),
+    THREE.MathUtils.clamp(blue / 255, 0, 1),
+    THREE.SRGBColorSpace
+  );
+  return color;
+}
+
+export function createGalaxySkybox(scene, quality = {}) {
   const galaxyGroup = new THREE.Group();
   galaxyGroup.name = 'galaxySkyboxMaster';
   scene.add(galaxyGroup);
 
-  const starTex = createGlowTexture(64);
   const diamondTex = createDiamondCrossTexture(128);
 
   // ---------------------------------------------------------------------------
-  // 1. Deep Twinkling Diamond Starfield (14,000 Micro-Stars)
+  // 1. Temperature-colored pin-sharp starfield with a very restrained halo.
   // ---------------------------------------------------------------------------
-  const starCount = 14000;
+  const starCount = ({ low: 10000, medium: 20000, high: 30000, ultra: 30000 }[quality.tier])
+    ?? Math.max(14000, quality.backgroundStars ?? 14000);
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(starCount * 3);
   const starColors = new Float32Array(starCount * 3);
@@ -120,7 +144,7 @@ export function createGalaxySkybox(scene) {
   ];
 
   for (let i = 0; i < starCount; i++) {
-    const radius = 170 + Math.random() * 320;
+    const radius = 760 + Math.random() * 80;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -128,14 +152,21 @@ export function createGalaxySkybox(scene) {
     starPos[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
     starPos[i * 3 + 2] = radius * Math.cos(phi);
 
-    const c = diamondPalette[Math.floor(Math.random() * diamondPalette.length)];
+    const roll = Math.random();
+    const kelvin = roll < 0.75
+      ? 3000 + Math.random() * 2000
+      : roll < 0.90
+        ? 5500 + Math.random() * 2000
+        : roll < 0.97
+          ? 8000 + Math.random() * 2000
+          : 15000 + Math.random() * 15000;
+    const c = kelvinToLinearColor(kelvin);
     starColors[i * 3] = c.r;
     starColors[i * 3 + 1] = c.g;
     starColors[i * 3 + 2] = c.b;
 
-    // Pin-sharp diamond stars with prominent brilliance
-    const isBright = Math.random() < 0.08;
-    starSizes[i] = isBright ? (Math.random() * 2.2 + 1.6) : (Math.random() * 1.0 + 0.6);
+    // A power-law distribution gives many faint points and very few bright stars.
+    starSizes[i] = 0.05 + 0.95 * Math.pow(Math.random(), 6);
     starPhases[i] = Math.random() * Math.PI * 2;
     starFreqs[i] = 1.5 + Math.random() * 3.5;
   }
@@ -149,36 +180,47 @@ export function createGalaxySkybox(scene) {
   const starShaderMat = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uTexture: { value: starTex }
+      uPixelRatio: { value: quality.pixelRatio ?? 1 }
     },
     vertexShader: `
       attribute float size;
       attribute float phase;
       attribute float freq;
       varying vec3 vColor;
-      varying float vTwinkle;
+      varying float vIntensity;
+      varying float vSpike;
       uniform float uTime;
+      uniform float uPixelRatio;
 
       void main() {
         vColor = color;
-        float twinkle = sin(uTime * freq + phase) * 0.4 + 0.6;
-        vTwinkle = twinkle;
+        float twinkle = 1.0 + 0.10 * sin(uTime * freq + phase);
+        float px = (1.0 + 3.5 * size) * uPixelRatio;
+        float minPx = 1.6 * uPixelRatio;
+        float energy = min(1.0, (px * px) / (minPx * minPx));
+        vIntensity = (0.2 + 1.8 * size) * energy * twinkle;
+        vSpike = step(0.985, size);
 
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        float pSize = size * (420.0 / -mvPosition.z) * (0.85 + 0.45 * twinkle);
-        gl_PointSize = clamp(pSize, 0.8, 20.0);
+        gl_PointSize = max(px, minPx);
         gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
-      uniform sampler2D uTexture;
       varying vec3 vColor;
-      varying float vTwinkle;
+      varying float vIntensity;
+      varying float vSpike;
 
       void main() {
-        vec4 tex = texture2D(uTexture, gl_PointCoord);
-        if (tex.a < 0.04) discard;
-        gl_FragColor = vec4(vColor * (1.0 + vTwinkle * 0.12), tex.a * vTwinkle * 0.78);
+        vec2 p = (gl_PointCoord - 0.5) * 2.0;
+        float d = length(p);
+        float core = exp(-d * d * 22.0);
+        float halo = exp(-d * d * 4.0) * 0.08;
+        vec2 a = abs(p);
+        float spike = vSpike * 0.45 * (exp(-a.x * 40.0) * exp(-a.y * 3.0) + exp(-a.y * 40.0) * exp(-a.x * 3.0));
+        float alpha = (core + halo + spike) * vIntensity;
+        if (alpha < 0.003) discard;
+        gl_FragColor = vec4(vColor, alpha);
       }
     `,
     transparent: true,
@@ -188,12 +230,13 @@ export function createGalaxySkybox(scene) {
   });
 
   const starField = new THREE.Points(starGeo, starShaderMat);
+  starGeo.setDrawRange(0, Math.min(quality.backgroundStars ?? 14000, starCount));
   galaxyGroup.add(starField);
 
   // ---------------------------------------------------------------------------
   // 2. Brilliant 4-Point Diamond Flare Stars (✨ 650 Cross-Flare Jewels)
   // ---------------------------------------------------------------------------
-  const flareCount = 220;
+  const flareCount = 90;
   const flareGeo = new THREE.BufferGeometry();
   const flarePos = new Float32Array(flareCount * 3);
   const flareColors = new Float32Array(flareCount * 3);
@@ -201,7 +244,7 @@ export function createGalaxySkybox(scene) {
   const flarePhases = new Float32Array(flareCount);
 
   for (let i = 0; i < flareCount; i++) {
-    const radius = 160 + Math.random() * 280;
+    const radius = 540 + Math.random() * 300;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -260,6 +303,7 @@ export function createGalaxySkybox(scene) {
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
+    vertexColors: true
   });
 
   const flareField = new THREE.Points(flareGeo, flareShaderMat);
@@ -450,6 +494,10 @@ export function createGalaxySkybox(scene) {
 
   return {
     group: galaxyGroup,
+    starField,
+    setQuality(backgroundStars) {
+      starGeo.setDrawRange(0, Math.min(backgroundStars, starCount));
+    },
     triggerGrandShower,
 
     update(delta, time) {
@@ -457,7 +505,7 @@ export function createGalaxySkybox(scene) {
       flareShaderMat.uniforms.uTime.value = time;
 
       // Slow majestic sky rotation
-      galaxyGroup.rotation.y = time * 0.008;
+      galaxyGroup.rotation.y = 0;
 
       // 1. Ambient Meteor timer (every 1.2 - 2.4s)
       ambientTimer -= delta;

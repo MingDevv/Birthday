@@ -13,7 +13,17 @@ import { MEMORIES_LIST } from '../config/memoriesData.js';
  */
 
 // Procedural high-resolution planetary surface textures
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
 function createPlanetTexture(type) {
+  const seed = [...type].reduce((value, char) => (value * 31 + char.charCodeAt(0)) >>> 0, 0xB612);
+  const random = createSeededRandom(seed);
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
   canvas.height = 512;
@@ -34,9 +44,9 @@ function createPlanetTexture(type) {
 
     for (let i = 0; i < 35; i++) {
       ctx.beginPath();
-      const y = Math.random() * h;
-      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.32)' : 'rgba(244, 114, 182, 0.25)';
-      ctx.ellipse(Math.random() * w, y, 140 + Math.random() * 180, 10 + Math.random() * 20, 0.04 * (Math.random() - 0.5), 0, Math.PI * 2);
+      const y = random() * h;
+      ctx.fillStyle = random() > 0.5 ? 'rgba(255, 255, 255, 0.32)' : 'rgba(244, 114, 182, 0.25)';
+      ctx.ellipse(random() * w, y, 140 + random() * 180, 10 + random() * 20, 0.04 * (random() - 0.5), 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (type === 'earth') {
@@ -76,7 +86,7 @@ function createPlanetTexture(type) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.58)';
     for (let c = 0; c < 45; c++) {
       ctx.beginPath();
-      ctx.ellipse(Math.random() * w, Math.random() * h, 70 + Math.random() * 120, 10 + Math.random() * 16, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(random() * w, random() * h, 70 + random() * 120, 10 + random() * 16, 0.2, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (type === 'moon') {
@@ -86,7 +96,7 @@ function createPlanetTexture(type) {
     for (let i = 0; i < 40; i++) {
       ctx.fillStyle = 'rgba(100, 116, 139, 0.4)';
       ctx.beginPath();
-      ctx.arc(Math.random() * w, Math.random() * h, 5 + Math.random() * 20, 0, Math.PI * 2);
+      ctx.arc(random() * w, random() * h, 5 + random() * 20, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (type === 'mars') {
@@ -104,7 +114,7 @@ function createPlanetTexture(type) {
     ctx.fillStyle = 'rgba(67, 20, 7, 0.55)';
     for (let i = 0; i < 35; i++) {
       ctx.beginPath();
-      ctx.ellipse(Math.random() * w, 0.2 * h + Math.random() * (0.6 * h), 50 + Math.random() * 130, 10 + Math.random() * 20, 0.05, 0, Math.PI * 2);
+      ctx.ellipse(random() * w, 0.2 * h + random() * (0.6 * h), 50 + random() * 130, 10 + random() * 20, 0.05, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (type === 'jupiter') {
@@ -122,8 +132,8 @@ function createPlanetTexture(type) {
 
     for (let i = 0; i < 55; i++) {
       ctx.beginPath();
-      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.25)' : 'rgba(120, 53, 15, 0.3)';
-      ctx.ellipse(Math.random() * w, Math.random() * h, 70 + Math.random() * 150, 8 + Math.random() * 14, 0.02, 0, Math.PI * 2);
+      ctx.fillStyle = random() > 0.5 ? 'rgba(255, 255, 255, 0.25)' : 'rgba(120, 53, 15, 0.3)';
+      ctx.ellipse(random() * w, random() * h, 70 + random() * 150, 8 + random() * 14, 0.02, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -148,7 +158,7 @@ function createPlanetTexture(type) {
 
     for (let i = 0; i < 20; i++) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.fillRect(0, Math.random() * h, w, 4 + Math.random() * 10);
+      ctx.fillRect(0, random() * h, w, 4 + random() * 10);
     }
   }
 
@@ -266,6 +276,7 @@ export function createSolarSystemHeart(scene) {
   const interactiveMeshes = [];
   const planetsList = [];
   const orbitalParticleSystems = [];
+  const orbitPathMaterials = new Map();
 
   // ===========================================================================
   // 1. The Sculpted 3D Crystalline Heart at (0, 0, 0)
@@ -280,7 +291,7 @@ export function createSolarSystemHeart(scene) {
   const heartMat = new THREE.MeshPhysicalMaterial({
     color: 0xdb2777,             // Deep Radiant Cosmic Rose
     emissive: 0x9333ea,          // Deep Royal Cosmic Purple (Khao Hom's favorite color)
-    emissiveIntensity: 0.62,     // Keep crystal color defined under the scene lights
+    emissiveIntensity: 0.34,     // Keep the gem saturated without washing out its facets
     roughness: 0.12,             // Smooth crystal polish
     metalness: 0.08,
     clearcoat: 1.0,              // Lacquered crystal diamond shine
@@ -316,7 +327,7 @@ export function createSolarSystemHeart(scene) {
   heartGroup.add(auraSprite);
 
   // Floating Cosmic Purple Stardust Sparks (Round soft diamond glows, NO square pixels)
-  const sparkCount = 90;
+  const sparkCount = 36;
   const sparkGeo = new THREE.BufferGeometry();
   const sparkPositions = new Float32Array(sparkCount * 3);
   const sparkColors = new Float32Array(sparkCount * 3);
@@ -355,11 +366,11 @@ export function createSolarSystemHeart(scene) {
   sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkColors, 3));
 
   const sparkMat = new THREE.PointsMaterial({
-    size: 1.8,
+    size: 1.35,
     map: sparkleTex,
     vertexColors: true,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.5,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: false
@@ -447,48 +458,65 @@ export function createSolarSystemHeart(scene) {
 
   solarPlanetsConfig.forEach((pConfig, idx) => {
     const memData = MEMORIES_LIST[idx] || MEMORIES_LIST[0];
+    const tilt = new THREE.Euler(
+      THREE.MathUtils.degToRad((idx % 2 ? -1 : 1) * (6 + idx * 1.5)),
+      0,
+      THREE.MathUtils.degToRad((idx - 2) * 3.5)
+    );
+    const eccentricity = 0.015 + idx * 0.006;
+    const orbitPoint = (angle) => {
+      const radius = pConfig.orbitRadius * (1 + eccentricity * Math.cos(angle));
+      return new THREE.Vector3(
+        Math.cos(angle) * radius,
+        Math.sin(angle) * (pConfig.orbitRadius * pConfig.inclination),
+        Math.sin(angle) * radius
+      ).applyEuler(tilt);
+    };
 
     // 1. Ethereal Luminous Orbit Path (Anti-aliased Line Loop with Stardust Glow)
     const curveSegments = 128;
     const pathPositions = new Float32Array((curveSegments + 1) * 3);
     for (let i = 0; i <= curveSegments; i++) {
       const a = (i / curveSegments) * Math.PI * 2;
-      pathPositions[i * 3] = Math.cos(a) * pConfig.orbitRadius;
-      pathPositions[i * 3 + 1] = Math.sin(a) * (pConfig.orbitRadius * pConfig.inclination);
-      pathPositions[i * 3 + 2] = Math.sin(a) * pConfig.orbitRadius;
+      const point = orbitPoint(a);
+      pathPositions[i * 3] = point.x;
+      pathPositions[i * 3 + 1] = point.y;
+      pathPositions[i * 3 + 2] = point.z;
     }
     const pathGeo = new THREE.BufferGeometry();
     pathGeo.setAttribute('position', new THREE.BufferAttribute(pathPositions, 3));
 
     const pathMat = new THREE.LineBasicMaterial({
-      color: 0xc084fc, // Radiant Lilac Violet
+      color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
       transparent: true,
-      opacity: 0.24
+      opacity: 0.18
     });
     const pathLine = new THREE.Line(pathGeo, pathMat);
     rootGroup.add(pathLine);
+    orbitPathMaterials.set(pConfig.id, pathMat);
 
     // 2. Orbital Stardust Sparkle Stream (อนุภาคดาวระยิบระยับวิ่งตามวงโคจร)
-    const orbitSparkCount = 12;
+    const orbitSparkCount = 1;
     const orbitSparkGeo = new THREE.BufferGeometry();
     const orbitSparkPos = new Float32Array(orbitSparkCount * 3);
     const orbitSparkPhases = [];
 
     for (let i = 0; i < orbitSparkCount; i++) {
-      const a = (i / orbitSparkCount) * Math.PI * 2;
-      orbitSparkPos[i * 3] = Math.cos(a) * pConfig.orbitRadius;
-      orbitSparkPos[i * 3 + 1] = Math.sin(a) * (pConfig.orbitRadius * pConfig.inclination);
-      orbitSparkPos[i * 3 + 2] = Math.sin(a) * pConfig.orbitRadius;
+      const a = pConfig.initialAngle - 1.2;
+      const point = orbitPoint(a);
+      orbitSparkPos[i * 3] = point.x;
+      orbitSparkPos[i * 3 + 1] = point.y;
+      orbitSparkPos[i * 3 + 2] = point.z;
       orbitSparkPhases.push((i / orbitSparkCount) * Math.PI * 2);
     }
 
     orbitSparkGeo.setAttribute('position', new THREE.BufferAttribute(orbitSparkPos, 3));
     const orbitSparkMat = new THREE.PointsMaterial({
-      size: 0.95,
+      size: 1.25,
       map: glowTex,
       color: 0xe9d5ff,
       transparent: true,
-      opacity: 0.48,
+      opacity: 0.5,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -499,9 +527,11 @@ export function createSolarSystemHeart(scene) {
       points: orbitSparkPoints,
       radius: pConfig.orbitRadius,
       inclination: pConfig.inclination,
-      speed: pConfig.orbitSpeed * 0.7,
+      speed: pConfig.orbitSpeed * 0.55,
       phases: orbitSparkPhases,
-      count: orbitSparkCount
+      count: orbitSparkCount,
+      tilt,
+      eccentricity
     });
 
     // 3. Planet Moving Node
@@ -517,9 +547,11 @@ export function createSolarSystemHeart(scene) {
       roughness: 0.38,
       metalness: 0.08,
       emissive: new THREE.Color(pConfig.color),
-      emissiveIntensity: 0.32
+      emissiveIntensity: 0.04
     });
     const planetMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    planetMesh.userData.baseEmissiveIntensity = sphereMat.emissiveIntensity;
+    planetMesh.userData.visited = false;
     planetNode.add(planetMesh);
 
     // Subtle Atmospheric Rim Glow (Makes each planet pop out as a luminous celestial jewel)
@@ -527,12 +559,12 @@ export function createSolarSystemHeart(scene) {
       map: glowTex,
       color: new THREE.Color(pConfig.color),
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.08,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const planetGlow = new THREE.Sprite(planetGlowMat);
-    planetGlow.scale.set(pConfig.radius * 2.5, pConfig.radius * 2.5, 1);
+    planetGlow.scale.set(pConfig.radius * 2.1, pConfig.radius * 2.1, 1);
     planetNode.add(planetGlow);
 
     // 4. Moon for Earth
@@ -549,7 +581,7 @@ export function createSolarSystemHeart(scene) {
         roughness: 0.72,
         metalness: 0.1,
         emissive: 0xd8b4fe,
-        emissiveIntensity: 0.28
+        emissiveIntensity: 0.02
       });
       moonMesh = new THREE.Mesh(moonGeo, moonMat);
       moonMesh.position.set(7.0, 1.0, 0);
@@ -650,9 +682,9 @@ export function createSolarSystemHeart(scene) {
     interactiveMeshes: interactiveMeshes,
     planetsList: planetsList,
 
-    update(delta, time) {
+    update(delta, orbitTime, realTime = orbitTime) {
       // 1. Realistic Biomimetic Heartbeat Pulse
-      const cycle = (time * 2.2) % (Math.PI * 2);
+      const cycle = (realTime * 2.2) % (Math.PI * 2);
       let beat = 0;
       if (cycle < 0.6) {
         beat = Math.sin(cycle * (Math.PI / 0.6)) * 0.14;
@@ -668,16 +700,16 @@ export function createSolarSystemHeart(scene) {
       // Pulse spark particles gently
       const positions = sparkPoints.geometry.attributes.position.array;
       for (let i = 0; i < sparkCount; i++) {
-        positions[i * 3] = baseSparkPositions[i * 3] + Math.sin(time * 0.7 + i) * 0.12;
-        positions[i * 3 + 1] = baseSparkPositions[i * 3 + 1] + Math.sin(time * 1.5 + i) * 0.12;
-        positions[i * 3 + 2] = baseSparkPositions[i * 3 + 2] + Math.cos(time * 0.7 + i) * 0.12;
+        positions[i * 3] = baseSparkPositions[i * 3] + Math.sin(realTime * 0.7 + i) * 0.12;
+        positions[i * 3 + 1] = baseSparkPositions[i * 3 + 1] + Math.sin(realTime * 1.5 + i) * 0.12;
+        positions[i * 3 + 2] = baseSparkPositions[i * 3 + 2] + Math.cos(realTime * 0.7 + i) * 0.12;
       }
       sparkPoints.geometry.attributes.position.needsUpdate = true;
       sparkPoints.rotation.y += delta * 0.06;
 
       // 2. Planets Orbital Motion & Self-Spin
       planetsList.forEach(p => {
-        const currentAngle = p.config.initialAngle + time * p.config.orbitSpeed;
+        const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
         const r = p.config.orbitRadius;
         const incl = p.config.inclination;
 
@@ -685,7 +717,10 @@ export function createSolarSystemHeart(scene) {
         const z = Math.sin(currentAngle) * r;
         const y = Math.sin(currentAngle) * (r * incl);
 
-        p.group.position.set(x, y, z);
+        const radius = r * (1 + (0.015 + (p.id - 1) * 0.006) * Math.cos(currentAngle));
+        p.group.position.set(Math.cos(currentAngle) * radius, y, Math.sin(currentAngle) * radius);
+        const orbitSystem = orbitalParticleSystems[p.id - 1];
+        p.group.position.applyEuler(orbitSystem.tilt);
         p.mesh.rotation.y += delta * p.config.spinSpeed;
 
         if (p.moonNode) {
@@ -697,13 +732,19 @@ export function createSolarSystemHeart(scene) {
       orbitalParticleSystems.forEach(ops => {
         const posArr = ops.points.geometry.attributes.position.array;
         for (let i = 0; i < ops.count; i++) {
-          const a = ops.phases[i] + time * ops.speed;
-          posArr[i * 3] = Math.cos(a) * ops.radius;
-          posArr[i * 3 + 1] = Math.sin(a) * (ops.radius * ops.inclination);
-          posArr[i * 3 + 2] = Math.sin(a) * ops.radius;
+          const a = ops.phases[i] + orbitTime * ops.speed;
+          const radius = ops.radius * (1 + ops.eccentricity * Math.cos(a));
+          const point = new THREE.Vector3(
+            Math.cos(a) * radius,
+            Math.sin(a) * (ops.radius * ops.inclination),
+            Math.sin(a) * radius
+          ).applyEuler(ops.tilt);
+          posArr[i * 3] = point.x;
+          posArr[i * 3 + 1] = point.y;
+          posArr[i * 3 + 2] = point.z;
         }
         ops.points.geometry.attributes.position.needsUpdate = true;
-        ops.points.material.opacity = 0.36 + Math.sin(time * 1.2 + ops.radius) * 0.08;
+        ops.points.material.opacity = 0.36 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
       });
     },
 
@@ -715,8 +756,11 @@ export function createSolarSystemHeart(scene) {
 
       const { planetMesh, planetConfig } = hitMesh.userData;
       if (planetMesh) {
-        planetMesh.material.emissiveIntensity = isHovered ? 0.55 : 0.2;
+        const baseIntensity = planetMesh.userData.visited ? 0.12 : planetMesh.userData.baseEmissiveIntensity;
+        planetMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.16 : baseIntensity;
       }
+      const orbitMaterial = orbitPathMaterials.get(planetConfig.id);
+      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.3 : 0.18);
 
       if (tooltipEl) {
         if (isHovered && clientX !== undefined && clientY !== undefined) {
@@ -736,7 +780,10 @@ export function createSolarSystemHeart(scene) {
     markVisited(id) {
       const p = planetsList.find(item => item.id === id);
       if (p) {
-        p.mesh.material.emissiveIntensity = 0.38;
+        p.mesh.userData.visited = true;
+        p.mesh.material.emissiveIntensity = 0.12;
+        const orbitMaterial = orbitPathMaterials.get(p.id);
+        if (orbitMaterial) orbitMaterial.opacity = 0.3;
       }
     }
   };

@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import gsap from 'gsap';
 
 import { MEMORIES_LIST, PLANET_CONFIG } from './config/memoriesData.js';
@@ -15,13 +16,35 @@ import { PolaroidModal } from './ui/polaroidModal.js';
 import { HudOverlay } from './ui/hudOverlay.js';
 import { IntroScreen } from './ui/introScreen.js';
 import { createGiant3DNameText } from './scene/name3DText.js';
+import { createWormhole } from './scene/wormhole.js';
 import { showArrivalCelebrationFlow } from './ui/arrivalPopups.js';
+import { createFrameGovernor, getQualityConfig, getQueryFlags } from './core/quality.js';
+import { heroCamera } from './core/responsive.js';
+import { orbitClock } from './core/orbitClock.js';
 import './style.css';
+
+async function initializeApp() {
+const queryFlags = getQueryFlags();
+const getRenderSize = () => queryFlags.portraitRatio
+  ? { width: 1080, height: 1920, aspect: 9 / 16 }
+  : { width: window.innerWidth, height: window.innerHeight, aspect: window.innerWidth / window.innerHeight };
+if (queryFlags.portraitRatio) document.body.classList.add('cinema-portrait');
+await Promise.race([
+  document.fonts.load('900 100px "Prompt"').catch(() => []),
+  new Promise((resolve) => setTimeout(resolve, 1800))
+]);
+const debugModules = queryFlags.debug
+  ? await Promise.all([import('lil-gui'), import('stats.js')])
+  : null;
+const GUI = debugModules?.[0].default;
+const Stats = debugModules?.[1].default;
 
 // -----------------------------------------------------------------------------
 // 1. Initial State & Setup
 // -----------------------------------------------------------------------------
 const visitedMemories = new Set();
+let currentQuality = getQualityConfig();
+if (queryFlags.portraitRatio) currentQuality.pixelRatio = 1;
 let currentHoveredMesh = null;
 let isCinematicFlying = false;
 let isGalaxyView = false;
@@ -34,26 +57,30 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance'
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+let renderViewport = getRenderSize();
+renderer.setSize(renderViewport.width, renderViewport.height);
+renderer.setPixelRatio(currentQuality.pixelRatio);
+renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = false;
 
 const scene = new THREE.Scene();
 // Deep Cosmic Purple & Midnight Indigo space
 scene.background = new THREE.Color(0x060212);
-scene.fog = new THREE.FogExp2(0x060212, 0.0016);
+scene.fog = null;
 
+let heroPose = heroCamera(renderViewport.aspect);
 const camera = new THREE.PerspectiveCamera(
-  45,
-  window.innerWidth / window.innerHeight,
+  heroPose.fov,
+  renderViewport.aspect,
   0.1,
   1800
 );
+camera.updateProjectionMatrix();
 
 // Camera vantage points
-const defaultCameraPos = new THREE.Vector3(0, 36, 82);   // Facing the Radiant Crystal Heart & Solar Planets
+const defaultCameraPos = new THREE.Vector3(heroPose.position.x, heroPose.position.y, heroPose.position.z);
+const defaultCameraTarget = new THREE.Vector3(heroPose.target.x, heroPose.target.y, heroPose.target.z);
 const galaxyCameraPos = new THREE.Vector3(0, 125, 245);  // Optimal vantage point framing the Hubble Galaxy & Giant 3D Text
 const deepSpacePos = new THREE.Vector3(120, 160, 260);   // Start of 7.5s Cosmic Galaxy Journey
 camera.position.copy(deepSpacePos);
@@ -65,54 +92,107 @@ controls.maxDistance = 240;
 controls.minDistance = 16.0;
 controls.autoRotate = false;
 controls.autoRotateSpeed = 0.45;
-controls.target.set(0, 0, 0);
+controls.target.copy(defaultCameraTarget);
 
 // -----------------------------------------------------------------------------
 // 2. Post-Processing Bloom (Give Love Studio Signature Glowing Galaxy)
 // -----------------------------------------------------------------------------
-const composer = new EffectComposer(renderer);
+const renderTarget = new THREE.WebGLRenderTarget(renderViewport.width, renderViewport.height, {
+  type: renderer.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType,
+  samples: renderer.capabilities.isWebGL2 ? 4 : 0
+});
+const composer = new EffectComposer(renderer, renderTarget);
+composer.setPixelRatio(currentQuality.pixelRatio);
+composer.setSize(renderViewport.width, renderViewport.height);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.24, // Restrained bloom keeps star cores crisp and readable
-  0.18,
-  0.82
+  new THREE.Vector2(renderViewport.width, renderViewport.height),
+  0.32, // Bloom only catches the brightest star and heart highlights
+  0.55,
+  1.0
 );
 composer.addPass(bloomPass);
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
+let webglContextLost = false;
+canvas.addEventListener('webglcontextlost', (event) => {
+  event.preventDefault();
+  webglContextLost = true;
+});
+canvas.addEventListener('webglcontextrestored', () => {
+  webglContextLost = false;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, currentQuality.pixelRatio));
+  renderer.setSize(renderViewport.width, renderViewport.height);
+  composer.reset();
+  composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, currentQuality.pixelRatio));
+  composer.setSize(renderViewport.width, renderViewport.height);
+});
+
+let stats = null;
+let debugGui = null;
+const debugQuality = { quality: currentQuality.tier };
+let qualityController = null;
+if (queryFlags.debug) {
+  stats = new Stats();
+  stats.showPanel(0);
+  stats.dom.style.cssText += ';position:fixed;left:0;top:0;z-index:10000';
+  document.body.appendChild(stats.dom);
+  debugGui = new GUI({ title: 'Cosmic scene tuning' });
+  debugGui.add(bloomPass, 'strength', 0, 0.9, 0.01).name('Bloom strength');
+  debugGui.add(bloomPass, 'threshold', 0.5, 1.5, 0.01).name('Bloom threshold');
+  debugGui.add(renderer, 'toneMappingExposure', 0.5, 1.5, 0.01).name('Exposure');
+  qualityController = debugGui.add(debugQuality, 'quality').disable();
+}
 
 // -----------------------------------------------------------------------------
 // 3. Scene Lighting (Cinema 4D / Blender Grade Cosmic Purple Starlight)
 // -----------------------------------------------------------------------------
-const ambientLight = new THREE.AmbientLight(0x4a044e, 1.8); // Deep Cosmic Purple
+const ambientLight = new THREE.HemisphereLight(0x58307c, 0x08041a, 0.72);
 scene.add(ambientLight);
 
-// Key Starlight from upper diagonal
-const sunLight = new THREE.DirectionalLight(0xfff1f2, 2.6); // Diamond Crystal White
-sunLight.position.set(45, 60, 45);
-sunLight.castShadow = false;
-scene.add(sunLight);
+// A single central key light gives the orbiting planets a consistent day side.
+const heartSun = new THREE.PointLight(0xffe8f8, 6000, 0, 2);
+scene.add(heartSun);
 
-// Cosmic Violet Fill Light
-const rimLight = new THREE.DirectionalLight(0xa855f7, 1.5);
-rimLight.position.set(-45, -20, -40);
-scene.add(rimLight);
+const softKeyLight = new THREE.DirectionalLight(0xfff1f8, 1.1);
+softKeyLight.position.set(45, 60, 45);
+scene.add(softKeyLight);
 
-// Electric Magenta Rim Light
-const magentaRim = new THREE.DirectionalLight(0xec4899, 1.1);
-magentaRim.position.set(0, -35, 50);
-scene.add(magentaRim);
+const violetRim = new THREE.DirectionalLight(0xa855f7, 0.48);
+violetRim.position.set(-45, -20, -40);
+scene.add(violetRim);
+const roseRim = new THREE.DirectionalLight(0xec4899, 0.22);
+roseRim.position.set(0, -35, 50);
+scene.add(roseRim);
 
 // -----------------------------------------------------------------------------
 // 4. Subsystems Initialization
 // -----------------------------------------------------------------------------
 const soundManager = new SoundManager();
-const galaxy = createGalaxySkybox(scene);
-const spiralGalaxy = createSpiralGalaxy(scene);
+soundManager.isMuted = queryFlags.mute;
+const galaxy = createGalaxySkybox(scene, currentQuality);
+const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
 const solarSystem = createSolarSystemHeart(scene);
 const fireworks = createFireworksSystem(scene, soundManager);
 const name3DText = createGiant3DNameText(scene);
+const wormhole = createWormhole(scene);
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const frameGovernor = createFrameGovernor({
+  renderer,
+  composer,
+  initialConfig: currentQuality,
+  getSize: getRenderSize,
+  onTierChange: (next) => {
+    currentQuality = next;
+    galaxy.setQuality(next.backgroundStars);
+    spiralGalaxy.setQuality(next.galaxyStars);
+    debugQuality.quality = next.tier;
+    qualityController?.updateDisplay();
+  }
+});
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -334,10 +414,62 @@ function updateWarpStreaks(delta) {
 // -----------------------------------------------------------------------------
 let approachTimeline = null;
 
+function runCinemaDirector() {
+  hud.hide();
+  isCinematicFlying = true;
+  controls.autoRotate = false;
+  gsap.to(orbitClock, { scale: 0.04, duration: 1.0, ease: 'power2.out' });
+
+  const tour = gsap.timeline({
+    onComplete: () => {
+      isCinematicFlying = false;
+      controls.autoRotate = false;
+    }
+  });
+
+  solarSystem.planetsList.forEach((planet, index) => {
+    const lookAt = planet.group.position.clone();
+    const cameraPosition = lookAt.clone().add(new THREE.Vector3(0, planet.config.radius * 1.8, planet.config.radius * 4.2));
+    const at = index * 2.8;
+    tour.to(camera.position, {
+      x: cameraPosition.x,
+      y: cameraPosition.y,
+      z: cameraPosition.z,
+      duration: 2.45,
+      ease: 'power2.inOut'
+    }, at);
+    tour.to(controls.target, {
+      x: lookAt.x,
+      y: lookAt.y,
+      z: lookAt.z,
+      duration: 2.45,
+      ease: 'power2.inOut'
+    }, at);
+  });
+
+  const revealAt = solarSystem.planetsList.length * 2.8;
+  tour.to(camera.position, {
+    x: galaxyCameraPos.x,
+    y: galaxyCameraPos.y,
+    z: galaxyCameraPos.z,
+    duration: 3.0,
+    ease: 'power3.inOut'
+  }, revealAt);
+  tour.to(controls.target, { x: 0, y: 28, z: -25, duration: 3.0, ease: 'power3.inOut' }, revealAt);
+  tour.call(() => {
+    isGalaxyView = true;
+    name3DText.show();
+    fireworks.triggerMakeAWish();
+    galaxy.triggerGrandShower?.(10);
+  }, [], revealAt + 3.1);
+  tour.to({}, { duration: 3.0 }, revealAt + 3.2);
+}
+
 function startCinematicApproach(onComplete) {
   isCinematicFlying = true;
   controls.autoRotate = false;
   isWarpActive = true;
+  wormhole.setActive(!prefersReducedMotion);
 
   const skipBtn = document.createElement('button');
   skipBtn.id = 'btn-skip-flight';
@@ -350,6 +482,7 @@ function startCinematicApproach(onComplete) {
   const finishFlight = () => {
     if (approachTimeline) approachTimeline.kill();
     isWarpActive = false;
+    wormhole.setActive(false);
     warpStreakMat.opacity = 0;
     warpSurgeMat.opacity = 0;
     warpRingsData.forEach(r => { r.mat.opacity = 0; });
@@ -358,14 +491,18 @@ function startCinematicApproach(onComplete) {
     warpSurgePoints.visible = false;
     skipBtn.remove();
 
-    camera.fov = 45;
+    camera.fov = heroPose.fov;
     camera.rotation.z = 0;
     camera.updateProjectionMatrix();
     camera.position.copy(defaultCameraPos);
-    controls.target.set(0, 0, 0);
-    bloomPass.strength = 0.24;
+    controls.target.copy(defaultCameraTarget);
+    bloomPass.strength = 0.32;
     isCinematicFlying = false;
     controls.autoRotate = true;
+    if (queryFlags.cinema) {
+      runCinemaDirector();
+      return;
+    }
     showArrivalCelebrationFlow(soundManager);
     if (onComplete) onComplete();
   };
@@ -398,7 +535,7 @@ function startCinematicApproach(onComplete) {
   });
 
   approachTimeline.to(camera, {
-    fov: 72, // Exhilarating warp speed stretch
+    fov: 82, // Moderate cinematic stretch without distorting the scene
     duration: 2.2,
     ease: 'power2.in',
     onUpdate: () => camera.updateProjectionMatrix()
@@ -435,9 +572,9 @@ function startCinematicApproach(onComplete) {
   }, 2.5);
 
   approachTimeline.to(controls.target, {
-    x: 0,
-    y: 0,
-    z: 0,
+    x: defaultCameraTarget.x,
+    y: defaultCameraTarget.y,
+    z: defaultCameraTarget.z,
     duration: 2.5,
     ease: 'power2.inOut'
   }, 2.5);
@@ -470,7 +607,7 @@ function startCinematicApproach(onComplete) {
   }, 4.8);
 
   approachTimeline.to(camera, {
-    fov: 45, // Restore natural cinematic FOV
+    fov: heroPose.fov, // Restore the aspect-fitted hero composition
     duration: 2.7,
     ease: 'power3.out',
     onUpdate: () => camera.updateProjectionMatrix()
@@ -478,7 +615,7 @@ function startCinematicApproach(onComplete) {
 
   // Subtle arrival glow; keep the scene readable during the reveal.
   approachTimeline.to(bloomPass, {
-    strength: 0.42,
+    strength: 0.48,
     duration: 0.5,
     yoyo: true,
     repeat: 1,
@@ -495,6 +632,8 @@ function startCinematicApproach(onComplete) {
     duration: 2.7,
     ease: 'power3.out'
   }, 4.8);
+
+  if (!prefersReducedMotion) approachTimeline.timeScale(0.55);
 }
 
 // -----------------------------------------------------------------------------
@@ -506,6 +645,7 @@ function flyToPlanet(planetId) {
 
   isCinematicFlying = true;
   controls.autoRotate = false;
+  gsap.to(orbitClock, { scale: 0.04, duration: 0.8, ease: 'power2.out' });
   controls.minDistance = 6.0;
   controls.maxDistance = 180;
   isGalaxyView = false;
@@ -557,6 +697,7 @@ function returnToCenterOrbit() {
   controls.minDistance = 16.0;
   controls.maxDistance = 240;
   isGalaxyView = false;
+  gsap.to(orbitClock, { scale: 1, duration: 0.8, ease: 'power2.out' });
   hud.setGalaxyMode(false);
   name3DText.hide();
 
@@ -569,9 +710,9 @@ function returnToCenterOrbit() {
   });
 
   gsap.to(controls.target, {
-    x: 0,
-    y: 0,
-    z: 0,
+    x: defaultCameraTarget.x,
+    y: defaultCameraTarget.y,
+    z: defaultCameraTarget.z,
     duration: 1.6,
     ease: 'power3.out',
     onComplete: () => {
@@ -678,15 +819,26 @@ const hud = new HudOverlay({
 });
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
-new IntroScreen({
-  soundManager,
-  onEnter: () => {
-    startCinematicApproach(() => {
-      hud.show();
-      hud.setSoundPlayingState(soundManager.isPlaying());
-    });
+if (queryFlags.skipIntro || queryFlags.cinema) {
+  camera.position.copy(queryFlags.cinema ? deepSpacePos : defaultCameraPos);
+  controls.target.copy(queryFlags.cinema ? new THREE.Vector3(0, 0, 0) : defaultCameraTarget);
+  if (queryFlags.cinema) {
+    hud.hide();
+  } else {
+    hud.show();
+    hud.setSoundPlayingState(false);
   }
-});
+} else {
+  new IntroScreen({
+    soundManager,
+    onEnter: () => {
+      startCinematicApproach(() => {
+        hud.show();
+        hud.setSoundPlayingState(soundManager.isPlaying());
+      });
+    }
+  });
+}
 
 // -----------------------------------------------------------------------------
 // 8. Raycasting & Interactive Solar System Planets
@@ -765,37 +917,65 @@ window.addEventListener('pointerdown', () => {
 
 // Window Resize
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  renderViewport = getRenderSize();
+  camera.aspect = renderViewport.aspect;
+  heroPose = heroCamera(camera.aspect);
+  defaultCameraPos.set(heroPose.position.x, heroPose.position.y, heroPose.position.z);
+  defaultCameraTarget.set(heroPose.target.x, heroPose.target.y, heroPose.target.z);
+  if (!isGalaxyView && !isCinematicFlying && !polaroidModal.isOpen) {
+    camera.fov = heroPose.fov;
+    gsap.to(camera.position, { ...heroPose.position, duration: 0.45, ease: 'power2.out' });
+    gsap.to(controls.target, { ...heroPose.target, duration: 0.45, ease: 'power2.out' });
+  }
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  composer.setSize(window.innerWidth, window.innerHeight);
-  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, currentQuality.pixelRatio));
+  composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, currentQuality.pixelRatio));
+  renderer.setSize(renderViewport.width, renderViewport.height);
+  composer.setSize(renderViewport.width, renderViewport.height);
+  bloomPass.resolution.set(renderViewport.width, renderViewport.height);
 });
 
 // -----------------------------------------------------------------------------
 // 9. 60 FPS Render Loop with Post-Processing Bloom
 // -----------------------------------------------------------------------------
 const clock = new THREE.Clock();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) clock.start();
+});
 
 function animate() {
   requestAnimationFrame(animate);
+  if (document.hidden || webglContextLost) return;
+  stats?.begin();
 
   const delta = Math.min(clock.getDelta(), 0.1);
   const time = clock.getElapsedTime();
+  orbitClock.time += delta * orbitClock.scale;
 
   controls.update();
 
   galaxy.update(delta, time);
-  spiralGalaxy.update(delta, time);
-  solarSystem.update(delta, time);
+  spiralGalaxy.update(delta, time, camera);
+  solarSystem.update(delta, orbitClock.time, time);
   fireworks.update(delta);
   updateWarpStreaks(delta);
   name3DText.update(delta, time, camera);
+  wormhole.update(time, camera, isWarpActive && !prefersReducedMotion, approachTimeline?.progress() ?? 0);
+  frameGovernor.update(delta);
 
   // Render through EffectComposer with UnrealBloomPass for celestial glowing aesthetics
   composer.render();
+  stats?.end();
 }
 
 // Start animation loop
 animate();
+if (queryFlags.cinema) {
+  hud.hide();
+  startCinematicApproach();
+}
+}
+
+initializeApp().catch((error) => {
+  console.error('Unable to initialize the birthday galaxy scene:', error);
+});

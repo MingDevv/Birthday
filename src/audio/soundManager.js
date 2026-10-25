@@ -10,7 +10,7 @@ export class SoundManager {
     this.isMuted = false;
     this.bgmAudio = new Audio('/audio/velika-official-audio.mp3');
     this.bgmAudio.loop = true;
-    this.bgmAudio.preload = 'auto';
+    this.bgmAudio.preload = 'none';
     this.bgmAudio.volume = 0.35;
 
     this.initAudioContext = this.initAudioContext.bind(this);
@@ -170,6 +170,8 @@ export class SoundManager {
   startBGM() {
     if (this.isPlayingBGM || this.isMuted) return;
     this.isPlayingBGM = true;
+    this.bgmAudio.preload = 'auto';
+    this.bgmAudio.load();
     this.bgmAudio.play().catch((error) => {
       this.isPlayingBGM = false;
       console.warn('Background music could not start:', error);

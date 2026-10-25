@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createGlowTexture, createDiamondCrossTexture } from './galaxySkybox.js';
+import { createDiamondCrossTexture } from './galaxySkybox.js';
 
 /**
  * =============================================================================
@@ -36,7 +36,7 @@ function createSmoothNebulaTexture(colorA = '#38bdf8', colorB = '#a855f7') {
   return texture;
 }
 
-export function createSpiralGalaxy(scene) {
+export function createSpiralGalaxy(scene, quality = {}) {
   const galaxyGroup = new THREE.Group();
   galaxyGroup.name = 'milkyWayGalaxyMaster';
   scene.add(galaxyGroup);
@@ -46,7 +46,9 @@ export function createSpiralGalaxy(scene) {
   galaxyGroup.rotation.z = THREE.MathUtils.degToRad(-4);
 
   const parameters = {
-    count: 130000,
+    count: ({ low: 80000, medium: 150000, high: 220000, ultra: 220000 }[quality.tier])
+      ?? quality.galaxyStars
+      ?? 130000,
     innerRadius: 92.0,    // Clear open center! Solar system (R=0-90) is completely unobstructed
     outerRadius: 360.0,
     branches: 5,          // 5 Major Logarithmic Spiral Arms
@@ -150,13 +152,11 @@ export function createSpiralGalaxy(scene) {
   geometry.setAttribute('aRandomness', new THREE.BufferAttribute(randomness, 3));
   geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
   geometry.setAttribute('aSpeed', new THREE.BufferAttribute(speeds, 1));
-
-  const particleTexture = createGlowTexture(64, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)');
+  geometry.setDrawRange(0, Math.min(quality.galaxyStars ?? 130000, parameters.count));
 
   const galaxyShaderMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      uTime: { value: 0 },
-      uTexture: { value: particleTexture }
+      uTime: { value: 0 }
     },
     vertexShader: `
       uniform float uTime;
@@ -188,22 +188,26 @@ export function createSpiralGalaxy(scene) {
 
         float twinkle = sin(uTime * 2.2 + aPhase) * 0.25 + 0.75;
         float pSize = aScale * (380.0 / -mvPosition.z) * twinkle;
-        gl_PointSize = clamp(pSize, 0.8, 24.0);
+        gl_PointSize = clamp(pSize, 0.8, 10.0);
 
         // Smooth distance fade at outer galaxy rim
         float distFade = clamp(1.0 - (aDistance / 360.0) * 0.35, 0.4, 0.95);
-        vAlpha = distFade;
+        float cameraFade = smoothstep(8.0, 45.0, -mvPosition.z);
+        vAlpha = distFade * cameraFade;
       }
     `,
     fragmentShader: `
-      uniform sampler2D uTexture;
       varying vec3 vColor;
       varying float vAlpha;
 
       void main() {
-        vec4 tex = texture2D(uTexture, gl_PointCoord);
-        if (tex.a < 0.02) discard;
-        gl_FragColor = vec4(vColor * 1.05, tex.a * vAlpha * 0.72);
+        vec2 p = (gl_PointCoord - 0.5) * 2.0;
+        float d = length(p);
+        float core = exp(-d * d * 24.0);
+        float halo = exp(-d * d * 4.0) * 0.05;
+        float alpha = (core + halo) * vAlpha * 0.42;
+        if (alpha < 0.003) discard;
+        gl_FragColor = vec4(vColor, alpha);
       }
     `,
     transparent: true,
@@ -215,6 +219,29 @@ export function createSpiralGalaxy(scene) {
   const galaxyPoints = new THREE.Points(geometry, galaxyShaderMaterial);
   galaxyGroup.add(galaxyPoints);
 
+  const coreCanvas = document.createElement('canvas');
+  coreCanvas.width = 256;
+  coreCanvas.height = 256;
+  const coreContext = coreCanvas.getContext('2d');
+  const coreGradient = coreContext.createRadialGradient(128, 128, 0, 128, 128, 128);
+  coreGradient.addColorStop(0, 'rgba(255, 220, 248, 0.42)');
+  coreGradient.addColorStop(0.18, 'rgba(235, 145, 218, 0.2)');
+  coreGradient.addColorStop(0.55, 'rgba(168, 85, 247, 0.06)');
+  coreGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  coreContext.fillStyle = coreGradient;
+  coreContext.fillRect(0, 0, 256, 256);
+  const coreTexture = new THREE.CanvasTexture(coreCanvas);
+  const coreMaterial = new THREE.SpriteMaterial({
+    map: coreTexture,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const coreSprite = new THREE.Sprite(coreMaterial);
+  coreSprite.scale.set(56, 56, 1);
+  galaxyGroup.add(coreSprite);
+
   // ===========================================================================
   // 2. Volumetric Glowing Nebula Gas Clouds (Smooth Gaussian, Outside Solar System)
   // ===========================================================================
@@ -223,7 +250,7 @@ export function createSpiralGalaxy(scene) {
   const gasTexGold = createSmoothNebulaTexture('rgba(254, 240, 138, 0.75)', 'rgba(245, 158, 11, 0.35)');
 
   const gasSprites = [];
-  const cloudCount = 42;
+  const cloudCount = 12;
 
   for (let c = 0; c < cloudCount; c++) {
     // Only spawn clouds OUTSIDE the solar system (radius 105 to 290)
@@ -244,13 +271,13 @@ export function createSpiralGalaxy(scene) {
     const spriteMat = new THREE.SpriteMaterial({
       map: chosenTex,
       transparent: true,
-      opacity: 0.14,
+      opacity: 0.08,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
 
     const sprite = new THREE.Sprite(spriteMat);
-    const spriteScale = 52 + Math.random() * 38;
+    const spriteScale = 40 + Math.random() * 26;
     sprite.scale.set(spriteScale, spriteScale, 1);
     sprite.position.set(x, y, z);
     galaxyGroup.add(sprite);
@@ -350,10 +377,15 @@ export function createSpiralGalaxy(scene) {
   return {
     group: galaxyGroup,
     points: galaxyPoints,
+    setQuality(starCount) {
+      geometry.setDrawRange(0, Math.min(starCount, parameters.count));
+    },
 
-    update(delta, time) {
+    update(delta, time, camera) {
       galaxyShaderMaterial.uniforms.uTime.value = time;
       crossMat.uniforms.uTime.value = time;
+      const cameraDistance = camera ? camera.position.length() : 120;
+      coreMaterial.opacity = THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18;
 
       // Ultra-slow cosmic rotation
       galaxyGroup.rotation.y += delta * 0.005;
