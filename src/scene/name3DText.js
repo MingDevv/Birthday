@@ -30,9 +30,16 @@ function loadGlyphGeometries() {
       (svgData) => {
         try {
           const glyphGeometries = svgData.paths.flatMap((path) =>
-            SVGLoader.createShapes(path).map(
-              (shape) =>
-                new THREE.ExtrudeGeometry(shape, {
+            SVGLoader.createShapes(path).map((shape) => {
+              try {
+                if (!shape || !shape.curves || shape.curves.length === 0) return null;
+                const points = shape.getPoints(12);
+                if (!points || points.length < 3) return null;
+                for (let i = 0; i < points.length; i++) {
+                  if (isNaN(points[i].x) || isNaN(points[i].y)) return null;
+                }
+
+                const geo = new THREE.ExtrudeGeometry(shape, {
                   depth: 8,
                   steps: 1,
                   bevelEnabled: true,
@@ -40,15 +47,45 @@ function loadGlyphGeometries() {
                   bevelSize: 2.4,
                   bevelThickness: 1.2,
                   curveSegments: 10
-                })
-            )
-          );
+                });
+
+                const posAttr = geo.attributes.position;
+                if (!posAttr || !posAttr.array || posAttr.count < 3) {
+                  geo.dispose();
+                  return null;
+                }
+                const pos = posAttr.array;
+                for (let i = 0; i < pos.length; i++) {
+                  if (isNaN(pos[i])) {
+                    geo.dispose();
+                    return null;
+                  }
+                }
+
+                geo.computeBoundingBox();
+                if (!geo.boundingBox || isNaN(geo.boundingBox.min.x)) {
+                  geo.dispose();
+                  return null;
+                }
+                geo.computeBoundingSphere();
+                if (!geo.boundingSphere || isNaN(geo.boundingSphere.radius)) {
+                  geo.dispose();
+                  return null;
+                }
+                return geo;
+              } catch {
+                return null;
+              }
+            })
+          ).filter(Boolean);
           if (!glyphGeometries.length) throw new Error('No paths in Thai SVG');
 
           const bounds = new THREE.Box3();
           glyphGeometries.forEach((geo) => {
             geo.computeBoundingBox();
-            bounds.union(geo.boundingBox);
+            if (geo.boundingBox && !isNaN(geo.boundingBox.min.x)) {
+              bounds.union(geo.boundingBox);
+            }
           });
           const size = bounds.getSize(new THREE.Vector3());
           const scale = TEXT_WIDTH / Math.max(1, size.x);
@@ -58,6 +95,8 @@ function loadGlyphGeometries() {
             geo.scale(scale, scale, 1);
             geo.translate(-center.x * scale, -center.y * scale, -4);
             geo.computeVertexNormals();
+            geo.computeBoundingBox();
+            geo.computeBoundingSphere();
           });
 
           cachedGlyphGeometries = glyphGeometries;
@@ -283,6 +322,8 @@ export function buildNameMesh({ isArrival = false } = {}) {
   const emberGeo = new THREE.BufferGeometry();
   emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
   emberGeo.setAttribute('color', new THREE.BufferAttribute(emberColors, 3));
+  emberGeo.computeBoundingBox();
+  emberGeo.computeBoundingSphere();
   const emberMat = new THREE.PointsMaterial({
     size: isArrival ? 2.8 : 2.2,
     vertexColors: true,

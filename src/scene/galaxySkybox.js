@@ -316,7 +316,7 @@ export function createGalaxySkybox(scene, quality = {}) {
   const TRAIL_SEGMENTS = 28;
   const meteorPool = [];
   const meteorGroup = new THREE.Group();
-  meteorGroup.name = 'cosmicMeteorShowerGroup';
+  meteorGroup.name = 'galaxySkyboxMeteorShower';
   galaxyGroup.add(meteorGroup);
 
   const meteorColors = [

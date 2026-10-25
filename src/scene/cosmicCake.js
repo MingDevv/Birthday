@@ -294,40 +294,41 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   texturesToDispose.push(flameTexture);
 
   const candlePositions = [];
-  // Outer 10 candles (r ≈ 7.5)
+  // 10 candles on middle pink tier (r ≈ 11.5, surface y ≈ 2.8)
   for (let i = 0; i < 10; i++) {
-    const angle = (i / 10) * Math.PI * 2;
-    const height = 5.1 + ((i * 7) % 5) * 0.12; // 5.1 to 5.6
+    const angle = (i / 10) * Math.PI * 2 + 4.9;
+    const height = 4.8 + ((i * 7) % 5) * 0.12;
     candlePositions.push({
-      x: Math.cos(angle) * 7.5,
-      z: Math.sin(angle) * 7.5,
+      x: Math.cos(angle) * 11.5,
+      z: Math.sin(angle) * 11.5,
+      baseY: 2.8,
       height,
       radius: 0.42,
-      ring: 'outer'
+      ring: 'tier2'
     });
   }
-  // Inner 6 candles (r ≈ 3.8), rotated by half-step (PI / 6) to interleave with outer
+  // 6 candles on top warm cream tier (r ≈ 6.0, surface y ≈ 7.2)
   for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    const height = 5.4 + ((i * 3) % 4) * 0.14; // 5.4 to 5.8
+    const angle = (i / 6) * Math.PI * 2 + 4.0;
+    const height = 5.2 + ((i * 3) % 4) * 0.14;
     candlePositions.push({
-      x: Math.cos(angle) * 3.8,
-      z: Math.sin(angle) * 3.8,
+      x: Math.cos(angle) * 6.0,
+      z: Math.sin(angle) * 6.0,
+      baseY: 7.2,
       height,
       radius: 0.40,
-      ring: 'inner'
+      ring: 'tier3'
     });
   }
 
   const candles = [];
   const flames = [];
-  const candleTopY = 7.2; // top tier surface is at y ≈ 7.2
 
   candlePositions.forEach((cp, index) => {
     const candleGeo = new THREE.CylinderGeometry(cp.radius * 0.95, cp.radius, cp.height, 16);
     geometriesToDispose.push(candleGeo);
     const candle = new THREE.Mesh(candleGeo, candleMat);
-    const centerY = candleTopY + cp.height / 2;
+    const centerY = cp.baseY + cp.height / 2;
     candle.position.set(cp.x, centerY, cp.z);
     candle.name = `cakeCandle_${index + 1}`;
     group.add(candle);
@@ -337,7 +338,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     const wickGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 6);
     geometriesToDispose.push(wickGeo);
     const wick = new THREE.Mesh(wickGeo, wickMat);
-    wick.position.set(cp.x, candleTopY + cp.height + 0.25, cp.z);
+    wick.position.set(cp.x, cp.baseY + cp.height + 0.25, cp.z);
     group.add(wick);
 
     // Teardrop Flame Sprite
@@ -351,7 +352,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     });
     materialsToDispose.push(flameMat);
     const flame = new THREE.Sprite(flameMat);
-    const flameBaseY = candleTopY + cp.height + 1.45;
+    const flameBaseY = cp.baseY + cp.height + 1.45;
     flame.position.set(cp.x, flameBaseY, cp.z);
     flame.scale.set(1.8, 2.9, 1);
     flame.userData = {
@@ -369,7 +370,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   // 7. Warm Candle PointLight above Cake
   // =========================================================================
   const cakePointLight = new THREE.PointLight(0xffb066, quality.tier === 'low' ? 0.35 : 1.15, 65);
-  cakePointLight.position.set(0, candleTopY + 7.0, 0);
+  cakePointLight.position.set(0, 14.5, 0);
   cakePointLight.name = 'cakeWarmCandleLight';
   group.add(cakePointLight);
 
@@ -383,6 +384,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let blown = false;
   let lastLitCandleCount = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isQaStatic = /qa=cake-(front|lit|top)/.test(window.location.search);
 
   const disposeCakeMessage = () => {
     if (!cakeMessage) return;
@@ -405,13 +407,14 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       if (!enabled || revealed) return false;
       revealed = true;
       blown = false;
-      revealProgress = 0;
-      lastLitCandleCount = 0;
+      const isQaStatic = /qa=cake-(front|lit|top)/.test(window.location.search);
+      revealProgress = (reducedMotion || isQaStatic) ? 1 : 0;
+      lastLitCandleCount = (reducedMotion || isQaStatic) ? flames.length : 0;
       group.userData.onCandleLit = onCandleLit;
-      flames.forEach((flame) => { flame.visible = reducedMotion; });
+      flames.forEach((flame) => { flame.visible = reducedMotion || isQaStatic; });
       cakePointLight.intensity = quality.tier === 'low' ? 0.35 : 1.15;
       group.scale.setScalar(2.05);
-      group.position.set(0, -30, -5);
+      group.position.set(0, isQaStatic ? -3 : -30, -5);
       group.visible = true;
       return true;
     },
@@ -490,14 +493,14 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     update(delta, time) {
       if (!revealed) return;
 
-      revealProgress = reducedMotion ? 1 : Math.min(1, revealProgress + delta / 1.4);
+      revealProgress = (reducedMotion || isQaStatic) ? 1 : Math.min(1, revealProgress + delta / 1.4);
       if (cakeMessage) {
-        cakeMessageReveal = reducedMotion ? 1 : Math.min(1, cakeMessageReveal + delta / 0.85);
+        cakeMessageReveal = (reducedMotion || isQaStatic) ? 1 : Math.min(1, cakeMessageReveal + delta / 0.85);
         cakeMessage.scale.x = Math.max(0.01, cakeMessageReveal);
       }
 
       // Smooth rise of the cake group from -30 to -3
-      group.position.y = THREE.MathUtils.lerp(-30, -3, revealProgress * revealProgress * (3 - 2 * revealProgress));
+      group.position.y = isQaStatic ? -3 : THREE.MathUtils.lerp(-30, -3, revealProgress * revealProgress * (3 - 2 * revealProgress));
 
       // Sequential lighting of candles during reveal
       const litCandleCount = Math.ceil(revealProgress * flames.length);
@@ -511,7 +514,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       // Flame flicker & floating stars animation
       if (!blown) {
         flames.forEach((flame, index) => {
-          flame.visible = reducedMotion || index < Math.ceil(revealProgress * flames.length);
+          flame.visible = reducedMotion || isQaStatic || index < Math.ceil(revealProgress * flames.length);
           const flicker = 1.0 + Math.sin(time * flame.userData.flickerSpeed + flame.userData.phase) * 0.08;
           const wobble = Math.cos(time * 6 + flame.userData.phase) * 0.04;
           flame.scale.set(1.8 * flicker, 2.9 * flicker, 1);

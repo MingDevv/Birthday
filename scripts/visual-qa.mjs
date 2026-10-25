@@ -113,8 +113,8 @@ try {
   if (phase.startsWith('round4-')) {
     console.log(`Running Round 4 QA Suite for phase: ${phase}...`);
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-    page.on('pageerror', (error) => errors.push(`round4: ${error.message}`));
-    page.on('console', (message) => { if (message.type() === 'error') errors.push(`round4: ${message.text()}`); });
+    page.on('pageerror', (error) => { console.log('PAGE ERROR:', error.message); errors.push(`round4: ${error.message}`); });
+    page.on('console', (message) => { if (message.type() === 'error') { console.log('CONSOLE ERROR:', message.text()); errors.push(`round4: ${message.text()}`); } });
 
     // 1. Scene Audit in Cake Mode (Desktop)
     await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 90000 });
@@ -146,6 +146,16 @@ try {
     console.log(`Saved ${path.join(outputDir, 'cake-front.png')}`);
 
     // Cake Lit & Candle Separation
+    const candleDebug = await page.evaluate(() => {
+      const positions = window.__qaCandleScreenPositions?.() || [];
+      return {
+        total: positions.length,
+        visibleCount: positions.filter((p) => p.visible).length,
+        items: positions.map(p => ({ index: p.index, visible: p.visible, x: Math.round(p.x), y: Math.round(p.y) }))
+      };
+    });
+    console.log('CANDLE DEBUG:', JSON.stringify(candleDebug));
+
     const candleCheck = await page.evaluate(() => {
       const positions = window.__qaCandleScreenPositions?.() || [];
       const visibleFlames = positions.filter((p) => p.visible);

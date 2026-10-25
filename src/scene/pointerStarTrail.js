@@ -74,6 +74,9 @@ export function createPointerStarTrail(scene, camera, quality = { tier: 'high' }
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.color.needsUpdate = true;
     },
+    setVisible(visible) {
+      points.visible = visible;
+    },
     dispose() {
       scene.remove(points);
       geometry.dispose();
@@ -99,6 +102,10 @@ export function createHeartStreak(scene, quality = { tier: 'high' }) {
   vertical.name = 'heartAnamorphicVerticalStreak';
   scene.add(horizontal, vertical);
   return {
+    setVisible(visible) {
+      horizontal.visible = visible;
+      vertical.visible = visible;
+    },
     update(delta, bass) {
       if (reducedMotion) return;
       const target = THREE.MathUtils.clamp((bass - 0.2) * 2.8, 0, 0.48);

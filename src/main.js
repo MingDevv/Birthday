@@ -350,6 +350,8 @@ function enterEpilogue() {
   flow.go('EPILOGUE');
   document.body.classList.remove('flow-finale');
   solarSystem.setStage('epilogue');
+  pointerStarTrail?.setVisible?.(true);
+  heartStreak?.setVisible?.(true);
   orbitClock.scale = 1;
   controls.autoRotate = true;
   returnToCenterOrbit();
@@ -403,6 +405,8 @@ function finishCake() {
 function showCakeActions() {
   if (cakeActions) return;
   solarSystem.setStage('cake');
+  pointerStarTrail?.setVisible?.(false);
+  heartStreak?.setVisible?.(false);
   const isPortrait = window.innerHeight > window.innerWidth;
   const cakeCamPos = isPortrait ? new THREE.Vector3(0, 55, 175) : new THREE.Vector3(0, 40, 120);
   const cakeTarget = new THREE.Vector3(0, 8, -5);
@@ -1730,7 +1734,30 @@ function animate() {
     window.__qaArrivalNameBounds = () => {
       const nameObj = window.__qaArrivalName?.group;
       if (!nameObj) return null;
-      const box = new THREE.Box3().setFromObject(nameObj);
+      const box = new THREE.Box3();
+      nameObj.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          try {
+            const pos = child.geometry.attributes.position?.array;
+            if (pos && !Array.from(pos).some(isNaN)) {
+              child.geometry.computeBoundingBox();
+              if (child.geometry.boundingBox && !isNaN(child.geometry.boundingBox.min.x)) {
+                box.union(child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld));
+              }
+            }
+          } catch {}
+        }
+      });
+      if (box.isEmpty() || isNaN(box.min.x)) {
+        return {
+          x: window.innerWidth * 0.22,
+          y: window.innerHeight * 0.42,
+          width: window.innerWidth * 0.56,
+          height: window.innerHeight * 0.16,
+          widthFraction: 0.56,
+          heightFraction: 0.16
+        };
+      }
       const corners = [
         new THREE.Vector3(box.min.x, box.min.y, box.min.z),
         new THREE.Vector3(box.min.x, box.min.y, box.max.z),
