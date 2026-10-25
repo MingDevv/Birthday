@@ -68,15 +68,52 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let revealProgress = 0;
   let revealed = false;
   let blown = false;
+  let cakeMessage = null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   return {
     group,
     get revealed() { return revealed; },
     get blown() { return blown; },
     reveal() {
-      if (!enabled || revealed) return;
+      if (!enabled || revealed) return false;
       revealed = true;
+      blown = false;
+      revealProgress = 0;
+      flames.forEach((flame) => { flame.visible = reducedMotion; });
+      group.scale.setScalar(2.05);
+      group.position.set(0, -30, -5);
       group.visible = true;
+      return true;
+    },
+    setMessage(message) {
+      if (cakeMessage) {
+        group.remove(cakeMessage);
+        cakeMessage.material.map?.dispose();
+        cakeMessage.material.dispose();
+        cakeMessage.geometry.dispose();
+        cakeMessage = null;
+      }
+      if (!message) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = 1600;
+      canvas.height = 180;
+      const context = canvas.getContext('2d');
+      context.font = '700 74px Mali, Prompt, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.lineWidth = 9;
+      context.strokeStyle = 'rgba(28, 10, 38, .92)';
+      context.strokeText(message, 800, 90);
+      context.fillStyle = '#fff0f9';
+      context.fillText(message, 800, 90);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      cakeMessage = new THREE.Mesh(new THREE.PlaneGeometry(45, 5.1), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false, side: THREE.DoubleSide }));
+      cakeMessage.name = 'cakeSecretMessage';
+      // Keep the note in front of the cake's opaque geometry so depth testing
+      // preserves real occlusion without burying the text inside the tiers.
+      cakeMessage.position.set(0, -17, 20);
+      group.add(cakeMessage);
     },
     blowOut(onComplete, onCandleOut) {
       if (!revealed || blown) return false;
@@ -99,10 +136,27 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       if (!revealed) return;
       revealProgress = reducedMotion ? 1 : Math.min(1, revealProgress + delta / 1.4);
       group.position.y = THREE.MathUtils.lerp(-30, -3, revealProgress * revealProgress * (3 - 2 * revealProgress));
-      if (!blown) flames.forEach((flame) => {
+      if (!blown) flames.forEach((flame, index) => {
+        flame.visible = reducedMotion || index < Math.ceil(revealProgress * flames.length);
         const flicker = 1 + Math.sin(time * 12 + flame.userData.phase) * 0.08;
         flame.scale.set(2.4 * flicker, 3.2 * flicker, 1);
       });
+    },
+    hide() {
+      group.visible = false;
+      group.position.set(0, -30, -5);
+      group.scale.setScalar(1);
+      revealed = false;
+      blown = false;
+      revealProgress = 0;
+      flames.forEach((flame) => { flame.visible = true; });
+      if (cakeMessage) {
+        group.remove(cakeMessage);
+        cakeMessage.material.map?.dispose();
+        cakeMessage.material.dispose();
+        cakeMessage.geometry.dispose();
+        cakeMessage = null;
+      }
     },
     dispose() {
       group.traverse((object) => {

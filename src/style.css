@@ -1,4 +1,13 @@
 :root {
+  --z-canvas: 1;
+  --z-scene-label: 20;
+  --z-hud: 30;
+  --z-action: 40;
+  --z-toast: 60;
+  --z-coach: 70;
+  --z-modal: 100;
+  --z-cinematic: 120;
+  --z-system: 200;
   --primary-pink: #c4a1ff;
   --secondary-lilac: #e9d5ff;
   --stardust-gold: #f4d98b;
@@ -33,7 +42,7 @@ body::after {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-canvas);
   pointer-events: none;
   background: radial-gradient(ellipse at center, transparent 52%, rgba(3, 1, 12, 0.26) 100%);
 }
@@ -41,7 +50,7 @@ body::after {
 .asset-loading {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: var(--z-system);
   display: grid;
   place-items: center;
   background: #080516;
@@ -59,7 +68,7 @@ body::after {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  z-index: 1;
+  z-index: var(--z-canvas);
   outline: none;
   cursor: grab;
 }
@@ -85,7 +94,7 @@ body.cinema-portrait #webgl-canvas {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 200;
+  z-index: var(--z-system);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -112,7 +121,7 @@ body.cinema-portrait #webgl-canvas {
   height: 100%;
   pointer-events: none;
   overflow: hidden;
-  z-index: 1;
+  z-index: var(--z-canvas);
 }
 
 .bday-decor {
@@ -141,7 +150,7 @@ body.cinema-portrait #webgl-canvas {
   flex-direction: column;
   align-items: center;
   position: relative;
-  z-index: 2;
+  z-index: var(--z-canvas);
 }
 
 .intro-emblem {
@@ -311,7 +320,7 @@ body.cinema-portrait #webgl-canvas {
   height: 100vh;
   height: 100dvh;
   pointer-events: none;
-  z-index: 10;
+  z-index: var(--z-hud);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -635,7 +644,7 @@ body.cinema-portrait #webgl-canvas {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 100;
+  z-index: var(--z-modal);
   background: rgba(6, 6, 18, 0.76);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -700,7 +709,7 @@ body.cinema-portrait #webgl-canvas {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  z-index: 10;
+  z-index: var(--z-modal);
 }
 
 .modal-close-btn:hover {
@@ -826,6 +835,14 @@ body.cinema-portrait #webgl-canvas {
   gap: 0.35rem;
 }
 
+.memory-card.reveal-staged .polaroid-photo-frame { animation: memoryReveal .4s cubic-bezier(.2,.8,.2,1) both; }
+.memory-card.reveal-staged .memory-title { animation: memoryReveal .45s ease .38s both; }
+.memory-card.reveal-staged .memory-thai-sub { animation: memoryReveal .4s ease .62s both; }
+.memory-card.reveal-staged .memory-desc { animation: memoryReveal .4s ease .78s both; }
+.memory-card.reveal-staged .memory-quote-box { animation: memoryReveal .35s ease 1s both; }
+.memory-card.reveal-staged .finale-wish-box { animation: memoryReveal .4s ease 1.2s both; }
+@keyframes memoryReveal { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
 .quote-symbol {
   font-size: 1.15rem;
   font-weight: 700;
@@ -841,11 +858,43 @@ body.cinema-portrait #webgl-canvas {
   border-radius: 0.75rem;
   animation: fadeIn 0.6s ease-out;
 }
+.finale-wish-box.hidden { display: none !important; }
+
+.ui-director-item {
+  position: fixed;
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+.ui-director-item.ui-director-leaving {
+  opacity: 0 !important;
+  transform: translateY(8px) scale(.98) !important;
+  pointer-events: none !important;
+}
+.ui-zone-bottom-center { left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); }
+.ui-zone-center-stage { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.ui-zone-bottom-right { right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); }
+.ui-zone-bottom-left { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }
+.ui-zone-top-left { left: 16px; top: 16px; }
+.ui-zone-top-right { right: 16px; top: 16px; }
+.ui-captions { position: fixed; width: min(88vw, 760px); color: #fff5fc; text-align: center; font: 600 clamp(18px, 2vw, 26px)/1.45 'Prompt', sans-serif; text-shadow: 0 2px 16px rgba(0,0,0,.9); pointer-events: none; }
+.focus-caption { bottom: calc(22px + env(safe-area-inset-bottom)); width: min(90vw, 720px); padding: 8px 16px; border-bottom: 1px solid rgba(255,225,246,.42); font: 600 clamp(14px, 1.5vw, 19px)/1.3 'Prompt',sans-serif; letter-spacing: .08em; }
+.ui-action-slot { position: fixed; display: flex; align-items: center; justify-content: center; gap: 10px; max-width: calc(100vw - 28px); }
+.ui-action-slot button { min-height: 44px; }
+.ui-layer-cinematic { pointer-events: none; }
+.ui-layer-cinematic button { pointer-events: auto; }
+.finale-letter-card { width: min(88vw, 680px); padding: clamp(20px, 4vw, 38px); border: 1px solid rgba(255,226,245,.6); border-radius: 24px; color: #fff5fb; background: linear-gradient(145deg, rgba(42,20,59,.94), rgba(16,13,36,.96)); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 0 28px rgba(255,190,219,.08); text-align: center; font: 600 clamp(21px, 3vw, 34px)/1.6 'Mali', 'Prompt', sans-serif; }
+.finale-letter-card.lite { font-size: clamp(20px, 2.6vw, 30px); }
+.finale-letter-card button { display: block; margin: 18px auto 0; padding: 10px 18px; border: 1px solid rgba(255,230,244,.55); border-radius: 999px; color: #fff; background: rgba(133,73,157,.55); font: 600 14px 'Prompt',sans-serif; }
+.ui-epilogue-actions { display: grid; gap: 8px; width: min(230px, calc(100vw - 32px)); }
+.ui-epilogue-actions button { min-height: 42px; padding: 7px 12px; border: 1px solid rgba(255,230,244,.5); border-radius: 14px; color: #fff6fc; background: rgba(30,18,49,.84); font: 500 13px 'Prompt',sans-serif; }
+body[data-flow-state='MEMORY'] .hud-container,
+body[data-flow-state='FOCUS'] .hud-container,
+body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: none; }
+.flow-finale .orbit-ribbon { opacity: .08 !important; }
 
 /* Planet Hover Tooltip (100% Crisp HTML, Zero WebGL artifacts) */
 .planet-tooltip {
   position: fixed;
-  z-index: 999;
+  z-index: var(--z-toast);
   pointer-events: none;
   background: rgba(24, 12, 48, 0.92);
   backdrop-filter: blur(14px);
@@ -905,7 +954,7 @@ body.cinema-portrait #webgl-canvas {
 /* Action Buttons */
 .memory-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
   margin-top: 1.3rem;
@@ -1011,18 +1060,13 @@ body.cinema-portrait #webgl-canvas {
 }
 
 .cake-actions {
-  position: fixed;
-  z-index: 1200;
-  left: 50%;
-  bottom: max(24px, env(safe-area-inset-bottom));
   display: flex;
   gap: 10px;
-  transform: translateX(-50%);
 }
 
 .tilt-mode-button {
   position: fixed;
-  z-index: 1190;
+  z-index: var(--z-action);
   left: max(12px, env(safe-area-inset-left));
   bottom: calc(max(20px, env(safe-area-inset-bottom)) + 58px);
   min-height: 38px;
@@ -1053,7 +1097,7 @@ body.cinema-portrait #webgl-canvas {
 
 .cake-owner-message {
   position: fixed;
-  z-index: 1201;
+  z-index: var(--z-cinematic);
   left: 50%;
   bottom: calc(max(24px, env(safe-area-inset-bottom)) + 58px);
   max-width: min(86vw, 680px);
@@ -1201,6 +1245,9 @@ body.cinema-portrait #webgl-canvas {
     max-height: 88vh;
     overflow-y: auto;
   }
+  .memory-actions { position: sticky; bottom: -1.25rem; justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; padding: .55rem 0 .2rem; margin-top: .7rem; background: linear-gradient(180deg, transparent, rgba(22,10,42,.98) 22%); scrollbar-width: none; }
+  .memory-actions::-webkit-scrollbar { display: none; }
+  .memory-actions .action-btn { flex: 0 0 auto; min-width: 118px; white-space: nowrap; font-size: .76rem; padding: .62rem .7rem; }
   .polaroid-photo-frame {
     height: 235px;
   }
@@ -1280,7 +1327,7 @@ body.cinema-portrait .wish-btn {
   bottom: 2.5rem;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 150;
+  z-index: var(--z-action);
   background: rgba(18, 14, 38, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1317,7 +1364,7 @@ body.cinema-portrait .wish-btn {
   border-radius: 2rem;
   padding: 1.5rem 2.8rem;
   text-align: center;
-  z-index: 1500;
+  z-index: var(--z-toast);
   pointer-events: none;
   animation: cosmicBannerPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   transition: opacity 1.2s ease, transform 1.2s ease;
@@ -1377,7 +1424,7 @@ body.cinema-portrait .wish-btn {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 250;
+  z-index: var(--z-system);
   background: rgba(8, 4, 20, 0.78);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1490,7 +1537,7 @@ body.cinema-portrait .wish-btn {
   bottom: 2.2rem;
   left: 50%;
   transform: translateX(-50%) translateY(30px) scale(0.9);
-  z-index: 120;
+  z-index: var(--z-coach);
   background: linear-gradient(135deg, rgba(35, 15, 65, 0.94), rgba(20, 10, 45, 0.96));
   border: 1.8px solid rgba(244, 114, 182, 0.65);
   border-radius: 3rem;
@@ -1517,6 +1564,12 @@ body.cinema-portrait .wish-btn {
   pointer-events: auto;
   transform: translateX(-50%) translateY(0) scale(1);
 }
+.ui-director-item.guide-open-card-pill { left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); opacity: 1; pointer-events: auto; animation: none; }
+body[data-flow-state='FLIGHT'] .hud-wish-wrap,
+body[data-flow-state='ARRIVAL'] .hud-wish-wrap,
+body[data-flow-state='EPILOGUE'] .hud-wish-wrap,
+body[data-flow-state^='FINALE_'] .hud-wish-wrap { opacity: 0; pointer-events: none; }
+body[data-flow-state='EXPLORE'] .guide-open-card-pill { bottom: calc(78px + env(safe-area-inset-bottom)); }
 
 .guide-open-card-pill:hover {
   transform: translateX(-50%) translateY(-4px) scale(1.06);
@@ -1567,7 +1620,7 @@ body.cinema-portrait .wish-btn {
 
 .shooting-wish-card {
   position: fixed;
-  z-index: 40;
+  z-index: var(--z-toast);
   left: 50%;
   top: 18%;
   transform: translateX(-50%);
@@ -1583,10 +1636,6 @@ body.cinema-portrait .wish-btn {
 }
 .shooting-wish-card[hidden] { display: none; }
 .cinema-record-button {
-  position: fixed;
-  z-index: 50;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
   border: 1px solid rgba(255,255,255,.3);
   border-radius: 999px;
   padding: 11px 18px;
@@ -1604,7 +1653,7 @@ body.cinema-recording .modal-backdrop,
 body.cinema-recording .planet-tooltip { visibility: hidden !important; }
 .birthday-countdown {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-system);
   inset: 0;
   display: grid;
   place-items: center;

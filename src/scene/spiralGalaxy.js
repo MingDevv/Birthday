@@ -445,9 +445,11 @@ export function createSpiralGalaxy(scene, quality = {}) {
   const crossPoints = new THREE.Points(crossGeo, crossMat);
   galaxyGroup.add(crossPoints);
 
+  let galaxyViewActive = false;
   return {
     group: galaxyGroup,
     points: galaxyPoints,
+    setGalaxyView(active) { galaxyViewActive = active; },
     setQuality(starCount) {
       geometry.setDrawRange(0, Math.min(starCount, parameters.count));
     },
@@ -456,9 +458,9 @@ export function createSpiralGalaxy(scene, quality = {}) {
       galaxyShaderMaterial.uniforms.uTime.value = time;
       crossMat.uniforms.uTime.value = time;
       const cameraDistance = camera ? camera.position.length() : 120;
-      coreMaterial.opacity = THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18;
+      coreMaterial.opacity = galaxyViewActive ? THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18 : 0;
       const bulgePulse = 0.46 + Math.sin(time * 0.32) * 0.035;
-      bulgePoints.material.opacity = bulgePulse * THREE.MathUtils.smoothstep(cameraDistance, 90, 180);
+      bulgePoints.material.opacity = galaxyViewActive ? bulgePulse * THREE.MathUtils.smoothstep(cameraDistance, 90, 180) : 0;
 
       // Ultra-slow cosmic rotation
       galaxyGroup.rotation.y += delta * 0.005;

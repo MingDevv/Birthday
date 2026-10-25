@@ -21,6 +21,7 @@ export class PolaroidModal {
     this.container = null;
     this.card = null;
     this.isOpen = false;
+    this.openOrigin = null;
 
     this.initDOM();
   }
@@ -113,6 +114,11 @@ export class PolaroidModal {
       }
     });
 
+    this.onKeyDown = (event) => {
+      if (event.key === 'Escape' && this.isOpen) this.close();
+    };
+    window.addEventListener('keydown', this.onKeyDown);
+
     // 3D Parallax Tilt Effect
     const cardWrap = this.container.querySelector('.modal-card-wrap');
     const photoFrame = this.container.querySelector('#polaroid-frame');
@@ -146,6 +152,7 @@ export class PolaroidModal {
     this.typeTimer = null;
     this.currentMemory = memory;
     this.isOpen = true;
+    this.openOrigin = origin;
     window.dispatchEvent(new CustomEvent('memory-modal-opened', { detail: memory }));
 
     // Populate data
@@ -213,6 +220,9 @@ export class PolaroidModal {
     // Reveal
     this.container.classList.remove('hidden');
     const wrap = this.container.querySelector('.modal-card-wrap');
+    this.card.classList.remove('reveal-staged');
+    void this.card.offsetWidth;
+    this.card.classList.add('reveal-staged');
     if (origin && Number.isFinite(origin.x) && Number.isFinite(origin.y) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       wrap.style.transition = 'none';
       wrap.style.transform = `translate(${origin.x - window.innerWidth / 2}px, ${origin.y - window.innerHeight / 2}px) scale(.38)`;
@@ -233,12 +243,24 @@ export class PolaroidModal {
   }
 
   close(triggerBack = true) {
+    if (!this.isOpen) return;
     this.isOpen = false;
     clearInterval(this.typeTimer);
     this.typeTimer = null;
     this.container.classList.remove('visible');
+    const wrap = this.container.querySelector('.modal-card-wrap');
+    if (this.openOrigin && Number.isFinite(this.openOrigin.x) && Number.isFinite(this.openOrigin.y) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      wrap.style.transition = 'transform 320ms cubic-bezier(.4,0,.8,.3), opacity 280ms ease';
+      wrap.style.transform = `translate(${this.openOrigin.x - window.innerWidth / 2}px, ${this.openOrigin.y - window.innerHeight / 2}px) scale(.38)`;
+      wrap.style.opacity = '0.35';
+    }
     setTimeout(() => {
       this.container.classList.add('hidden');
+      wrap.style.transition = '';
+      wrap.style.transform = '';
+      wrap.style.opacity = '';
+      this.openOrigin = null;
+      window.dispatchEvent(new CustomEvent('memory-modal-closed', { detail: this.currentMemory }));
       if (triggerBack && this.onBackToGalaxy) this.onBackToGalaxy();
     }, 320);
   }

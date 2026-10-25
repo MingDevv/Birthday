@@ -139,3 +139,23 @@ npm run visual:qa -- --phase=handoff
 - Push production รอบ 2 ไป `main` ด้วย commit `d714d98`; Vercel เสิร์ฟ bundle `index-D9ze1g9_.js` แล้ว ตรวจ OG metadata, `og-birthday.png` และ Mali font ได้ HTTP 200
 
 `src/config/optionalFeatures.js` เก็บช่องเจ้าของ `finalMessage`, `shootingStarMessages` และ `birthdayDate` ซึ่งยังว่างอยู่ พร้อมย้ายข้อความลับที่เจ้าของให้ไว้เดิมมาเก็บใน config โดยคงถ้อยคำเดิมทุกตัว
+
+## อัปเดตแผนรอบ 3 — 26 ตุลาคม 2026
+
+ทำตามเฟส 1–5 โดยคงข้อความไทยเดิมและ `memoriesData.js`/รูป placeholder ไว้:
+
+- เพิ่ม `src/core/uiDirector.js` สำหรับโซน UI, state visibility, TTL, การปิด/ลบ DOM และเหตุการณ์ cleanup; ย้าย popup, guide, ปุ่มฉาก, ปุ่ม tilt/อัดคลิป และป้ายคำอธิษฐานเข้า director พร้อมจัด z-index ผ่าน CSS variables
+- เพิ่ม `src/core/flow.js` คุมสถานะและ generation ของฉาก; ยกเลิก timeline ที่ผูกกับ state เก่าและล็อกการคลิกดาวระหว่างบิน
+- แก้กล่องคำอวยพรให้เห็นเฉพาะความทรงจำใบที่ 5; ฉากจบเริ่มหลังการ์ดใบสุดท้ายปิด; ปุ่มเค้กถูกถอดจริงหลังเป่าและเค้ก/ข้อความลับซ่อนพร้อม dispose เมื่อออกจากฉาก; หยุดไมค์เมื่อสำเร็จ เปลี่ยน state หรือซ่อนแท็บ
+- จัดฉากจบเป็น ALIGN → HEART → CAKE → LETTER → EPILOGUE; หรี่/ซ่อนองค์ประกอบระบบดาวระหว่างแต่ละฉาก, หันเส้นหัวใจเข้ากล้อง, เพิ่มการ์ดจบเบาเมื่อ `?fx=off` และเพิ่มการกลับไปดูความทรงจำ/เริ่มเป่าใหม่/เก็บภาพ
+- เพิ่มข้อความ 16 แบบ world text, caption ตอนโฟกัสดาว, beacon บอกสถานะดาว, reveal การ์ดเป็นขั้น และ cinematic color grade; ย้าย core/bulge ให้แสดงเฉพาะโหมดกาแล็กซี
+- ย้ายข้อความลับมาเป็นวัตถุในฉากเค้กที่ depth-tested; หลังดูภาพพบว่าข้อความถูกเค้กบัง จึงขยับออกมาด้านหน้าและตรวจภาพซ้ำแล้ว อ่านได้ครบโดยไม่แก้ถ้อยคำเดิม
+- เพิ่ม/ปรับ visual QA ให้เช็กการมองเห็น wish box, การลบปุ่มหลังเป่า, การซ้อนในโซน, และถ่ายภาพ final heart, cake lit/blown, `?fx=off`, focus caption, modal, low quality และ mobile
+
+ตรวจในรอบนี้:
+
+- `npm run build` ผ่านล่าสุดหลังแก้ตำแหน่งข้อความลับ; `git diff --check` ผ่าน
+- QA ภาพก่อนหน้า `qa/round3-complete/` และ `qa/round3-final-verified/` ถูกเปิดดู; ตรวจซ้ำภาพ `qa/round3-final-heart-check/final-heart.png`, `qa/round3-cake-check/cake.png`, `qa/round3-cake-check/cake-blown.png`, `qa/round3-modal-check/modal-slide.png` และภาพล่าสุด `qa/round3-cake-message-check/cake.png`; ภาพข้อความลับล่าสุดแสดงครบและปุ่มเค้กหายหลังเป่า
+- QA ครบชุดที่รันล่าสุด `round3-final` ปิด browser ระหว่างเปิดหลายฉาก WebGL จึงไม่ถือว่ารอบนั้นผ่าน; ใช้ผล QA แบบ targeted ที่จบพร้อมภาพประกอบแทน และไม่อ้างผล console/หน่วยความจำ/ประสิทธิภาพที่ไม่ได้ตรวจครบ
+- ยังไม่ได้ทำ automated stress test เปิดดาวแบบสุ่ม 5 ลำดับและเป่าซ้ำ 5 รอบเพื่อตรวจ renderer resource; ยังไม่ได้ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram, ไมค์จริง, tilt iOS หรือ FPS จริง
+- ไม่แก้ `memoriesData.js`, รูป placeholder หรือ `src/config/optionalFeatures.js`; ข้อความลับยังคงเป็น `มีความสุขมากๆนะไอ่อ้วนน💗`

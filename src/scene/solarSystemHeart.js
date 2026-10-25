@@ -434,7 +434,12 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   const memoryLineRecords = [];
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let finalHeartLine = null;
-  let secretMessageSprite = null;
+  let finaleMode = false;
+  let finaleHeartEmphasis = false;
+  const finalePlanetPositions = [
+    new THREE.Vector3(-32, -2, -7), new THREE.Vector3(-24, 18, -7), new THREE.Vector3(0, 28, -7),
+    new THREE.Vector3(24, 18, -7), new THREE.Vector3(32, -2, -7)
+  ];
   let arrivalEffect = null;
 
   // ===========================================================================
@@ -493,27 +498,22 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   }
 
   function createFinalHeartLine() {
-    const pointCount = quality.tier === 'low' ? 96 : 160;
-    const positions = new Float32Array((pointCount + 1) * 3);
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setDrawRange(0, 1);
-    const material = new THREE.LineBasicMaterial({
-      color: 0xff8bd1, transparent: true, opacity: 0.84, depthWrite: false, blending: THREE.AdditiveBlending
-    });
-    finalHeartLine = new THREE.Line(geometry, material);
-    finalHeartLine.name = 'memoryConstellationFinalHeart';
-    finalHeartLine.frustumCulled = false;
-    const attribute = geometry.attributes.position;
+    const pointCount = quality.tier === 'low' ? 96 : quality.tier === 'medium' ? 128 : 176;
+    const points = [];
     for (let index = 0; index <= pointCount; index += 1) {
       const angle = (index / pointCount) * Math.PI * 2;
-      const x = 4 * 16 * Math.sin(angle) ** 3;
-      const y = 4 * (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle));
-      attribute.setXYZ(index, x, y, -8);
+      points.push(new THREE.Vector3(2 * 16 * Math.sin(angle) ** 3,
+        2 * (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)), -8));
     }
-    attribute.needsUpdate = true;
+    const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
+    const geometry = new THREE.TubeGeometry(curve, pointCount * 3, 0.42, 8, true);
+    geometry.setDrawRange(0, 0);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffa5da, transparent: true, opacity: 0.32, depthWrite: false });
+    finalHeartLine = new THREE.Mesh(geometry, material);
+    finalHeartLine.name = 'memoryConstellationFinalHeart';
+    finalHeartLine.frustumCulled = false;
     rootGroup.add(finalHeartLine);
-    memoryLineRecords.push({ line: finalHeartLine, pointCount: pointCount + 1, progress: 0, targetProgress: 1 });
+    memoryLineRecords.push({ line: finalHeartLine, pointCount: geometry.index.count, progress: 0, targetProgress: 1, tube: true });
   }
 
   // Gentle Crystalline Aura Sprite (subtle romantic glow)
@@ -794,6 +794,41 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     labelSprite.position.set(0, pConfig.radius * 1.65, 0);
     planetNode.add(labelSprite);
 
+    const beaconCanvas = document.createElement('canvas');
+    beaconCanvas.width = 512;
+    beaconCanvas.height = 128;
+    const beaconContext = beaconCanvas.getContext('2d');
+    const beaconTexture = new THREE.CanvasTexture(beaconCanvas);
+    beaconTexture.colorSpace = THREE.SRGBColorSpace;
+    const beaconMaterial = new THREE.SpriteMaterial({ map: beaconTexture, transparent: true, opacity: 0.2, depthTest: true, depthWrite: false, toneMapped: false });
+    const beaconSprite = new THREE.Sprite(beaconMaterial);
+    beaconSprite.scale.set(pConfig.radius * 5.2, pConfig.radius * 1.3, 1);
+    beaconSprite.position.set(0, pConfig.radius * 2.45, 0);
+    planetNode.add(beaconSprite);
+    const beaconName = pConfig.name.split(' ')[0];
+    let beaconStatus = null;
+    const drawBeacon = (status) => {
+      if (beaconStatus === status) return;
+      beaconStatus = status;
+      const next = status === 'next';
+      const visited = status === 'visited';
+      beaconContext.clearRect(0, 0, beaconCanvas.width, beaconCanvas.height);
+      beaconContext.beginPath();
+      beaconContext.roundRect(10, 10, 492, 108, 54);
+      beaconContext.fillStyle = visited ? 'rgba(39, 25, 59, .72)' : next ? 'rgba(22, 13, 42, .78)' : 'rgba(13, 10, 27, .45)';
+      beaconContext.fill();
+      beaconContext.lineWidth = next ? 6 : 3;
+      beaconContext.strokeStyle = visited ? 'rgba(255, 188, 226, .85)' : next ? 'rgba(255, 226, 164, .95)' : 'rgba(219, 198, 255, .38)';
+      beaconContext.stroke();
+      beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff0c8' : '#c8bfd7';
+      beaconContext.textAlign = 'center';
+      beaconContext.textBaseline = 'middle';
+      beaconContext.font = '700 44px Prompt, sans-serif';
+      beaconContext.fillText(`${visited ? '✓' : String(pConfig.id).padStart(2, '0')}  ·  ${beaconName}`, 256, 65, 460);
+      beaconTexture.needsUpdate = true;
+    };
+    drawBeacon('locked');
+
     // Subtle Atmospheric Rim Glow (Makes each planet pop out as a luminous celestial jewel)
     const planetGlowMat = new THREE.SpriteMaterial({
       map: glowTex,
@@ -966,6 +1001,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       moonNode: moonNode,
       saturnRing: saturnRingMesh,
       labelSprite,
+      beaconSprite,
+      drawBeacon,
       hitMesh: hitMesh
     });
   });
@@ -1041,28 +1078,21 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       heartMat.needsUpdate = true;
     },
 
-    showSecretMessage(message) {
-      if (secretMessageSprite) return;
-      const messageCanvas = document.createElement('canvas');
-      messageCanvas.width = 1200;
-      messageCanvas.height = 180;
-      const context = messageCanvas.getContext('2d');
-      context.font = '700 72px Prompt, sans-serif';
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.lineJoin = 'round';
-      context.lineWidth = 10;
-      context.strokeStyle = 'rgba(31, 11, 47, 0.94)';
-      context.strokeText(message, 600, 90);
-      context.fillStyle = '#ffe4f2';
-      context.fillText(message, 600, 90);
-      const texture = new THREE.CanvasTexture(messageCanvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
-      secretMessageSprite = new THREE.Sprite(material);
-      secretMessageSprite.position.set(0, -12, 3);
-      secretMessageSprite.scale.set(35, 5.25, 1);
-      rootGroup.add(secretMessageSprite);
+    setFinaleMode(enabled) {
+      finaleMode = enabled;
+      planetsList.forEach((planet) => {
+        const orbit = orbitPathMaterials.get(planet.id);
+        if (orbit) orbit.opacity = enabled ? 0.08 : (planet.mesh.userData.visited ? 0.28 : 0.13);
+      });
+      if (enabled && !finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
+    },
+
+    setFinaleHeart(enabled) { finaleHeartEmphasis = enabled; },
+
+    setCakeStage(enabled) {
+      planetsList.forEach((planet) => { planet.group.visible = !enabled; });
+      for (const material of orbitPathMaterials.values()) material.opacity = enabled ? 0.035 : (finaleMode ? 0.08 : 0.13);
+      heartGroup.visible = true;
     },
 
     showFinalRose() {
@@ -1221,7 +1251,20 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       sparkPoints.rotation.y += delta * 0.06;
 
       // 2. Planets Orbital Motion & Self-Spin
+      const nextPlanet = planetsList.find((planet) => !planet.mesh.userData.visited);
       planetsList.forEach(p => {
+        p.beaconSprite.visible = !finaleMode;
+        const status = p.mesh.userData.visited ? 'visited' : p === nextPlanet ? 'next' : 'locked';
+        p.drawBeacon?.(status);
+        p.beaconSprite.material.opacity = status === 'visited' ? 0.86
+          : status === 'next' ? (effectsEnabled && !reducedMotion ? 0.68 + Math.sin(realTime * 2.2) * 0.2 : 0.82)
+            : 0.18;
+        if (finaleMode) {
+          p.group.position.lerp(finalePlanetPositions[p.id - 1], reducedMotion ? 1 : Math.min(1, delta * 1.7));
+          p.mesh.material.emissiveIntensity = p.mesh.userData.visited ? 0.08 : 0.015;
+          p.mesh.rotation.y += delta * p.config.spinSpeed;
+          return;
+        }
         const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
         const r = p.config.orbitRadius;
         const incl = p.config.inclination;
@@ -1263,6 +1306,12 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
       memoryLineRecords.forEach((record) => {
         record.progress = reducedMotion ? record.targetProgress : Math.min(record.targetProgress, record.progress + delta * 0.9);
+        if (record.tube) {
+          record.line.geometry.setDrawRange(0, Math.ceil(record.pointCount * record.progress));
+          record.line.material.opacity = finaleHeartEmphasis ? 0.96 : 0.32;
+          record.line.material.color.set(finaleHeartEmphasis ? 0xffc2df : 0xc4a1ff);
+          return;
+        }
         if (record.startObject && record.endObject) {
           const start = record.startObject.position;
           const end = record.endObject.position;
@@ -1319,6 +1368,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const p = planetsList.find(item => item.id === id);
       if (p) {
         p.mesh.userData.visited = true;
+        p.drawBeacon?.('visited');
         p.mesh.material.emissiveIntensity = 0.12;
         const orbitMaterial = orbitPathMaterials.get(p.id);
         if (orbitMaterial) orbitMaterial.opacity = 0.28;

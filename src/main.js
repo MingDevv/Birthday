@@ -27,10 +27,29 @@ import { createFrameGovernor, getQualityConfig, getQueryFlags } from './core/qua
 import { heroCamera } from './core/responsive.js';
 import { orbitClock } from './core/orbitClock.js';
 import { OPTIONAL_FEATURE_CONTENT } from './config/optionalFeatures.js';
+import { createUIDirector } from './core/uiDirector.js';
+import { createFlow } from './core/flow.js';
+import { createWorldText } from './scene/worldText.js';
 import './style.css';
 
 async function initializeApp() {
 const queryFlags = getQueryFlags();
+const uiDirector = createUIDirector({ root: document.body, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
+const flow = createFlow({
+  ui: uiDirector,
+  onChange: ({ next }) => {
+    const grade = {
+      FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
+      FINALE_ALIGN: [1.04, 0.98, 0.92], FINALE_HEART: [1.08, 0.99, 0.94], FINALE_CAKE: [1.06, 0.98, 0.92]
+    }[next] || [1, 1, 1];
+    if (cinematicPass?.uniforms?.uGrade) gsap.to(cinematicPass.uniforms.uGrade.value, { r: grade[0], g: grade[1], b: grade[2], duration: prefersReducedMotion ? 0.08 : 0.8, overwrite: true });
+  },
+  killStateAnimations: () => {
+    gsap.killTweensOf(camera.position);
+    gsap.killTweensOf(controls.target);
+    gsap.killTweensOf(orbitClock);
+  }
+});
 const getRenderSize = () => queryFlags.portraitRatio
   ? { width: 1080, height: 1920, aspect: 9 / 16 }
   : { width: window.innerWidth, height: window.innerHeight, aspect: window.innerWidth / window.innerHeight };
@@ -131,13 +150,13 @@ const bokehPass = new BokehPass(scene, camera, { focus: 24, aperture: 0.00012, m
 bokehPass.enabled = false;
 composer.addPass(bokehPass);
 const cinematicPass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.28 }, uGrain: { value: 0.018 }, uCA: { value: 0.0012 } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.28 }, uGrain: { value: 0.018 }, uCA: { value: 0.0012 }, uGrade: { value: new THREE.Color(1, 1, 1) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float uTime,uVignette,uGrain,uCA;
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float uTime,uVignette,uGrain,uCA; uniform vec3 uGrade;
     float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
     void main(){ vec2 d=vUv-0.5; float r=dot(d,d); vec2 off=d*uCA*r*4.0;
       vec3 c=vec3(texture2D(tDiffuse,vUv+off).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-off).b);
-      c*=1.0-uVignette*smoothstep(0.15,0.75,r*2.0); c+=(hash(vUv*vec2(1920.,1080.)+uTime)-0.5)*uGrain;
+      c*=uGrade; c*=1.0-uVignette*smoothstep(0.15,0.75,r*2.0); c+=(hash(vUv*vec2(1920.,1080.)+uTime)-0.5)*uGrain;
       gl_FragColor=vec4(c,1.0); }`
 });
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -226,7 +245,7 @@ const texturesReady = loadPlanetTextures({
   manager: loadingManager,
   onProgress: (progress) => loadingBar?.style.setProperty('--progress', `${Math.round(progress * 100)}%`)
 }).then((textures) => solarSystem.setPlanetTextures(textures));
-const fireworks = createFireworksSystem(scene, soundManager);
+const fireworks = createFireworksSystem(scene, soundManager, uiDirector);
 let cakeActions = null;
 let cakeMicStream = null;
 let cakeMicContext = null;
@@ -237,17 +256,20 @@ let cinemaRecorder = null;
 let cinemaStream = null;
 let cinemaButton = null;
 const activeAuroras = new Set();
+const activeWorldTexts = new Set();
+let finaleSequenceStarted = false;
+let finaleWorldText = null;
 let qaFocusPlanet = null;
 const tiltState = { enabled: false, targetX: 0, targetY: 0, currentX: 0, currentY: 0, appliedX: 0, appliedY: 0, button: null };
 
 function setupTiltMode() {
-  if (queryFlags.fxOff || prefersReducedMotion || !matchMedia('(pointer: coarse)').matches) return;
+  if (queryFlags.fxOff || queryFlags.cinema || prefersReducedMotion || !matchMedia('(pointer: coarse)').matches) return;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'tilt-mode-button';
   button.textContent = 'เปิดโหมดเอียงเครื่อง';
   button.setAttribute('aria-pressed', 'false');
-  document.body.append(button);
+  uiDirector.show({ id: 'tilt-mode', zone: 'bottom-left', layer: 'action', exclusive: false, element: button, states: ['EXPLORE', 'EPILOGUE'] });
   tiltState.button = button;
   const onOrientation = (event) => {
     tiltState.targetX = THREE.MathUtils.clamp((event.gamma || 0) / 30, -1, 1) * 0.052;
@@ -287,39 +309,116 @@ function stopCakeMic() {
   cakeMicContext = null;
 }
 
+function showEpilogueActions() {
+  uiDirector.hide('epilogue-actions');
+  const panel = document.createElement('div');
+  panel.className = 'ui-epilogue-actions';
+  panel.innerHTML = '<button type="button" data-action="memory">ดูความทรงจำอีกครั้ง</button><button type="button" data-action="cake">เป่าเทียนอีกครั้ง</button><button type="button" data-action="capture">เก็บภาพ</button>';
+  const handle = uiDirector.show({ id: 'epilogue-actions', zone: 'bottom-right', layer: 'action', exclusive: false, element: panel, states: ['EPILOGUE'] });
+  panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
+    uiDirector.hide('epilogue-actions');
+    finaleSequenceStarted = false;
+    solarSystem.setFinaleMode(false);
+    flow.go('EXPLORE');
+    flyToPlanet(1);
+  });
+  panel.querySelector('[data-action="cake"]').addEventListener('click', startFinaleSequence);
+  panel.querySelector('[data-action="capture"]').addEventListener('click', () => { captureRequestPending = true; });
+  return handle;
+}
+
+function enterEpilogue() {
+  if (finaleWorldText) { finaleWorldText.dispose(); finaleWorldText = null; }
+  finaleSequenceStarted = false;
+  uiDirector.hideAll();
+  flow.go('EPILOGUE');
+  document.body.classList.remove('flow-finale');
+  solarSystem.setFinaleMode(false);
+  solarSystem.setCakeStage(false);
+  orbitClock.scale = 1;
+  controls.autoRotate = true;
+  returnToCenterOrbit();
+  window.setTimeout(showEpilogueActions, prefersReducedMotion ? 0 : 350);
+}
+
+function dismissFinaleAfterCake() {
+  uiDirector.hide('cake-actions');
+  cakeActions = null;
+  stopCakeMic();
+  gsap.to(cosmicCake.group.position, {
+    y: -30,
+    duration: prefersReducedMotion ? 0.18 : 0.7,
+    ease: 'power2.in',
+    onComplete: () => { cosmicCake.hide(); solarSystem.setCakeStage(false); }
+  });
+  const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
+  if (!message || queryFlags.fxOff || prefersReducedMotion) {
+    enterEpilogue();
+    return;
+  }
+  flow.go('FINALE_LETTER');
+  const letter = document.createElement('div');
+  letter.className = 'finale-letter-card';
+  const text = document.createElement('p');
+  letter.append(text);
+  let index = 0;
+  const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 6500, element: letter, states: ['FINALE_LETTER'] });
+  const timer = window.setInterval(() => {
+    text.textContent = message.slice(0, index += 1);
+    if (index >= [...message].length) window.clearInterval(timer);
+  }, Math.max(20, 6000 / [...message].length));
+  letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
+  handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
+}
+
 function celebrateCake() {
   stopCakeMic();
+  flow.go('FINALE_LETTER');
   fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
-  const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
-  if (message && cakeActions) {
-    const note = document.createElement('p');
-    note.className = 'cake-owner-message';
-    note.textContent = message;
-    cakeActions.append(note);
-  }
-  cakeActions?.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+  dismissFinaleAfterCake();
 }
 
 function finishCake() {
-  cosmicCake.blowOut(celebrateCake, () => soundManager.playCandleBell());
+  if (!cosmicCake.blown) cosmicCake.blowOut(celebrateCake, () => soundManager.playCandleBell());
 }
 
 function showCakeActions() {
-  if (queryFlags.fxOff || cakeActions) return;
-  cosmicCake.reveal();
-  cakeActions = document.createElement('div');
-  cakeActions.className = 'cake-actions';
-  cakeActions.innerHTML = '<button type="button" class="cake-blow-button">เป่าเทียน 🎂</button><button type="button" class="cake-mic-button">ใช้ไมค์เป่า</button>';
-  document.body.append(cakeActions);
-  cakeActions.querySelector('.cake-blow-button').addEventListener('click', finishCake);
-  const micButton = cakeActions.querySelector('.cake-mic-button');
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!navigator.mediaDevices?.getUserMedia || !AudioContextClass) {
-    micButton.hidden = true;
+  if (cakeActions) return;
+  solarSystem.setFinaleMode(true);
+  solarSystem.setCakeStage(true);
+  if (queryFlags.fxOff || !cosmicCake.reveal()) {
+    flow.go('FINALE_CAKE');
+    const card = document.createElement('div');
+    card.className = 'finale-letter-card lite';
+    const text = document.createElement('p');
+    text.textContent = OPTIONAL_FEATURE_CONTENT.secretMessage;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'กลับสู่วงโคจร';
+    card.append(text, close);
+    uiDirector.show({ id: 'light-finale', zone: 'center-stage', layer: 'cinematic', exclusive: true, element: card, states: ['FINALE_CAKE'] });
+    close.addEventListener('click', enterEpilogue);
     return;
   }
+  flow.go('FINALE_CAKE');
+  cosmicCake.setMessage(OPTIONAL_FEATURE_CONTENT.secretMessage);
+  const panel = document.createElement('div');
+  panel.className = 'cake-actions ui-action-slot';
+  const blowButton = document.createElement('button');
+  blowButton.type = 'button';
+  blowButton.className = 'cake-blow-button';
+  blowButton.textContent = 'เป่าเทียน 🎂';
+  const micButton = document.createElement('button');
+  micButton.type = 'button';
+  micButton.className = 'cake-mic-button secondary';
+  micButton.textContent = 'ใช้ไมค์เป่า';
+  panel.append(blowButton, micButton);
+  cakeActions = uiDirector.show({ id: 'cake-actions', zone: 'bottom-center', layer: 'action', exclusive: true, element: panel, states: ['FINALE_CAKE'] });
+  blowButton.addEventListener('click', finishCake);
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!navigator.mediaDevices?.getUserMedia || !AudioContextClass) micButton.hidden = true;
   micButton.addEventListener('click', async () => {
-    micButton.disabled = true;
+    if (cakeMicStream || !flow.state.includes('FINALE_CAKE')) return;
     try {
       cakeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       cakeMicContext = new AudioContextClass();
@@ -329,36 +428,50 @@ function showCakeActions() {
       const samples = new Uint8Array(analyser.fftSize);
       let strongFrames = 0;
       const inspectBreath = () => {
+        if (document.hidden || flow.state !== 'FINALE_CAKE') { stopCakeMic(); return; }
         analyser.getByteTimeDomainData(samples);
         let energy = 0;
-        for (const sample of samples) {
-          const normalized = (sample - 128) / 128;
-          energy += normalized * normalized;
-        }
+        for (const sample of samples) { const normalized = (sample - 128) / 128; energy += normalized * normalized; }
         if (Math.sqrt(energy / samples.length) > 0.11) strongFrames += 1;
         else strongFrames = Math.max(0, strongFrames - 1);
-        if (strongFrames >= 4) {
-          finishCake();
-          return;
-        }
+        if (strongFrames >= 4) { finishCake(); return; }
         cakeMicFrame = requestAnimationFrame(inspectBreath);
       };
       cakeMicFrame = requestAnimationFrame(inspectBreath);
-    } catch {
-      stopCakeMic();
-      micButton.disabled = false;
-    }
+    } catch { stopCakeMic(); }
   });
+}
+
+function startFinaleSequence() {
+  if (finaleSequenceStarted || visitedMemories.size < 5) return;
+  finaleSequenceStarted = true;
+  stopCakeMic();
+  uiDirector.hideAll();
+  document.body.classList.add('flow-finale');
+  flow.go('FINALE_ALIGN');
+  controls.autoRotate = false;
+  isCinematicFlying = true;
+  solarSystem.setFinaleMode(true);
+  solarSystem.setFinaleHeart(true);
+  gsap.to(orbitClock, { scale: 0, duration: prefersReducedMotion ? 0.1 : 1.0, ease: 'power2.out' });
+  const portrait = window.innerHeight > window.innerWidth;
+  const targetPosition = new THREE.Vector3(0, portrait ? 45 : 30, portrait ? 245 : 175);
+  gsap.to(camera.position, { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z, duration: prefersReducedMotion ? .2 : 2.4, ease: 'power3.inOut' });
+  gsap.to(controls.target, { x: 0, y: 0, z: -6, duration: prefersReducedMotion ? .2 : 2.4, ease: 'power3.inOut', onComplete: () => {
+    isCinematicFlying = false;
+    flow.go('FINALE_HEART');
+    window.setTimeout(() => {
+      flow.go('FINALE_CAKE');
+      solarSystem.setFinaleHeart(false);
+      showCakeActions();
+    }, prefersReducedMotion ? 500 : 2800);
+  }});
 }
 
 function setupShootingStarWishes() {
   const messages = OPTIONAL_FEATURE_CONTENT.shootingStarMessages.filter((message) => typeof message === 'string' && message.trim());
   if (!messages.length || queryFlags.fxOff || prefersReducedMotion) return;
-  shootingWishCard = document.createElement('div');
-  shootingWishCard.className = 'shooting-wish-card';
-  shootingWishCard.setAttribute('role', 'status');
-  shootingWishCard.hidden = true;
-  document.body.append(shootingWishCard);
+  shootingWishCard = true;
 }
 
 function setupCinemaRecorder() {
@@ -370,7 +483,7 @@ function setupCinemaRecorder() {
   cinemaButton.type = 'button';
   cinemaButton.className = 'cinema-record-button';
   cinemaButton.textContent = 'อัดคลิป';
-  document.body.append(cinemaButton);
+  uiDirector.show({ id: 'cinema-recorder', zone: 'bottom-left', layer: 'action', exclusive: false, element: cinemaButton, states: ['FLIGHT', 'ARRIVAL', 'EXPLORE', 'EPILOGUE'] });
   cinemaButton.addEventListener('click', () => {
     if (cinemaRecorder?.state === 'recording') {
       cinemaRecorder.stop();
@@ -728,6 +841,7 @@ function runCinemaDirector() {
   tour.to(controls.target, { x: 0, y: 28, z: -25, duration: 3.0, ease: 'power3.inOut' }, revealAt);
   tour.call(() => {
     isGalaxyView = true;
+    spiralGalaxy.setGalaxyView(true);
     name3DText.show();
     galaxy.triggerGrandShower?.(10);
   }, [], revealAt + 3.1);
@@ -736,19 +850,23 @@ function runCinemaDirector() {
 
 function startCinematicApproach(onComplete) {
   isCinematicFlying = true;
+  let flightFinished = false;
+  flow.go('FLIGHT');
   controls.autoRotate = false;
   isWarpActive = true;
   wormhole.setActive(!prefersReducedMotion);
 
   const skipBtn = document.createElement('button');
   skipBtn.id = 'btn-skip-flight';
-  skipBtn.className = 'skip-flight-btn';
+  skipBtn.className = 'skip-flight-btn ui-action-slot';
   skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง ⏩</span>';
-  document.body.appendChild(skipBtn);
+  const skipHandle = uiDirector.show({ id: 'skip-flight', zone: 'bottom-center', layer: 'action', exclusive: true, element: skipBtn, states: ['FLIGHT'] });
 
   soundManager.playWhooshSound();
 
   const finishFlight = () => {
+    if (flightFinished) return;
+    flightFinished = true;
     if (approachTimeline) approachTimeline.kill();
     isWarpActive = false;
     wormhole.setActive(false);
@@ -758,7 +876,8 @@ function startCinematicApproach(onComplete) {
     warpStreakMesh.visible = false;
     warpRingGroup.visible = false;
     warpSurgePoints.visible = false;
-    skipBtn.remove();
+    skipHandle.dispose();
+    flow.go('ARRIVAL');
 
     camera.fov = heroPose.fov;
     camera.rotation.z = 0;
@@ -775,7 +894,8 @@ function startCinematicApproach(onComplete) {
     const finishArrival = () => {
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
-      showArrivalCelebrationFlow(soundManager);
+      flow.go('EXPLORE');
+      showArrivalCelebrationFlow(soundManager, { uiDirector, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
     };
     if (queryFlags.fxOff) finishArrival();
     else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival });
@@ -985,15 +1105,18 @@ function playPlanetSignature(planetItem) {
 }
 
 function flyToPlanet(planetId) {
+  if (isCinematicFlying || polaroidModal?.isOpen || finaleSequenceStarted) return;
   const planetItem = solarSystem.planetsList.find(p => p.id === planetId);
   if (!planetItem) return;
 
   isCinematicFlying = true;
+  flow.go('FOCUS');
   controls.autoRotate = false;
   gsap.to(orbitClock, { scale: 0.04, duration: 0.8, ease: 'power2.out' });
   controls.minDistance = 6.0;
   controls.maxDistance = 180;
   isGalaxyView = false;
+  spiralGalaxy.setGalaxyView(false);
   hud.setGalaxyMode(false);
   name3DText.hide();
 
@@ -1002,10 +1125,6 @@ function flyToPlanet(planetId) {
     visitedMemories.add(planetId);
     solarSystem.markVisited(planetId);
     hud.updateProgress(visitedMemories);
-    if (visitedMemories.size === 5) {
-      solarSystem.showSecretMessage(OPTIONAL_FEATURE_CONTENT.secretMessage);
-      showCakeActions();
-    }
   }
   if (!queryFlags.fxOff && !prefersReducedMotion && navigator.vibrate) navigator.vibrate(12);
   if (planetId === 5) solarSystem.showFinalRose();
@@ -1031,6 +1150,10 @@ function flyToPlanet(planetId) {
   const duration = isFinalPlanet
     ? (currentDist > 90 ? 2.8 : 2.0)
     : (currentDist > 90 ? 2.2 : 1.5);
+  const focusCaption = document.createElement('div');
+  focusCaption.className = 'ui-captions focus-caption';
+  focusCaption.textContent = `PLANET 0${planetId} · ${planetItem.config.name}`;
+  uiDirector.show({ id: 'planet-focus-caption', zone: 'bottom-center', layer: 'cinematic', exclusive: true, ttl: duration * 1000 + (isFinalPlanet ? 800 : 450), element: focusCaption, states: ['FOCUS'] });
 
   gsap.to(camera.position, {
     x: targetCamPos.x,
@@ -1070,6 +1193,7 @@ function returnToCenterOrbit() {
   controls.minDistance = 16.0;
   controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
   isGalaxyView = false;
+  spiralGalaxy.setGalaxyView(false);
   gsap.to(orbitClock, { scale: 1, duration: 0.8, ease: 'power2.out' });
   hud.setGalaxyMode(false);
   name3DText.hide();
@@ -1098,8 +1222,9 @@ function toggleGalaxyView(forcedState) {
   if (isCinematicFlying) return;
   const targetState = forcedState !== undefined ? forcedState : !isGalaxyView;
   isGalaxyView = targetState;
+  spiralGalaxy.setGalaxyView(targetState);
   isCinematicFlying = true;
-  polaroidModal.close();
+  if (polaroidModal.isOpen) polaroidModal.close(false);
 
   soundManager.playWhooshSound();
 
@@ -1147,13 +1272,24 @@ const polaroidModal = new PolaroidModal({
     setTimeout(() => flyToPlanet(nextId), 380);
   },
   onBackToGalaxy: () => {
-    returnToCenterOrbit();
+    uiDirector.setModalOpen(false);
+    if (visitedMemories.size === solarSystem.planetsList.length) startFinaleSequence();
+    else {
+      flow.go('EXPLORE');
+      returnToCenterOrbit();
+    }
   },
   onWish: () => {
     fireworks.triggerMakeAWish();
     if (galaxy?.triggerGrandShower) galaxy.triggerGrandShower(10);
   }
 });
+
+window.addEventListener('memory-modal-opened', () => {
+  uiDirector.setModalOpen(true);
+  flow.go('MEMORY');
+});
+window.addEventListener('memory-modal-closed', () => uiDirector.setModalOpen(false));
 
 const hud = new HudOverlay({
   onMakeWish: () => {
@@ -1181,25 +1317,24 @@ const hud = new HudOverlay({
     return soundManager.toggleMute();
   },
   onResetCamera: () => {
-    polaroidModal.close();
+    if (polaroidModal.isOpen) polaroidModal.close(false);
     returnToCenterOrbit();
   },
   onToggleGalaxy: () => {
     toggleGalaxyView();
   },
   onSelectMemory: (id) => {
-    polaroidModal.close();
+    if (polaroidModal.isOpen) polaroidModal.close(false);
     flyToPlanet(id);
   }
 });
-setupTiltMode();
-
 // Wait for local planet textures so the introduction never opens onto an empty scene.
 await texturesReady;
 loadingOverlay?.classList.add('asset-loading-done');
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
 if (queryFlags.skipIntro || queryFlags.cinema) {
+  flow.go(queryFlags.cinema ? 'FLIGHT' : 'EXPLORE');
   camera.position.copy(queryFlags.cinema ? deepSpacePos : defaultCameraPos);
   controls.target.copy(queryFlags.cinema ? new THREE.Vector3(0, 0, 0) : defaultCameraTarget);
   if (queryFlags.cinema) {
@@ -1207,14 +1342,17 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
   } else {
     hud.show();
     hud.setSoundPlayingState(false);
+    setupTiltMode();
   }
 } else {
+  flow.go('INTRO');
   new IntroScreen({
     soundManager,
     onEnter: () => {
       startCinematicApproach(() => {
         hud.show();
         hud.setSoundPlayingState(soundManager.isPlaying());
+        setupTiltMode();
       });
     }
   });
@@ -1223,6 +1361,7 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
 if (queryFlags.qaScene === 'name-front') {
   hud.hide();
   isGalaxyView = true;
+  spiralGalaxy.setGalaxyView(true);
   name3DText.show();
   camera.fov = 34;
   camera.position.set(0, 36, 72);
@@ -1251,6 +1390,8 @@ if (queryFlags.qaScene === 'name-front') {
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
   for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
+  solarSystem.setFinaleMode(true);
+  solarSystem.setFinaleHeart(true);
 } else if (queryFlags.qaScene === 'signature-earth') {
   hud.hide();
   camera.position.copy(defaultCameraPos);
@@ -1342,12 +1483,14 @@ window.addEventListener('pointerup', (e) => {
   if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
   const wishMessages = OPTIONAL_FEATURE_CONTENT.shootingStarMessages.filter((message) => typeof message === 'string' && message.trim());
-  if (wishMessages.length && shootingStarClicks < 5 && !polaroidModal.isOpen && galaxy.pickMeteor(raycaster)) {
+  if (shootingWishCard && flow.state === 'EXPLORE' && wishMessages.length && shootingStarClicks < 5 && !polaroidModal.isOpen && galaxy.pickMeteor(raycaster)) {
     shootingStarClicks += 1;
     const message = wishMessages[(shootingStarClicks - 1) % wishMessages.length];
-    shootingWishCard.textContent = `ขอพรหนึ่งข้อ ✨ ${message}`;
-    shootingWishCard.hidden = false;
-    window.setTimeout(() => { if (shootingWishCard) shootingWishCard.hidden = true; }, 2600);
+    const wishCard = document.createElement('div');
+    wishCard.className = 'shooting-wish-card ui-captions';
+    wishCard.setAttribute('role', 'status');
+    wishCard.textContent = `ขอพรหนึ่งข้อ ✨ ${message}`;
+    uiDirector.show({ id: 'shooting-wish', zone: 'center-stage', layer: 'toast', exclusive: true, ttl: 2600, element: wishCard });
     return;
   }
   const intersects = raycaster.intersectObjects(solarSystem.interactiveMeshes, false);
@@ -1447,7 +1590,8 @@ function downloadBirthdaySnapshot() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) clock.start();
+  if (document.hidden) stopCakeMic();
+  else clock.start();
 });
 
 function animate() {
@@ -1482,6 +1626,10 @@ function animate() {
     controls.update();
   }
   activeAuroras.forEach((aurora) => { aurora.material.uniforms.uTime.value = time; });
+  activeWorldTexts.forEach((item) => {
+    item.update(delta, camera, prefersReducedMotion);
+    if (item.disposed) activeWorldTexts.delete(item);
+  });
   cosmicCake.update(delta, time);
   pointerStarTrail?.update(delta);
   heartStreak?.update(delta, musicBass);

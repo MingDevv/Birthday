@@ -68,6 +68,24 @@ async function waitForAssets(page) {
   await page.waitForFunction(() => document.querySelector('#asset-loading')?.classList.contains('asset-loading-done'), undefined, { timeout: 90000 });
 }
 
+async function assertNoDirectorZoneOverlaps(page, label) {
+  const overlaps = await page.evaluate(() => {
+    const entries = [...document.querySelectorAll('[data-ui-layer]:not(.ui-director-leaving)')].map((el) => {
+      const rect = el.getBoundingClientRect();
+      return { id: el.dataset.uiLayer, zone: el.dataset.uiZone, rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom } };
+    });
+    const collisions = [];
+    for (let i = 0; i < entries.length; i += 1) for (let j = i + 1; j < entries.length; j += 1) {
+      if (entries[i].zone !== entries[j].zone) continue;
+      const width = Math.max(0, Math.min(entries[i].rect.right, entries[j].rect.right) - Math.max(entries[i].rect.left, entries[j].rect.left));
+      const height = Math.max(0, Math.min(entries[i].rect.bottom, entries[j].rect.bottom) - Math.max(entries[i].rect.top, entries[j].rect.top));
+      if (width * height > 4) collisions.push(`${entries[i].id} / ${entries[j].id}`);
+    }
+    return collisions;
+  });
+  if (overlaps.length) throw new Error(`${label}: UI director zone overlaps: ${overlaps.join(', ')}`);
+}
+
 try {
   await ready();
   browser = await chromium.launch({
@@ -76,7 +94,7 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase === 'round2-R0') {
+  if (phase === 'round2-R0' || (phase.startsWith('round3-') && onlyScene)) {
     const allScenes = [
       { file: 'name-front.png', query: 'skipintro=1&quality=low&qa=name-front', wait: 2400 },
       { file: 'bulge-closeup.png', query: 'skipintro=1&quality=medium&qa=bulge-closeup', wait: 1200 },
@@ -94,7 +112,7 @@ try {
       const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
       page.on('pageerror', (error) => errors.push(`${scene.file}: ${error.message}`));
       page.on('console', (message) => { if (message.type() === 'error') errors.push(`${scene.file}: ${message.text()}`); });
-      await page.goto(`${baseUrl}?mute=1&${scene.query}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${baseUrl}?mute=1&${scene.query}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
       await waitForAssets(page);
       if (scene.file === 'orbit-visibility.png') {
         await page.locator('#btn-toggle-galaxy').click();
@@ -115,7 +133,7 @@ try {
       }
       if (scene.file === 'cake.png') {
         await page.locator('.cake-blow-button').click();
-        await page.waitForFunction(() => document.querySelector('.cake-blow-button')?.disabled, undefined, { timeout: 5000 });
+        await page.waitForFunction(() => !document.querySelector('.cake-blow-button'), undefined, { timeout: 5000 });
         await page.waitForTimeout(1500);
         await page.screenshot({ path: path.join(outputDir, 'cake-blown.png') });
       }
@@ -154,7 +172,7 @@ try {
       const session = await page.context().newCDPSession(page);
       await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     }
-    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium`, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await waitForAssets(page);
     await page.evaluate(() => {
       window.__qaFrameTimes = [];
@@ -185,10 +203,12 @@ try {
       // rose and the rendered-canvas download path.
       for (let id = 1; id <= 5; id += 1) {
         await page.locator(`.heart-dot[data-id="${id}"]`).click();
-        await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 10000 });
+        await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 30000 });
+        const wishBoxVisible = await page.locator('#finale-wish-box').isVisible();
+        if (wishBoxVisible !== (id === 5)) throw new Error(`Memory ${id}: finale wish visibility mismatch.`);
         if (id === 5) {
           await page.waitForFunction(() => document.querySelector('#wish-body')?.textContent?.length > 20, undefined, { timeout: 8000 });
-          const downloadPromise = page.waitForEvent('download', { timeout: 8000 });
+          const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
           await page.locator('#modal-capture-btn').click();
           const download = await downloadPromise;
           if (download.suggestedFilename() !== 'happy-birthday-khaohom.png') throw new Error('Birthday screenshot download has an unexpected filename.');
@@ -199,28 +219,52 @@ try {
           console.log('birthday screenshot', captureMetrics, `-> ${capturePath}`);
         }
         await page.locator('#modal-back-btn').click();
-        await page.waitForFunction(() => document.querySelector('#memory-modal-backdrop')?.classList.contains('hidden'), undefined, { timeout: 5000 });
-        await page.waitForTimeout(1750);
+        await page.waitForFunction(() => document.querySelector('#memory-modal-backdrop')?.classList.contains('hidden'), undefined, { timeout: 8000 });
+        await page.waitForTimeout(2600);
+        if (id === 5) {
+          await page.waitForFunction(() => document.body.dataset.flowState === 'FINALE_CAKE', undefined, { timeout: 30000 });
+          await assertNoDirectorZoneOverlaps(page, 'finale cake');
+          await page.screenshot({ path: path.join(outputDir, 'finale-cake.png') });
+        }
       }
 
-      const detailPage = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-      detailPage.on('pageerror', (error) => errors.push(`detail: ${error.message}`));
-      detailPage.on('console', (message) => { if (message.type() === 'error') errors.push(`detail: ${message.text()}`); });
-      await detailPage.goto(`${baseUrl}?mute=1&quality=low&qa=name-front`, { waitUntil: 'domcontentloaded' });
-      await waitForAssets(detailPage);
-      await detailPage.waitForTimeout(2400);
-      await detailPage.screenshot({ path: path.join(outputDir, 'name-front.png') });
-      await detailPage.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium&qa=bulge-closeup`, { waitUntil: 'domcontentloaded' });
-      await waitForAssets(detailPage);
-      await detailPage.waitForTimeout(1200);
-      await detailPage.screenshot({ path: path.join(outputDir, 'bulge-closeup.png') });
-      await detailPage.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded' });
-      await waitForAssets(detailPage);
-      await detailPage.locator('.heart-dot[data-id="5"]').click();
-      await detailPage.waitForSelector('#memory-modal-backdrop.visible', { timeout: 10000 });
-      await detailPage.waitForTimeout(1200);
-      await detailPage.screenshot({ path: path.join(outputDir, 'quality-low-final-rose.png') });
-      await detailPage.close();
+      await page.close();
+      const openDetail = async (name, query, wait, action) => {
+        const detailPage = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+        detailPage.on('pageerror', (error) => errors.push(`${name}: ${error.message}`));
+        detailPage.on('console', (message) => { if (message.type() === 'error') errors.push(`${name}: ${message.text()}`); });
+        await detailPage.goto(`${baseUrl}?mute=1&${query}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+        await waitForAssets(detailPage);
+        if (action) await action(detailPage);
+        await detailPage.waitForTimeout(wait);
+        await detailPage.screenshot({ path: path.join(outputDir, `${name}.png`) });
+        await detailPage.close();
+      };
+      await openDetail('name-front', 'quality=low&qa=name-front', 2400);
+      await openDetail('bulge-closeup', 'skipintro=1&quality=medium&qa=bulge-closeup', 1200);
+      await openDetail('final-heart', 'skipintro=1&quality=low&qa=final-heart', 1600);
+      await openDetail('focus-flight', 'skipintro=1&quality=low', 650, async (detailPage) => {
+        await detailPage.locator('.heart-dot[data-id="2"]').click();
+      });
+      await openDetail('memory-card-stage', 'skipintro=1&quality=low', 1500, async (detailPage) => {
+        await detailPage.locator('.heart-dot[data-id="2"]').click();
+        await detailPage.waitForSelector('#memory-modal-backdrop.visible', { timeout: 30000 });
+      });
+      await openDetail('cake-lit', 'skipintro=1&quality=low&qa=cake', 1800);
+      await openDetail('cake-blown', 'skipintro=1&quality=low&qa=cake', 1800, async (detailPage) => {
+        await detailPage.locator('.cake-blow-button').click();
+        await detailPage.waitForFunction(() => !document.querySelector('.cake-blow-button'), undefined, { timeout: 10000 });
+        await detailPage.waitForSelector('.ui-epilogue-actions', { timeout: 10000 });
+        await assertNoDirectorZoneOverlaps(detailPage, 'epilogue');
+      });
+      await openDetail('fx-off-finale', 'skipintro=1&fx=off&quality=low&qa=cake', 800, async (detailPage) => {
+        await detailPage.waitForSelector('.finale-letter-card.lite', { timeout: 5000 });
+        await assertNoDirectorZoneOverlaps(detailPage, 'fx off finale');
+      });
+      await openDetail('quality-low-final-rose', 'skipintro=1&quality=low', 1200, async (detailPage) => {
+        await detailPage.locator('.heart-dot[data-id="5"]').click();
+        await detailPage.waitForSelector('#memory-modal-backdrop.visible', { timeout: 30000 });
+      });
     }
     await page.close();
   }

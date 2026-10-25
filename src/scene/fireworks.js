@@ -6,7 +6,7 @@ import { createGlowTexture } from './galaxySkybox.js';
  * A focused birthday starburst: one clear launch, a heart-shaped constellation,
  * and a short violet-gold sparkle fall without filling the whole scene with haze.
  */
-export function createFireworksSystem(scene, soundManager) {
+export function createFireworksSystem(scene, soundManager, uiDirector = null) {
   const fireworksGroup = new THREE.Group();
   fireworksGroup.name = 'starBurstSystem';
 
@@ -321,9 +321,6 @@ export function createFireworksSystem(scene, soundManager) {
   // 5. Floating Glowing 3D Romantic Wish Banner in Space
   // ---------------------------------------------------------------------------
   function showFloatingWishBanner() {
-    let existingBanner = document.getElementById('cosmic-wish-banner');
-    if (existingBanner) existingBanner.remove();
-
     const banner = document.createElement('div');
     banner.id = 'cosmic-wish-banner';
     banner.className = 'cosmic-wish-banner';
@@ -335,13 +332,12 @@ export function createFireworksSystem(scene, soundManager) {
         <p class="wish-banner-text">“ขอให้ทุกความปรารถนาและทุกความฝันในกาแล็กซี่นี้ จงเปล่งประกายและเป็นจริงเสมอไปนะ” 💖</p>
       </div>
     `;
-    document.body.appendChild(banner);
-
-    // Auto remove after 7.5 seconds
-    setTimeout(() => {
-      banner.classList.add('fade-out');
-      setTimeout(() => banner.remove(), 1200);
-    }, 7500);
+    if (uiDirector) {
+      uiDirector.show({ id: 'cosmic-wish-banner', zone: 'center-stage', layer: 'toast', exclusive: true, ttl: 7500, element: banner });
+    } else {
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 7500);
+    }
   }
 
   // ---------------------------------------------------------------------------
