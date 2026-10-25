@@ -136,6 +136,6 @@ npm run visual:qa -- --phase=handoff
 
 - `finalMessage`, `shootingStarMessages[]` และ `birthdayDate` ยังว่างตามข้อกำหนด; W4 และ W10 จึงไม่แสดงจนกว่าเจ้าของจะใส่ค่า
 - R3: ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram in-app browser, ไมค์, tilt iOS, WebGL context restore, FPS/draw calls และ LINE share preview; SwiftShader ไม่ยืนยันประสิทธิภาพจริง
-- ไม่ได้ deploy รอบ 2; production ปัจจุบันยังเป็นรุ่นก่อนรอบนี้
+- Push production รอบ 2 ไป `main` ด้วย commit `d714d98`; Vercel เสิร์ฟ bundle `index-D9ze1g9_.js` แล้ว ตรวจ OG metadata, `og-birthday.png` และ Mali font ได้ HTTP 200
 
 `src/config/optionalFeatures.js` เก็บช่องเจ้าของ `finalMessage`, `shootingStarMessages` และ `birthdayDate` ซึ่งยังว่างอยู่ พร้อมย้ายข้อความลับที่เจ้าของให้ไว้เดิมมาเก็บใน config โดยคงถ้อยคำเดิมทุกตัว
