@@ -436,6 +436,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   let finalHeartLine = null;
   let finaleMode = false;
   let finaleHeartEmphasis = false;
+  let finaleHeartLineScale = 1;
   const finalePlanetPositions = [
     new THREE.Vector3(-32, -2, -7), new THREE.Vector3(-24, 18, -7), new THREE.Vector3(0, 28, -7),
     new THREE.Vector3(24, 18, -7), new THREE.Vector3(32, -2, -7)
@@ -1092,6 +1093,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     setCakeStage(enabled) {
       planetsList.forEach((planet) => { planet.group.visible = !enabled; });
       for (const material of orbitPathMaterials.values()) material.opacity = enabled ? 0.035 : (finaleMode ? 0.08 : 0.13);
+      finaleHeartLineScale = enabled ? 0.28 : 1;
       heartGroup.visible = true;
     },
 
@@ -1331,6 +1333,11 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           ? 0.7 + Math.sin(realTime * 2.2) * 0.14
           : 0.64 + Math.sin(realTime * 2.2 + record.progress) * 0.1;
       });
+      if (finalHeartLine) {
+        const scale = finalHeartLine.scale.x;
+        const nextScale = THREE.MathUtils.lerp(scale, finaleHeartLineScale, reducedMotion ? 1 : Math.min(1, delta * 1.2));
+        finalHeartLine.scale.setScalar(nextScale);
+      }
     },
 
     setHover(hitMesh, isHovered, clientX, clientY) {

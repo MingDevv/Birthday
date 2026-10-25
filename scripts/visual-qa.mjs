@@ -94,7 +94,34 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase === 'round2-R0' || (phase.startsWith('round3-') && onlyScene)) {
+  if (phase.startsWith('round3-') && onlyScene === 'mobile-tools') {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+    page.on('pageerror', (error) => errors.push(`mobile-tools: ${error.message}`));
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(`mobile-tools: ${message.text()}`); });
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(800);
+    const toggle = page.locator('.mobile-tools-toggle');
+    await toggle.waitFor({ state: 'visible' });
+    if (await page.locator('.hud-wish-wrap').evaluate((el) => getComputedStyle(el).visibility) !== 'hidden') throw new Error('Mobile wish control should start collapsed.');
+    await page.screenshot({ path: path.join(outputDir, 'mobile-tools-closed.png') });
+    await toggle.click();
+    if (await page.locator('.hud-wish-wrap').evaluate((el) => getComputedStyle(el).visibility) !== 'visible') throw new Error('Mobile wish control did not open from tools menu.');
+    const collisions = await page.evaluate(() => {
+      const items = ['.mobile-tools-toggle', '.hud-wish-wrap', '.tilt-mode-button', '.cinema-record-button']
+        .map((selector) => document.querySelector(selector)).filter((el) => el && getComputedStyle(el).visibility === 'visible')
+        .map((el) => ({ selector: el.className, rect: el.getBoundingClientRect().toJSON() }));
+      const overlaps = [];
+      for (let i = 0; i < items.length; i += 1) for (let j = i + 1; j < items.length; j += 1) {
+        const a = items[i].rect, b = items[j].rect;
+        if (Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)) > 4) overlaps.push(`${items[i].selector} / ${items[j].selector}`);
+      }
+      return overlaps;
+    });
+    if (collisions.length) throw new Error(`Mobile tools overlap: ${collisions.join(', ')}`);
+    await page.screenshot({ path: path.join(outputDir, 'mobile-tools-open.png') });
+    await page.close();
+  } else if (phase === 'round2-R0' || (phase.startsWith('round3-') && onlyScene)) {
     const allScenes = [
       { file: 'name-front.png', query: 'skipintro=1&quality=low&qa=name-front', wait: 2400 },
       { file: 'bulge-closeup.png', query: 'skipintro=1&quality=medium&qa=bulge-closeup', wait: 1200 },

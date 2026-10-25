@@ -69,16 +69,19 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let revealed = false;
   let blown = false;
   let cakeMessage = null;
+  let lastLitCandleCount = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   return {
     group,
     get revealed() { return revealed; },
     get blown() { return blown; },
-    reveal() {
+    reveal(onCandleLit) {
       if (!enabled || revealed) return false;
       revealed = true;
       blown = false;
       revealProgress = 0;
+      lastLitCandleCount = 0;
+      group.userData.onCandleLit = onCandleLit;
       flames.forEach((flame) => { flame.visible = reducedMotion; });
       group.scale.setScalar(2.05);
       group.position.set(0, -30, -5);
@@ -136,6 +139,11 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       if (!revealed) return;
       revealProgress = reducedMotion ? 1 : Math.min(1, revealProgress + delta / 1.4);
       group.position.y = THREE.MathUtils.lerp(-30, -3, revealProgress * revealProgress * (3 - 2 * revealProgress));
+      const litCandleCount = Math.ceil(revealProgress * flames.length);
+      if (!blown && litCandleCount > lastLitCandleCount) {
+        for (let index = lastLitCandleCount; index < litCandleCount; index += 1) group.userData.onCandleLit?.(index);
+        lastLitCandleCount = litCandleCount;
+      }
       if (!blown) flames.forEach((flame, index) => {
         flame.visible = reducedMotion || index < Math.ceil(revealProgress * flames.length);
         const flicker = 1 + Math.sin(time * 12 + flame.userData.phase) * 0.08;
@@ -149,6 +157,8 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       revealed = false;
       blown = false;
       revealProgress = 0;
+      lastLitCandleCount = 0;
+      group.userData.onCandleLit = null;
       flames.forEach((flame) => { flame.visible = true; });
       if (cakeMessage) {
         group.remove(cakeMessage);

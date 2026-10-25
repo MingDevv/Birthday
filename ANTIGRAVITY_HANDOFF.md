@@ -177,3 +177,13 @@ npm run visual:qa -- --phase=handoff
 - ไม่ได้ตรวจด้วยตาว่าทุกภาพที่แผนกำหนดครบ เพราะภาพเหล่านั้นยังไม่ได้สร้าง; ภาพ targeted ที่เปิดดูยืนยันเฉพาะฉากที่บันทึกไว้เท่านั้น
 
 ดังนั้น production ปัจจุบันมี implementation รอบ 3 ที่ใช้งานได้สำหรับ flow ที่ตรวจแล้ว แต่ไม่ควรเรียกว่าแผนรอบ 3 เสร็จครบจนกว่าจะปิดรายการข้างต้นและรัน QA ตาม acceptance criteria สำเร็จ
+
+### Checkpoint งานต่อ — 26 ตุลาคม 2026
+
+- เพิ่มเมนู `⋯` สำหรับจอไม่เกิน 520px ให้ปุ่มอธิษฐาน/tilt/อัดคลิปเปิดจากเมนู; QA targeted ตรวจสถานะปิด/เปิดและตรวจ rect ไม่ให้ปุ่มชนกัน ภาพอยู่ใน `qa/round3-mobile-tools-check/`
+- พบการชนของปุ่ม wish กับ tilt จากภาพ QA ครั้งแรก แล้วจัดทั้งสองให้อยู่ขวาเป็นแนวตั้ง; ภาพเปิดล่าสุดแสดงไม่ซ้อน
+- เพิ่ม animation ย่อเส้นหัวใจใหญ่เมื่อเข้าสู่เวทีเค้กและคืนขนาดเมื่อออก; เพิ่มเสียงโน้ตเบาตอนเทียนแต่ละเล่มติด
+- เพิ่ม `flow.after()` สำหรับ timeout ที่เปลี่ยนผ่าน finale/epilogue ให้ถูกยกเลิกเมื่อ state เปลี่ยน
+- `npm run build` ผ่านหลังเพิ่มเมนู/animation/เสียง; targeted mobile QA ผ่านหลังแก้ตำแหน่ง (สคริปต์จบและสร้างภาพทั้งสองสถานะ); `git diff --check` ผ่าน
+- การเปลี่ยนแปลง checkpoint นี้ยัง **ไม่ได้ deploy production**; production ยังเป็น deployment เดิม `dpl_3kbZnR16QGL98pFym8z72DBE9m98`
+- งานต่อเมื่อ resume: ทำ storyboard S0–S8 ที่ยังขาด, curved/wipe cake caption, state cleanup สำหรับ timeline/callback ทุกจุด, ขยาย automated scenario/image matrix (รวมสุ่มดาว 5 แบบ, resize/visibility, reduced motion, mic denial, repeat cake/resource counts และ mobile landscape), ตรวจภาพทั้งหมด, build/QA แล้ว deploy production

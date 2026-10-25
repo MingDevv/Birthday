@@ -38,6 +38,7 @@ const uiDirector = createUIDirector({ root: document.body, reducedMotion: window
 const flow = createFlow({
   ui: uiDirector,
   onChange: ({ next }) => {
+    document.body.classList.remove('mobile-tools-open');
     const grade = {
       FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
       FINALE_ALIGN: [1.04, 0.98, 0.92], FINALE_HEART: [1.08, 0.99, 0.94], FINALE_CAKE: [1.06, 0.98, 0.92]
@@ -338,7 +339,7 @@ function enterEpilogue() {
   orbitClock.scale = 1;
   controls.autoRotate = true;
   returnToCenterOrbit();
-  window.setTimeout(showEpilogueActions, prefersReducedMotion ? 0 : 350);
+  flow.after(showEpilogueActions, prefersReducedMotion ? 0 : 350, 'EPILOGUE');
 }
 
 function dismissFinaleAfterCake() {
@@ -386,7 +387,7 @@ function showCakeActions() {
   if (cakeActions) return;
   solarSystem.setFinaleMode(true);
   solarSystem.setCakeStage(true);
-  if (queryFlags.fxOff || !cosmicCake.reveal()) {
+  if (queryFlags.fxOff || !cosmicCake.reveal(() => soundManager.playMusicBoxTone(1174.66, 0.055, 0.018))) {
     flow.go('FINALE_CAKE');
     const card = document.createElement('div');
     card.className = 'finale-letter-card lite';
@@ -460,7 +461,7 @@ function startFinaleSequence() {
   gsap.to(controls.target, { x: 0, y: 0, z: -6, duration: prefersReducedMotion ? .2 : 2.4, ease: 'power3.inOut', onComplete: () => {
     isCinematicFlying = false;
     flow.go('FINALE_HEART');
-    window.setTimeout(() => {
+    flow.after(() => {
       flow.go('FINALE_CAKE');
       solarSystem.setFinaleHeart(false);
       showCakeActions();
@@ -513,6 +514,25 @@ function setupCinemaRecorder() {
   });
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && cinemaRecorder?.state === 'recording') cinemaRecorder.stop();
+  });
+}
+
+function setupMobileToolsMenu() {
+  if (!window.matchMedia('(max-width: 520px)').matches) return;
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'mobile-tools-toggle';
+  toggle.textContent = '⋯';
+  toggle.setAttribute('aria-label', 'เมนูเครื่องมือ');
+  toggle.setAttribute('aria-expanded', 'false');
+  uiDirector.show({ id: 'mobile-tools-toggle', zone: 'bottom-right', layer: 'action', exclusive: false, element: toggle, states: ['EXPLORE', 'EPILOGUE'] });
+  toggle.addEventListener('click', () => {
+    const open = document.body.classList.toggle('mobile-tools-open');
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+  window.addEventListener('memory-modal-opened', () => {
+    document.body.classList.remove('mobile-tools-open');
+    toggle.setAttribute('aria-expanded', 'false');
   });
 }
 
@@ -1415,6 +1435,7 @@ if (queryFlags.qaScene === 'name-front') {
 
 setupShootingStarWishes();
 setupCinemaRecorder();
+setupMobileToolsMenu();
 setupBirthdayCountdown();
 
 // -----------------------------------------------------------------------------

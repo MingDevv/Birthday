@@ -886,6 +886,22 @@ body.cinema-portrait #webgl-canvas {
 .finale-letter-card button { display: block; margin: 18px auto 0; padding: 10px 18px; border: 1px solid rgba(255,230,244,.55); border-radius: 999px; color: #fff; background: rgba(133,73,157,.55); font: 600 14px 'Prompt',sans-serif; }
 .ui-epilogue-actions { display: grid; gap: 8px; width: min(230px, calc(100vw - 32px)); }
 .ui-epilogue-actions button { min-height: 42px; padding: 7px 12px; border: 1px solid rgba(255,230,244,.5); border-radius: 14px; color: #fff6fc; background: rgba(30,18,49,.84); font: 500 13px 'Prompt',sans-serif; }
+.mobile-tools-toggle { display: none; }
+@media (max-width: 520px) {
+  .mobile-tools-toggle { display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1px solid rgba(255,230,244,.64); border-radius: 50%; color: #fff; background: rgba(33,20,53,.94); font: 700 30px/1 'Prompt',sans-serif; box-shadow: 0 6px 22px rgba(0,0,0,.35); }
+  .ui-zone-bottom-right:has(.mobile-tools-toggle) { right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); }
+  body:not(.mobile-tools-open) .hud-wish-wrap,
+  body:not(.mobile-tools-open) .tilt-mode-button,
+  body:not(.mobile-tools-open) .cinema-record-button { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+  body.mobile-tools-open .hud-wish-wrap,
+  body.mobile-tools-open .tilt-mode-button,
+  body.mobile-tools-open .cinema-record-button { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
+  body.mobile-tools-open .hud-wish-wrap { bottom: calc(76px + env(safe-area-inset-bottom)); left: auto; right: max(18px, env(safe-area-inset-right)); width: auto; }
+  body.mobile-tools-open .hud-wish-wrap .wish-btn { width: auto; min-width: 0; padding: 0.55rem 0.9rem; }
+  body.mobile-tools-open .tilt-mode-button { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  body.mobile-tools-open .cinema-record-button { bottom: calc(124px + env(safe-area-inset-bottom)); }
+  body[data-flow-state='EPILOGUE'] .ui-epilogue-actions { right: auto; left: max(16px, env(safe-area-inset-left)); }
+}
 body[data-flow-state='MEMORY'] .hud-container,
 body[data-flow-state='FOCUS'] .hud-container,
 body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: none; }
@@ -1057,6 +1073,16 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+@media (max-width: 520px) {
+  body.mobile-tools-open .hud-wish-wrap {
+    left: auto !important;
+    right: max(18px, env(safe-area-inset-right)) !important;
+    width: max-content !important;
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
+  body.mobile-tools-open .hud-wish-wrap .wish-btn { width: auto !important; }
 }
 
 .cake-actions {
@@ -1672,4 +1698,10 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
 .finale-wish-box { font-family: 'Mali', 'Prompt', sans-serif; }
 @media (prefers-reduced-motion: reduce) {
   .shooting-wish-card, .cinema-record-button, .birthday-countdown { transition: none !important; }
+}
+@media (max-width: 520px) {
+  body.mobile-tools-open .hud-wish-wrap { left: auto !important; right: max(18px, env(safe-area-inset-right)) !important; width: max-content !important; bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+  body.mobile-tools-open .hud-wish-wrap .wish-btn { width: auto !important; }
+  body.mobile-tools-open .tilt-mode-button { left: auto !important; right: max(18px, env(safe-area-inset-right)) !important; bottom: calc(126px + env(safe-area-inset-bottom)) !important; }
+  body.mobile-tools-open .cinema-record-button { left: auto !important; right: max(18px, env(safe-area-inset-right)) !important; bottom: calc(176px + env(safe-area-inset-bottom)) !important; }
 }
