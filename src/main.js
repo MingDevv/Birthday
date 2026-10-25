@@ -663,13 +663,18 @@ function flyToPlanet(planetId) {
   soundManager.playClickSound();
 
   const targetLookAt = planetItem.group.position.clone();
-  // Camera frames the planet with the glowing heart and galaxy in the background
-  const targetCamPos = targetLookAt.clone().add(
-    new THREE.Vector3(0, planetItem.config.radius * 1.5, planetItem.config.radius * 3.8)
-  );
+  const isFinalPlanet = planetId === solarSystem.planetsList[solarSystem.planetsList.length - 1]?.id;
+  // Give the final planet a closer hero shot, then hold it briefly before the
+  // memory card covers the scene. Keep the usual wider composition for others.
+  const cameraOffset = isFinalPlanet
+    ? new THREE.Vector3(0, planetItem.config.radius * 1.1, planetItem.config.radius * 2.7)
+    : new THREE.Vector3(0, planetItem.config.radius * 1.5, planetItem.config.radius * 3.8);
+  const targetCamPos = targetLookAt.clone().add(cameraOffset);
 
   const currentDist = camera.position.distanceTo(targetCamPos);
-  const duration = currentDist > 90 ? 2.2 : 1.5;
+  const duration = isFinalPlanet
+    ? (currentDist > 90 ? 2.8 : 2.0)
+    : (currentDist > 90 ? 2.2 : 1.5);
 
   gsap.to(camera.position, {
     x: targetCamPos.x,
@@ -687,7 +692,11 @@ function flyToPlanet(planetId) {
     ease: 'power3.inOut',
     onComplete: () => {
       isCinematicFlying = false;
-      polaroidModal.show(planetItem.memory);
+      if (isFinalPlanet) {
+        gsap.delayedCall(0.9, () => polaroidModal.show(planetItem.memory));
+      } else {
+        polaroidModal.show(planetItem.memory);
+      }
     }
   });
 }
