@@ -159,3 +159,4 @@ npm run visual:qa -- --phase=handoff
 - QA ครบชุดที่รันล่าสุด `round3-final` ปิด browser ระหว่างเปิดหลายฉาก WebGL จึงไม่ถือว่ารอบนั้นผ่าน; ใช้ผล QA แบบ targeted ที่จบพร้อมภาพประกอบแทน และไม่อ้างผล console/หน่วยความจำ/ประสิทธิภาพที่ไม่ได้ตรวจครบ
 - ยังไม่ได้ทำ automated stress test เปิดดาวแบบสุ่ม 5 ลำดับและเป่าซ้ำ 5 รอบเพื่อตรวจ renderer resource; ยังไม่ได้ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram, ไมค์จริง, tilt iOS หรือ FPS จริง
 - ไม่แก้ `memoriesData.js`, รูป placeholder หรือ `src/config/optionalFeatures.js`; ข้อความลับยังคงเป็น `มีความสุขมากๆนะไอ่อ้วนน💗`
+- Push `main` ด้วย commit `d7684ce` และ deploy production บน Vercel สำเร็จ 26 ตุลาคม 2026; deployment `dpl_3kbZnR16QGL98pFym8z72DBE9m98` สถานะ READY, alias `https://birthday-pi-wheat.vercel.app` ตอบ HTTP 200 และเสิร์ฟ `assets/index-BrI1JQwE.js`
