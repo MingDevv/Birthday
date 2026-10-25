@@ -237,6 +237,7 @@ const galaxy = createGalaxySkybox(scene, currentQuality);
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
 const solarSystem = createSolarSystemHeart(scene, currentQuality, { effectsEnabled: !queryFlags.fxOff });
 const cosmicCake = createCosmicCake(scene, currentQuality, { enabled: !queryFlags.fxOff });
+solarSystem.setCakeRef(cosmicCake);
 const pointerStarTrail = queryFlags.fxOff || window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ? null
   : createPointerStarTrail(scene, camera, currentQuality);
@@ -333,7 +334,7 @@ function showEpilogueActions() {
   panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
     uiDirector.hide('epilogue-actions');
     finaleSequenceStarted = false;
-    solarSystem.setFinaleMode(false);
+    solarSystem.setStage('explore');
     flow.go('EXPLORE');
     flyToPlanet(1);
   });
@@ -348,8 +349,7 @@ function enterEpilogue() {
   uiDirector.hideAll();
   flow.go('EPILOGUE');
   document.body.classList.remove('flow-finale');
-  solarSystem.setFinaleMode(false);
-  solarSystem.setCakeStage(false);
+  solarSystem.setStage('epilogue');
   orbitClock.scale = 1;
   controls.autoRotate = true;
   returnToCenterOrbit();
@@ -362,7 +362,7 @@ function dismissFinaleAfterCake() {
   stopCakeMic();
   const finishCakeExit = () => {
     cosmicCake.hide();
-    solarSystem.setCakeStage(false);
+    solarSystem.setStage('epilogue');
     const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
     if (!message || queryFlags.fxOff || prefersReducedMotion) {
       enterEpilogue();
@@ -402,8 +402,13 @@ function finishCake() {
 
 function showCakeActions() {
   if (cakeActions) return;
-  solarSystem.setFinaleMode(true);
-  solarSystem.setCakeStage(true);
+  solarSystem.setStage('cake');
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const cakeCamPos = isPortrait ? new THREE.Vector3(0, 55, 175) : new THREE.Vector3(0, 40, 120);
+  const cakeTarget = new THREE.Vector3(0, 8, -5);
+  gsap.to(camera.position, { x: cakeCamPos.x, y: cakeCamPos.y, z: cakeCamPos.z, duration: prefersReducedMotion ? 0.2 : 2.0, ease: 'power2.inOut' });
+  gsap.to(controls.target, { x: cakeTarget.x, y: cakeTarget.y, z: cakeTarget.z, duration: prefersReducedMotion ? 0.2 : 2.0, ease: 'power2.inOut' });
+
   if (queryFlags.fxOff || !cosmicCake.reveal(() => soundManager.playMusicBoxTone(1174.66, 0.055, 0.018))) {
     flow.go('FINALE_CAKE');
     const card = document.createElement('div');
@@ -469,8 +474,7 @@ function startFinaleSequence() {
   flow.go('FINALE_ALIGN');
   controls.autoRotate = false;
   isCinematicFlying = true;
-  solarSystem.setFinaleMode(true);
-  solarSystem.setFinaleHeart(true);
+  solarSystem.setStage('finale-align');
   gsap.to(orbitClock, { scale: 0, duration: prefersReducedMotion ? 0.1 : 1.0, ease: 'power2.out' });
   const portrait = window.innerHeight > window.innerWidth;
   const targetPosition = new THREE.Vector3(0, portrait ? 45 : 30, portrait ? 245 : 175);
@@ -478,9 +482,9 @@ function startFinaleSequence() {
   gsap.to(controls.target, { x: 0, y: 0, z: -6, duration: prefersReducedMotion ? .2 : 2.4, ease: 'power3.inOut', onComplete: () => {
     isCinematicFlying = false;
     flow.go('FINALE_HEART');
+    solarSystem.setStage('finale-heart');
     flow.after(() => {
       flow.go('FINALE_CAKE');
-      solarSystem.setFinaleHeart(false);
       showCakeActions();
     }, prefersReducedMotion ? 500 : 2800);
   }});
@@ -1406,14 +1410,14 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
   });
 }
 
-if (queryFlags.qaScene === 'name-front') {
+if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name') {
   hud.hide();
   isGalaxyView = true;
   spiralGalaxy.setGalaxyView(true);
   name3DText.show();
-  camera.fov = 34;
-  camera.position.set(0, 36, 72);
-  controls.target.set(0, 36, -220);
+  camera.fov = 36;
+  camera.position.set(0, 32, 60);
+  controls.target.set(0, 32, -150);
   controls.minDistance = 10;
   controls.maxDistance = 500;
   camera.updateProjectionMatrix();
@@ -1433,13 +1437,36 @@ if (queryFlags.qaScene === 'name-front') {
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
   solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, qaPreview: true });
+} else if (queryFlags.qaScene === 'finale-align') {
+  hud.hide();
+  camera.position.set(0, 30, 175);
+  controls.target.set(0, 0, -6);
+  for (const planet of solarSystem.planetsList) {
+    solarSystem.markVisited(planet.id);
+    visitedMemories.add(planet.id);
+  }
+  solarSystem.setStage('finale-align');
+} else if (queryFlags.qaScene === 'epilogue-return') {
+  hud.hide();
+  camera.position.set(0, 30, 175);
+  controls.target.set(0, 0, -6);
+  for (const planet of solarSystem.planetsList) {
+    solarSystem.markVisited(planet.id);
+    visitedMemories.add(planet.id);
+  }
+  solarSystem.setStage('finale-align');
+  window.setTimeout(() => {
+    solarSystem.setStage('epilogue');
+  }, 350);
 } else if (queryFlags.qaScene === 'final-heart') {
   hud.hide();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
-  for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
-  solarSystem.setFinaleMode(true);
-  solarSystem.setFinaleHeart(true);
+  for (const planet of solarSystem.planetsList) {
+    solarSystem.markVisited(planet.id);
+    visitedMemories.add(planet.id);
+  }
+  solarSystem.setStage('finale-heart');
 } else if (queryFlags.qaScene === 'signature-earth') {
   hud.hide();
   camera.position.copy(defaultCameraPos);
@@ -1457,13 +1484,21 @@ if (queryFlags.qaScene === 'name-front') {
   hud.hide();
   const focusId = Number(queryFlags.qaScene.slice('focus-'.length));
   if (Number.isInteger(focusId) && focusId >= 1 && focusId <= solarSystem.planetsList.length) flyToPlanet(focusId);
-} else if (queryFlags.qaScene === 'cake') {
+} else if (queryFlags.qaScene === 'cake' || queryFlags.qaScene === 'cake-front' || queryFlags.qaScene === 'cake-top' || queryFlags.qaScene === 'cake-lit') {
   hud.hide();
-  camera.position.set(0, 24, 150);
-  controls.target.set(0, 4, -5);
-  for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
+  for (const planet of solarSystem.planetsList) {
+    solarSystem.markVisited(planet.id);
+    visitedMemories.add(planet.id);
+  }
   showCakeActions();
-} else if (queryFlags.qaScene === 'arrival-16' || queryFlags.qaScene === 'arrival-caption') {
+  if (queryFlags.qaScene === 'cake-top') {
+    camera.position.set(0, 68, 48);
+    controls.target.set(0, 8, -5);
+  } else {
+    camera.position.set(0, 40, 120);
+    controls.target.set(0, 8, -5);
+  }
+} else if (queryFlags.qaScene?.startsWith('arrival-')) {
   hud.hide();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
@@ -1654,14 +1689,86 @@ document.addEventListener('visibilitychange', () => {
 
 function animate() {
   requestAnimationFrame(animate);
-  if (queryFlags.qaScene) window.__qaIsFlying = isCinematicFlying;
-  if (queryFlags.qaScene === 'flow-stress') {
+  if (queryFlags.qaScene) {
+    window.__qaIsFlying = isCinematicFlying;
+    window.__qaCosmicCake = cosmicCake;
+    window.__qaSceneAudit = () => {
+      const visibleObjects = [];
+      const isVisibleChain = (obj) => {
+        let cur = obj;
+        while (cur) {
+          if (!cur.visible) return false;
+          cur = cur.parent;
+        }
+        return true;
+      };
+      scene.traverse((obj) => {
+        if ((obj.isMesh || obj.isLine || obj.isLineSegments || obj.isPoints || obj.isSprite) && isVisibleChain(obj)) {
+          visibleObjects.push({
+            name: obj.name || '(unnamed)',
+            type: obj.type,
+            parentName: obj.parent?.name || '(no-parent)'
+          });
+        }
+      });
+      return visibleObjects;
+    };
+    window.__qaCandleScreenPositions = () => {
+      const flames = cosmicCake?.flames || [];
+      return flames.map((flame) => {
+        const worldPos = new THREE.Vector3();
+        flame.getWorldPosition(worldPos);
+        const proj = worldPos.clone().project(camera);
+        return {
+          index: flame.userData.index,
+          visible: flame.visible,
+          x: (proj.x * 0.5 + 0.5) * window.innerWidth,
+          y: (-proj.y * 0.5 + 0.5) * window.innerHeight
+        };
+      });
+    };
+    window.__qaArrivalNameBounds = () => {
+      const nameObj = window.__qaArrivalName?.group;
+      if (!nameObj) return null;
+      const box = new THREE.Box3().setFromObject(nameObj);
+      const corners = [
+        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+      ];
+      const screenCorners = corners.map((c) => {
+        const p = c.clone().project(camera);
+        return {
+          x: (p.x * 0.5 + 0.5) * window.innerWidth,
+          y: (-p.y * 0.5 + 0.5) * window.innerHeight
+        };
+      });
+      const minX = Math.min(...screenCorners.map(p => p.x));
+      const maxX = Math.max(...screenCorners.map(p => p.x));
+      const minY = Math.min(...screenCorners.map(p => p.y));
+      const maxY = Math.max(...screenCorners.map(p => p.y));
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        widthFraction: (maxX - minX) / window.innerWidth,
+        heightFraction: (maxY - minY) / window.innerHeight
+      };
+    };
+  }
+  if (queryFlags.qaScene === 'flow-stress' || queryFlags.qaScene?.startsWith('cake')) {
     window.__qaRendererInfo = { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
   }
   if (queryFlags.qaScene === 'cake') {
     const message = cosmicCake.group.getObjectByName('cakeSecretMessage');
     const world = message?.getWorldPosition(new THREE.Vector3());
-    window.__qaCakeMessage = message ? { visible: message.visible, reveal: message.material.userData.shader?.uniforms.uReveal.value, world: world.toArray(), screen: world.clone().project(camera).toArray(), color: message.material.color?.getHexString?.() } : null;
+    window.__qaCakeMessage = message ? { visible: message.visible, world: world.toArray(), screen: world.clone().project(camera).toArray() } : null;
   }
   if (document.hidden || webglContextLost) return;
   stats?.begin();

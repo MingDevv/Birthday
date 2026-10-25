@@ -35,7 +35,7 @@ export class HudOverlay {
           <div class="hud-brand">
             <div class="hud-title-wrap">
               <span class="hud-planet-icon" id="hud-brand-icon">🎂</span>
-              <h1 class="hud-main-title"><span class="hud-title-desktop">${PLANET_CONFIG.mainTitle}</span><span class="hud-title-mobile">${PLANET_CONFIG.recipientName}</span></h1>
+              <h1 class="hud-main-title"><span class="hud-title-desktop">${PLANET_CONFIG.mainTitle.replace(PLANET_CONFIG.recipientName, `<span class="hud-name-emph">${PLANET_CONFIG.recipientName}</span>`)}</span><span class="hud-title-mobile"><span class="hud-name-emph">${PLANET_CONFIG.recipientName}</span></span></h1>
             </div>
             <p class="hud-subtitle" id="hud-brand-sub">${PLANET_CONFIG.subtitle}</p>
           </div>

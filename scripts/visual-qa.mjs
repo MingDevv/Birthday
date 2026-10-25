@@ -110,7 +110,201 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round3-') && onlyScene === 'flow-stress') {
+  if (phase.startsWith('round4-')) {
+    console.log(`Running Round 4 QA Suite for phase: ${phase}...`);
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+    page.on('pageerror', (error) => errors.push(`round4: ${error.message}`));
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(`round4: ${message.text()}`); });
+
+    // 1. Scene Audit in Cake Mode (Desktop)
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(2000);
+
+    const auditReport = await page.evaluate(() => {
+      if (typeof window.__qaSceneAudit !== 'function') return { ok: false, error: '__qaSceneAudit missing' };
+      const objects = window.__qaSceneAudit();
+      const allowPatterns = [
+        /^cosmicBirthdayCake/i,
+        /^cake/i,
+        /heart.*topper/i,
+        /fireworks|burst/i,
+        /skybox|stars|galaxy/i
+      ];
+      const disallowed = objects.filter((o) => {
+        return !allowPatterns.some((pattern) => pattern.test(o.name) || pattern.test(o.parentName));
+      });
+      return { ok: disallowed.length === 0, disallowed, total: objects.length };
+    });
+    if (!auditReport.ok) {
+      errors.push(`Scene audit failed in cake mode! Disallowed visible objects: ${JSON.stringify(auditReport.disallowed)}`);
+    } else {
+      console.log(`[PASS] 7.1 Scene audit clean: ${auditReport.total} permitted objects, 0 leaked objects.`);
+    }
+
+    await page.screenshot({ path: path.join(outputDir, 'cake-front.png') });
+    console.log(`Saved ${path.join(outputDir, 'cake-front.png')}`);
+
+    // Cake Lit & Candle Separation
+    const candleCheck = await page.evaluate(() => {
+      const positions = window.__qaCandleScreenPositions?.() || [];
+      const visibleFlames = positions.filter((p) => p.visible);
+      let minDistance = Infinity;
+      for (let i = 0; i < visibleFlames.length; i++) {
+        for (let j = i + 1; j < visibleFlames.length; j++) {
+          const dx = visibleFlames[i].x - visibleFlames[j].x;
+          const dy = visibleFlames[i].y - visibleFlames[j].y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < minDistance) minDistance = dist;
+        }
+      }
+      const minDistancePercent = (minDistance / window.innerWidth) * 100;
+      return {
+        flameCount: visibleFlames.length,
+        minDistance,
+        minDistancePercent
+      };
+    });
+    if (candleCheck.flameCount !== 16) {
+      errors.push(`[FAIL] 7.2 Candle flame count before blow: expected 16, got ${candleCheck.flameCount}`);
+    } else if (candleCheck.minDistancePercent < 1.0) {
+      errors.push(`[FAIL] 7.2 Candle separation too close: ${candleCheck.minDistancePercent.toFixed(2)}% of screen (required >= 1.0%)`);
+    } else {
+      console.log(`[PASS] 7.2 Candle separation verified: 16 flames, min distance = ${candleCheck.minDistancePercent.toFixed(2)}% of screen width.`);
+    }
+    await page.screenshot({ path: path.join(outputDir, 'cake-lit.png') });
+
+    // Blow candles out
+    await page.locator('.cake-blow-button').click();
+    await page.waitForTimeout(2000);
+    const postBlowCheck = await page.evaluate(() => {
+      const positions = window.__qaCandleScreenPositions?.() || [];
+      return positions.filter((p) => p.visible).length;
+    });
+    if (postBlowCheck !== 0) {
+      errors.push(`[FAIL] 7.2 Candle flame count after blow: expected 0, got ${postBlowCheck}`);
+    } else {
+      console.log(`[PASS] 7.2 All candles blown out cleanly: 0 flames remaining.`);
+    }
+    await page.screenshot({ path: path.join(outputDir, 'cake-blown.png') });
+
+    // 2. Cake Top View
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=cake-top`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(1600);
+    await page.screenshot({ path: path.join(outputDir, 'cake-top.png') });
+    console.log(`Saved ${path.join(outputDir, 'cake-top.png')}`);
+
+    // 3. Finale Arc & Finale Heart
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=finale-align`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(1400);
+    await page.screenshot({ path: path.join(outputDir, 'finale-align.png') });
+
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=final-heart`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(1400);
+    await page.screenshot({ path: path.join(outputDir, 'finale-heart.png') });
+
+    // 4. Epilogue Smooth Return (mid-transition snapshot)
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=epilogue-return`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(650);
+    await page.screenshot({ path: path.join(outputDir, 'epilogue-return.png') });
+
+    // 5. Galaxy 3D Name
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=galaxy-name`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: path.join(outputDir, 'galaxy-name.png') });
+
+    // 6. Arrival Sequence: 16 -> Name Reveal -> Caption
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=arrival-16`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+
+    // Number 16
+    await page.waitForFunction(() => window.__qaArrivalStage === 'number', undefined, { timeout: 10000 });
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(outputDir, 'arrival-16.png') });
+
+    // Advance to Name Reveal "ข้าวหอม"
+    await page.evaluate(() => window.__qaAdvanceArrivalStep?.());
+    await page.waitForFunction(() => window.__qaArrivalStage === 'name', undefined, { timeout: 10000 });
+    await page.waitForTimeout(900);
+    const nameBounds = await page.evaluate(() => window.__qaArrivalNameBounds?.());
+    if (!nameBounds) {
+      errors.push('[FAIL] 7.3 Arrival name bounds missing');
+    } else {
+      if (nameBounds.heightFraction < 0.14) {
+        errors.push(`[FAIL] 7.3 Arrival name height fraction ${(nameBounds.heightFraction * 100).toFixed(1)}% < 14%`);
+      } else {
+        console.log(`[PASS] 7.3 Arrival name height ${(nameBounds.heightFraction * 100).toFixed(1)}% >= 14%`);
+      }
+      if (nameBounds.widthFraction < 0.45) {
+        errors.push(`[FAIL] 7.3 Arrival name width fraction ${(nameBounds.widthFraction * 100).toFixed(1)}% < 45%`);
+      } else {
+        console.log(`[PASS] 7.3 Arrival name width ${(nameBounds.widthFraction * 100).toFixed(1)}% >= 45%`);
+      }
+    }
+    const nameImage = await page.screenshot({ path: path.join(outputDir, 'arrival-name.png') });
+    const luminance = calculateLuminance(nameImage);
+    console.log(`Arrival name luminance:`, luminance);
+
+    // Advance to Caption
+    await page.evaluate(() => window.__qaAdvanceArrivalStep?.());
+    await page.waitForFunction(() => window.__qaArrivalStage === 'caption', undefined, { timeout: 10000 });
+    await page.waitForSelector('.arrival-lower-third', { timeout: 10000 });
+    const captionHtml = await page.locator('.arrival-lower-third').innerHTML();
+    if (!captionHtml.includes('<strong class="name-emph">ข้าวหอม</strong>')) {
+      errors.push(`[FAIL] 5.3 Caption does not have emphasized '<strong class="name-emph">ข้าวหอม</strong>': ${captionHtml}`);
+    } else {
+      console.log(`[PASS] 5.3 Caption contains emphasized name: <strong class="name-emph">ข้าวหอม</strong>`);
+    }
+    await page.screenshot({ path: path.join(outputDir, 'arrival-caption.png') });
+
+    // 7. Portrait Viewports
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForTimeout(1600);
+    await page.screenshot({ path: path.join(outputDir, 'cake-front-portrait.png') });
+
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&qa=arrival-16`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForFunction(() => window.__qaArrivalStage === 'number', undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__qaAdvanceArrivalStep?.());
+    await page.waitForFunction(() => window.__qaArrivalStage === 'name', undefined, { timeout: 10000 });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(outputDir, 'arrival-name-portrait.png') });
+
+    // 8. 5-Cycle Repeat Blowout Stress Test
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await waitForAssets(page);
+    await page.waitForSelector('.cake-blow-button', { timeout: 15000 });
+    await page.locator('.cake-blow-button').click();
+    await page.waitForSelector('.ui-epilogue-actions', { timeout: 15000 });
+
+    const resourceCounts = [];
+    resourceCounts.push(await page.evaluate(() => window.__qaRendererInfo));
+    for (let cycle = 1; cycle <= 5; cycle++) {
+      await page.locator('.ui-epilogue-actions [data-action="cake"]').click();
+      await page.waitForSelector('.cake-blow-button', { timeout: 25000 });
+      await page.locator('.cake-blow-button').click();
+      await page.waitForSelector('.ui-epilogue-actions', { timeout: 25000 });
+      resourceCounts.push(await page.evaluate(() => window.__qaRendererInfo));
+    }
+    const firstResources = resourceCounts[0];
+    for (const [index, res] of resourceCounts.entries()) {
+      if (!res || res.geometries > firstResources.geometries + 2 || res.textures > firstResources.textures + 2) {
+        errors.push(`Three.js resources grew after cake cycle ${index}: ${JSON.stringify(resourceCounts)}`);
+        break;
+      }
+    }
+    console.log(`[PASS] 7.5 5-cycle blowout repeat stress passed. Resources: ${JSON.stringify(resourceCounts[resourceCounts.length - 1])}`);
+
+    await page.close();
+  } else if (phase.startsWith('round3-') && onlyScene === 'flow-stress') {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
     page.on('pageerror', (error) => errors.push(`flow-stress: ${error.message}`));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(`flow-stress: ${message.text()}`); });

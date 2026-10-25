@@ -881,6 +881,33 @@ body.cinema-portrait #webgl-canvas {
 .ui-zone-top-right { right: 16px; top: 16px; }
 .ui-captions { position: fixed; width: min(88vw, 760px); color: #fff5fc; text-align: center; font: 600 clamp(18px, 2vw, 26px)/1.45 'Prompt', sans-serif; text-shadow: 0 2px 16px rgba(0,0,0,.9); pointer-events: none; }
 .flight-lower-third, .arrival-lower-third { top: auto; bottom: max(8vh, calc(88px + env(safe-area-inset-bottom))); left: 50%; width: min(90vw, 1100px); transform: translateX(-50%); padding: 10px 16px; border-bottom: 1px solid rgba(255,225,246,.48); font-size: clamp(18px, 1.35vw, 24px); animation: captionRise .45s ease both; }
+.arrival-caption .name-emph {
+  font-size: 1.9em;
+  font-weight: 800;
+  letter-spacing: .02em;
+  background: linear-gradient(90deg, #ffe7a8, #ff9ec7, #d8b4ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 14px rgba(0,0,0,.9));
+  padding: 0 .15em;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: baseline;
+}
+.hud-name-emph {
+  font-size: 1.15em;
+  font-weight: 800;
+  background: linear-gradient(90deg, #ffe7a8, #ff9ec7, #d8b4ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  display: inline-block;
+  padding: 0 2px;
+}
 @keyframes captionRise { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .focus-caption { bottom: calc(22px + env(safe-area-inset-bottom)); width: min(90vw, 720px); padding: 8px 16px; border-bottom: 1px solid rgba(255,225,246,.42); font: 600 clamp(14px, 1.5vw, 19px)/1.3 'Prompt',sans-serif; letter-spacing: .08em; }
 .ui-action-slot { position: fixed; display: flex; align-items: center; justify-content: center; gap: 10px; max-width: calc(100vw - 28px); }

@@ -434,9 +434,17 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   const memoryLineRecords = [];
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let finalHeartLine = null;
+  let currentStage = 'explore';
   let finaleMode = false;
+  let finaleBlend = 0;
   let finaleHeartEmphasis = false;
   let finaleHeartLineScale = 1;
+  let currentHeartScale = 1.0;
+  let targetHeartScale = 1.0;
+  const heartOriginPos = new THREE.Vector3(0, 0, 0);
+  const currentHeartPos = new THREE.Vector3(0, 0, 0);
+  const targetHeartPos = new THREE.Vector3(0, 0, 0);
+  let cakeRef = null;
   const finalePlanetPositions = [
     new THREE.Vector3(-32, -2, -7), new THREE.Vector3(-24, 18, -7), new THREE.Vector3(0, 28, -7),
     new THREE.Vector3(24, 18, -7), new THREE.Vector3(32, -2, -7)
@@ -581,6 +589,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     depthTest: false
   });
   const sparkPoints = new THREE.Points(sparkGeo, sparkMat);
+  sparkPoints.name = 'sparkPoints';
   heartGroup.add(sparkPoints);
 
   // ===========================================================================
@@ -693,7 +702,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       toneMapped: false
     });
     const orbitRibbon = new THREE.Mesh(pathGeo, pathMat);
-    orbitRibbon.name = `orbitRibbon_${pConfig.id}`;
+    orbitRibbon.name = `orbitPath-${pConfig.id}`;
     rootGroup.add(orbitRibbon);
     orbitPathMaterials.set(pConfig.id, pathMat);
 
@@ -723,6 +732,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       depthWrite: false
     });
     const orbitSparkPoints = new THREE.Points(orbitSparkGeo, orbitSparkMat);
+    orbitSparkPoints.name = `orbitStream-${pConfig.id}`;
     rootGroup.add(orbitSparkPoints);
 
     orbitalParticleSystems.push({
@@ -803,6 +813,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     beaconTexture.colorSpace = THREE.SRGBColorSpace;
     const beaconMaterial = new THREE.SpriteMaterial({ map: beaconTexture, transparent: true, opacity: 0.2, depthTest: true, depthWrite: false, toneMapped: false });
     const beaconSprite = new THREE.Sprite(beaconMaterial);
+    beaconSprite.name = `beaconSprite-${pConfig.id}`;
     beaconSprite.scale.set(pConfig.radius * 5.2, pConfig.radius * 1.3, 1);
     beaconSprite.position.set(0, pConfig.radius * 2.45, 0);
     planetNode.add(beaconSprite);
@@ -1079,22 +1090,132 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       heartMat.needsUpdate = true;
     },
 
-    setFinaleMode(enabled) {
-      finaleMode = enabled;
-      planetsList.forEach((planet) => {
-        const orbit = orbitPathMaterials.get(planet.id);
-        if (orbit) orbit.opacity = enabled ? 0.08 : (planet.mesh.userData.visited ? 0.28 : 0.13);
-      });
-      if (enabled && !finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
+    setCakeRef(cakeInstance) {
+      cakeRef = cakeInstance;
     },
 
-    setFinaleHeart(enabled) { finaleHeartEmphasis = enabled; },
+    setStage(stageName) {
+      currentStage = stageName;
+      if (stageName === 'cake') {
+        finaleMode = true;
+        heartGroup.name = 'heartTopper';
+        heartGroup.visible = true;
+        targetHeartScale = 0.3;
+        planetsList.forEach((planet) => { planet.group.visible = false; });
+        for (const [id, material] of orbitPathMaterials.entries()) {
+          material.opacity = 0;
+          const ribbon = rootGroup.getObjectByName(`orbitPath-${id}`);
+          if (ribbon) ribbon.visible = false;
+        }
+        orbitalParticleSystems.forEach((ops) => {
+          ops.points.visible = false;
+          ops.points.material.opacity = 0;
+        });
+        sparkPoints.visible = false;
+        memoryLineRecords.forEach((record) => { record.line.visible = false; });
+        if (finalHeartLine) finalHeartLine.visible = false;
+        planetsList.forEach((planet) => {
+          if (planet.beaconSprite) planet.beaconSprite.visible = false;
+          if (planet.labelSprite) planet.labelSprite.visible = false;
+        });
+        if (enchantedRose?.group) enchantedRose.group.visible = false;
+      } else if (stageName === 'finale-align') {
+        finaleMode = true;
+        finaleHeartEmphasis = false;
+        heartGroup.name = 'cosmicHeartCenter';
+        heartGroup.visible = true;
+        targetHeartScale = 1.0;
+        targetHeartPos.set(0, 0, 0);
+        planetsList.forEach((planet) => { planet.group.visible = true; });
+        for (const [id, material] of orbitPathMaterials.entries()) {
+          material.opacity = 0.08;
+          const ribbon = rootGroup.getObjectByName(`orbitPath-${id}`);
+          if (ribbon) ribbon.visible = true;
+        }
+        orbitalParticleSystems.forEach((ops) => {
+          ops.points.visible = true;
+          ops.points.material.opacity = 0.12;
+        });
+        sparkPoints.visible = true;
+        memoryLineRecords.forEach((record) => { record.line.visible = true; });
+        if (!finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
+        if (finalHeartLine) finalHeartLine.visible = true;
+        planetsList.forEach((planet) => {
+          if (planet.beaconSprite) planet.beaconSprite.visible = false;
+          if (planet.labelSprite) planet.labelSprite.visible = false;
+        });
+        if (enchantedRose?.group) enchantedRose.group.visible = false;
+      } else if (stageName === 'finale-heart') {
+        finaleMode = true;
+        finaleHeartEmphasis = true;
+        heartGroup.name = 'cosmicHeartCenter';
+        heartGroup.visible = true;
+        targetHeartScale = 1.0;
+        targetHeartPos.set(0, 0, 0);
+        planetsList.forEach((planet) => { planet.group.visible = true; });
+        for (const [id, material] of orbitPathMaterials.entries()) {
+          material.opacity = 0.08;
+          const ribbon = rootGroup.getObjectByName(`orbitPath-${id}`);
+          if (ribbon) ribbon.visible = true;
+        }
+        orbitalParticleSystems.forEach((ops) => {
+          ops.points.visible = false;
+          ops.points.material.opacity = 0;
+        });
+        sparkPoints.visible = true;
+        memoryLineRecords.forEach((record) => { record.line.visible = true; });
+        if (!finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
+        if (finalHeartLine) finalHeartLine.visible = true;
+        planetsList.forEach((planet) => {
+          if (planet.beaconSprite) planet.beaconSprite.visible = false;
+          if (planet.labelSprite) planet.labelSprite.visible = false;
+        });
+        if (enchantedRose?.group) enchantedRose.group.visible = false;
+      } else {
+        // 'explore' or 'epilogue'
+        finaleMode = false;
+        finaleHeartEmphasis = false;
+        heartGroup.name = 'cosmicHeartCenter';
+        heartGroup.visible = true;
+        targetHeartScale = 1.0;
+        targetHeartPos.set(0, 0, 0);
+        planetsList.forEach((planet) => { planet.group.visible = true; });
+        for (const [id, material] of orbitPathMaterials.entries()) {
+          const p = planetsList.find((planet) => planet.id === id);
+          material.opacity = p?.mesh.userData.visited ? 0.28 : 0.13;
+          const ribbon = rootGroup.getObjectByName(`orbitPath-${id}`);
+          if (ribbon) ribbon.visible = true;
+        }
+        orbitalParticleSystems.forEach((ops) => {
+          ops.points.visible = true;
+          ops.points.material.opacity = 0.36;
+        });
+        sparkPoints.visible = true;
+        memoryLineRecords.forEach((record) => { record.line.visible = true; });
+        if (finalHeartLine) finalHeartLine.visible = true;
+        planetsList.forEach((planet) => {
+          if (planet.beaconSprite) planet.beaconSprite.visible = true;
+        });
+        if (enchantedRose?.group) enchantedRose.group.visible = true;
+      }
+    },
+
+    setFinaleMode(enabled) {
+      if (enabled) {
+        if (currentStage !== 'cake' && currentStage !== 'finale-heart') this.setStage('finale-align');
+      } else {
+        this.setStage('explore');
+      }
+    },
+
+    setFinaleHeart(enabled) {
+      if (enabled) this.setStage('finale-heart');
+      else if (currentStage === 'finale-heart') this.setStage('finale-align');
+    },
 
     setCakeStage(enabled) {
-      planetsList.forEach((planet) => { planet.group.visible = !enabled; });
-      for (const material of orbitPathMaterials.values()) material.opacity = enabled ? 0.035 : (finaleMode ? 0.08 : 0.13);
-      finaleHeartLineScale = enabled ? 0.28 : 1;
-      heartGroup.visible = true;
+      if (enabled) this.setStage('cake');
+      else this.setStage('explore');
     },
 
     showFinalRose() {
@@ -1227,6 +1348,14 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           effect.onComplete?.();
         }
       }
+      if (currentStage === 'cake') {
+        const cakeY = cakeRef?.group ? cakeRef.group.position.y : -3;
+        targetHeartPos.set(0, cakeY + 24 * 2.05, -5);
+      }
+      currentHeartPos.lerp(targetHeartPos, reducedMotion ? 1 : Math.min(1, delta * 4.0));
+      heartGroup.position.copy(currentHeartPos);
+      currentHeartScale = THREE.MathUtils.damp(currentHeartScale, targetHeartScale, reducedMotion ? 8 : 3.5, delta);
+
       // 1. Realistic Biomimetic Heartbeat Pulse
       const cycle = (realTime * 2.2) % (Math.PI * 2);
       let beat = 0;
@@ -1237,36 +1366,36 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       }
 
       beat += Math.min(0.08, musicBass * 0.12);
-      const heartScale = 1.0 + beat;
+      const heartScale = (1.0 + beat) * currentHeartScale;
       heartMesh.scale.set(heartScale, heartScale, heartScale);
-      heartLight.intensity = 1.45 + beat * 1.2;
-      auraSprite.scale.set(16 + beat * 2, 16 + beat * 2, 1);
+      heartLight.intensity = (1.45 + beat * 1.2) * (currentStage === 'cake' ? 0.35 : 1.0);
+      auraSprite.scale.set((16 + beat * 2) * currentHeartScale, (16 + beat * 2) * currentHeartScale, 1);
 
       // Pulse spark particles gently
-      const positions = sparkPoints.geometry.attributes.position.array;
-      for (let i = 0; i < sparkCount; i++) {
-        positions[i * 3] = baseSparkPositions[i * 3] + Math.sin(realTime * 0.7 + i) * 0.12;
-        positions[i * 3 + 1] = baseSparkPositions[i * 3 + 1] + Math.sin(realTime * 1.5 + i) * 0.12;
-        positions[i * 3 + 2] = baseSparkPositions[i * 3 + 2] + Math.cos(realTime * 0.7 + i) * 0.12;
+      if (sparkPoints.visible) {
+        const positions = sparkPoints.geometry.attributes.position.array;
+        for (let i = 0; i < sparkCount; i++) {
+          positions[i * 3] = baseSparkPositions[i * 3] + Math.sin(realTime * 0.7 + i) * 0.12;
+          positions[i * 3 + 1] = baseSparkPositions[i * 3 + 1] + Math.sin(realTime * 1.5 + i) * 0.12;
+          positions[i * 3 + 2] = baseSparkPositions[i * 3 + 2] + Math.cos(realTime * 0.7 + i) * 0.12;
+        }
+        sparkPoints.geometry.attributes.position.needsUpdate = true;
+        sparkPoints.rotation.y += delta * 0.06;
       }
-      sparkPoints.geometry.attributes.position.needsUpdate = true;
-      sparkPoints.rotation.y += delta * 0.06;
+
+      const targetBlend = (currentStage === 'finale-align' || currentStage === 'finale-heart' || currentStage === 'cake') ? 1.0 : 0.0;
+      finaleBlend = THREE.MathUtils.damp(finaleBlend, targetBlend, reducedMotion ? 8 : 1.8, delta);
 
       // 2. Planets Orbital Motion & Self-Spin
       const nextPlanet = planetsList.find((planet) => !planet.mesh.userData.visited);
       planetsList.forEach(p => {
-        p.beaconSprite.visible = !finaleMode;
+        p.beaconSprite.visible = !finaleMode && currentStage !== 'cake';
         const status = p.mesh.userData.visited ? 'visited' : p === nextPlanet ? 'next' : 'locked';
         p.drawBeacon?.(status);
         p.beaconSprite.material.opacity = status === 'visited' ? 0.86
           : status === 'next' ? (effectsEnabled && !reducedMotion ? 0.68 + Math.sin(realTime * 2.2) * 0.2 : 0.82)
             : 0.18;
-        if (finaleMode) {
-          p.group.position.lerp(finalePlanetPositions[p.id - 1], reducedMotion ? 1 : Math.min(1, delta * 1.7));
-          p.mesh.material.emissiveIntensity = p.mesh.userData.visited ? 0.08 : 0.015;
-          p.mesh.rotation.y += delta * p.config.spinSpeed;
-          return;
-        }
+
         const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
         const r = p.config.orbitRadius;
         const incl = p.config.inclination;
@@ -1276,9 +1405,16 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         const y = Math.sin(currentAngle) * (r * incl);
 
         const radius = r * (1 + (0.015 + (p.id - 1) * 0.006) * Math.cos(currentAngle));
-        p.group.position.set(Math.cos(currentAngle) * radius, y, Math.sin(currentAngle) * radius);
+        const orbitPos = new THREE.Vector3(Math.cos(currentAngle) * radius, y, Math.sin(currentAngle) * radius);
         const orbitSystem = orbitalParticleSystems[p.id - 1];
-        p.group.position.applyEuler(orbitSystem.tilt);
+        orbitPos.applyEuler(orbitSystem.tilt);
+
+        const finalePos = finalePlanetPositions[p.id - 1];
+        p.group.position.lerpVectors(orbitPos, finalePos, finaleBlend);
+
+        p.mesh.material.emissiveIntensity = finaleBlend > 0.5
+          ? (p.mesh.userData.visited ? 0.08 : 0.015)
+          : (p.mesh.userData.visited ? 0.12 : p.mesh.userData.baseEmissiveIntensity);
         p.mesh.rotation.y += delta * p.config.spinSpeed;
         if (p.cloudLayer) p.cloudLayer.rotation.y -= delta * 0.24;
 
@@ -1288,25 +1424,31 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       });
 
       // 3. Flowing Orbital Stardust Streams
-      orbitalParticleSystems.forEach(ops => {
-        const posArr = ops.points.geometry.attributes.position.array;
-        for (let i = 0; i < ops.count; i++) {
-          const a = ops.phases[i] + orbitTime * ops.speed;
-          const radius = ops.radius * (1 + ops.eccentricity * Math.cos(a));
-          const point = new THREE.Vector3(
-            Math.cos(a) * radius,
-            Math.sin(a) * (ops.radius * ops.inclination),
-            Math.sin(a) * radius
-          ).applyEuler(ops.tilt);
-          posArr[i * 3] = point.x;
-          posArr[i * 3 + 1] = point.y;
-          posArr[i * 3 + 2] = point.z;
-        }
-        ops.points.geometry.attributes.position.needsUpdate = true;
-        ops.points.material.opacity = 0.36 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
-      });
+      if (currentStage !== 'cake') {
+        orbitalParticleSystems.forEach(ops => {
+          if (!ops.points.visible) return;
+          const posArr = ops.points.geometry.attributes.position.array;
+          for (let i = 0; i < ops.count; i++) {
+            const a = ops.phases[i] + orbitTime * ops.speed;
+            const radius = ops.radius * (1 + ops.eccentricity * Math.cos(a));
+            const point = new THREE.Vector3(
+              Math.cos(a) * radius,
+              Math.sin(a) * (ops.radius * ops.inclination),
+              Math.sin(a) * radius
+            ).applyEuler(ops.tilt);
+            posArr[i * 3] = point.x;
+            posArr[i * 3 + 1] = point.y;
+            posArr[i * 3 + 2] = point.z;
+          }
+          ops.points.geometry.attributes.position.needsUpdate = true;
+          ops.points.material.opacity = currentStage.startsWith('finale')
+            ? 0.12
+            : 0.36 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
+        });
+      }
 
       memoryLineRecords.forEach((record) => {
+        if (!record.line.visible) return;
         record.progress = reducedMotion ? record.targetProgress : Math.min(record.targetProgress, record.progress + delta * 0.9);
         if (record.tube) {
           record.line.geometry.setDrawRange(0, Math.ceil(record.pointCount * record.progress));
@@ -1333,7 +1475,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           ? 0.7 + Math.sin(realTime * 2.2) * 0.14
           : 0.64 + Math.sin(realTime * 2.2 + record.progress) * 0.1;
       });
-      if (finalHeartLine) {
+      if (finalHeartLine && finalHeartLine.visible) {
         const scale = finalHeartLine.scale.x;
         const nextScale = THREE.MathUtils.lerp(scale, finaleHeartLineScale, reducedMotion ? 1 : Math.min(1, delta * 1.2));
         finalHeartLine.scale.setScalar(nextScale);
