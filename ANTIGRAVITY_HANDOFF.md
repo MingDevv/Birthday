@@ -187,3 +187,18 @@ npm run visual:qa -- --phase=handoff
 - `npm run build` ผ่านหลังเพิ่มเมนู/animation/เสียง; targeted mobile QA ผ่านหลังแก้ตำแหน่ง (สคริปต์จบและสร้างภาพทั้งสองสถานะ); `git diff --check` ผ่าน
 - การเปลี่ยนแปลง checkpoint นี้ยัง **ไม่ได้ deploy production**; production ยังเป็น deployment เดิม `dpl_3kbZnR16QGL98pFym8z72DBE9m98`
 - งานต่อเมื่อ resume: ทำ storyboard S0–S8 ที่ยังขาด, curved/wipe cake caption, state cleanup สำหรับ timeline/callback ทุกจุด, ขยาย automated scenario/image matrix (รวมสุ่มดาว 5 แบบ, resize/visibility, reduced motion, mic denial, repeat cake/resource counts และ mobile landscape), ตรวจภาพทั้งหมด, build/QA แล้ว deploy production
+
+### ผลปิดงานรอบ 3 — 26 ตุลาคม 2026
+
+บันทึกนี้แทนสถานะ/รายการค้างใน checkpoint และการตรวจทานก่อนหน้าข้างบน ซึ่งเขียนไว้ก่อนทำงานต่อ:
+
+- ภาพตามฉากถูกสร้างและเปิดตรวจ: loading, intro, flight caption, เลข 16, arrival caption, explore, focus ครบ 5 ดาว, memory reveal 4 ขั้นและการ์ดใบที่ 5, finale align/heart, cake lit/blown, epilogue, `?fx=off`, mobile portrait/tools และ mobile landscape; ไฟล์อยู่ในโฟลเดอร์ `qa/round3-*`
+- เพิ่ม QA สำหรับสุ่มลำดับ 5 ชุด; ทั้ง `3→1→5→4→2`, `1→2→3→4→5`, `5→4→3→2→1`, `2→4→1→5→3` และ `4→2→5→1→3` ผ่าน โดยไม่เริ่มฉากจบก่อนปิดการ์ดใบที่ 5
+- Flow stress ผ่าน: คลิกรัว/กด Escape/resize ระหว่างบิน, ตรวจ UI layer ต่อ state, ทดสอบไมค์ถูกปฏิเสธแล้วเป่าเทียนด้วยปุ่มได้, ตรวจลบปุ่มหลังเป่า และเป่าเค้กซ้ำ 5 ครั้งโดย geometry/texture ใน `renderer.info` ไม่เพิ่มต่อรอบ
+- ตรวจพบและแก้ texture จากแฟลชพลุดาวไม่ถูก dispose; แก้ตำแหน่งข้อความลับบนเค้กไม่ให้ชน action slot; เพิ่มการตรวจ overlap ใน mobile landscape และจัดวางแถบเครื่องมือให้ไม่ตัดคำหรือชนปุ่ม
+- Reduced-motion และ `?fx=off` ผ่าน QA แบบ targeted; ภาพตรวจข้อความลับแสดงตรงตาม `มีความสุขมากๆนะไอ่อ้วนน💗`; ไม่แก้ข้อความไทยเดิม, `memoriesData.js`, `optionalFeatures.js` หรือ placeholder รูป
+- `npm run build`, `node --check scripts/visual-qa.mjs` และ `git diff --check` ผ่านหลังการแก้ล่าสุด; ไม่ใช้ SwiftShader เพื่ออ้าง FPS
+
+ข้อจำกัดที่ยังต้องให้เจ้าของตรวจบนอุปกรณ์จริง: มือถืออย่างน้อย 2 รุ่น, LINE/Instagram in-app browser, ไมค์และ tilt บน iOS, WebGL context restore และประสิทธิภาพ/FPS จริง รูปความทรงจำยังคงเป็น placeholder ตามที่เจ้าของจะส่งรูปภายหลัง; `finalMessage` ยังว่าง จึงไม่มีหน้าจอจดหมายแบบกำหนดเองให้ทดสอบ
+
+การ deploy รอบนี้จะบันทึก commit, deployment ID และ URL ที่ตรวจ HTTP แล้วด้านล่างหลัง push/deploy สำเร็จ.

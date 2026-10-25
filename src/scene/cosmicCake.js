@@ -69,8 +69,18 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let revealed = false;
   let blown = false;
   let cakeMessage = null;
+  let cakeMessageReveal = 0;
   let lastLitCandleCount = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const disposeCakeMessage = () => {
+    if (!cakeMessage) return;
+    group.remove(cakeMessage);
+    cakeMessage.material.map?.dispose();
+    cakeMessage.material.dispose();
+    cakeMessage.geometry.dispose();
+    cakeMessage = null;
+    cakeMessageReveal = 0;
+  };
   return {
     group,
     get revealed() { return revealed; },
@@ -89,13 +99,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       return true;
     },
     setMessage(message) {
-      if (cakeMessage) {
-        group.remove(cakeMessage);
-        cakeMessage.material.map?.dispose();
-        cakeMessage.material.dispose();
-        cakeMessage.geometry.dispose();
-        cakeMessage = null;
-      }
+      disposeCakeMessage();
       if (!message) return;
       const canvas = document.createElement('canvas');
       canvas.width = 1600;
@@ -111,11 +115,22 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       context.fillText(message, 800, 90);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      cakeMessage = new THREE.Mesh(new THREE.PlaneGeometry(45, 5.1), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false, side: THREE.DoubleSide }));
+      const geometry = new THREE.PlaneGeometry(45, 5.1, 64, 1);
+      const positions = geometry.attributes.position;
+      for (let index = 0; index < positions.count; index += 1) {
+        const x = positions.getX(index);
+        positions.setY(index, positions.getY(index) - Math.pow(x / 45, 2) * 1.5);
+        positions.setZ(index, -Math.pow(x / 45, 2) * 4.2);
+      }
+      geometry.computeVertexNormals();
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+      cakeMessage = new THREE.Mesh(geometry, material);
       cakeMessage.name = 'cakeSecretMessage';
+      cakeMessageReveal = 0;
       // Keep the note in front of the cake's opaque geometry so depth testing
       // preserves real occlusion without burying the text inside the tiers.
-      cakeMessage.position.set(0, -17, 20);
+      cakeMessage.position.set(0, -6, 40);
+      cakeMessage.scale.x = 0.01;
       group.add(cakeMessage);
     },
     blowOut(onComplete, onCandleOut) {
@@ -138,6 +153,10 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     update(delta, time) {
       if (!revealed) return;
       revealProgress = reducedMotion ? 1 : Math.min(1, revealProgress + delta / 1.4);
+      if (cakeMessage) {
+        cakeMessageReveal = reducedMotion ? 1 : Math.min(1, cakeMessageReveal + delta / 0.85);
+        cakeMessage.scale.x = Math.max(0.01, cakeMessageReveal);
+      }
       group.position.y = THREE.MathUtils.lerp(-30, -3, revealProgress * revealProgress * (3 - 2 * revealProgress));
       const litCandleCount = Math.ceil(revealProgress * flames.length);
       if (!blown && litCandleCount > lastLitCandleCount) {
@@ -157,18 +176,14 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       revealed = false;
       blown = false;
       revealProgress = 0;
+      cakeMessageReveal = 0;
       lastLitCandleCount = 0;
       group.userData.onCandleLit = null;
       flames.forEach((flame) => { flame.visible = true; });
-      if (cakeMessage) {
-        group.remove(cakeMessage);
-        cakeMessage.material.map?.dispose();
-        cakeMessage.material.dispose();
-        cakeMessage.geometry.dispose();
-        cakeMessage = null;
-      }
+      disposeCakeMessage();
     },
     dispose() {
+      disposeCakeMessage();
       group.traverse((object) => {
         object.geometry?.dispose();
         if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose());

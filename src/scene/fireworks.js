@@ -134,6 +134,7 @@ export function createFireworksSystem(scene, soundManager, uiDirector = null) {
       if (flashAge >= 0.34) {
         clearInterval(flashInterval);
         fireworksGroup.remove(flashSprite);
+        flashTex.dispose();
         flashMat.dispose();
       }
     }, 30);

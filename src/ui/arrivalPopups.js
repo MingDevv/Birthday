@@ -1,22 +1,19 @@
-import * as THREE from 'three';
-import { createWorldText } from '../scene/worldText.js';
+import { createArrivalNumber } from '../scene/arrivalNumber.js';
 
-export function showArrivalCelebrationFlow(soundManager, { uiDirector, scene, camera, worldTextRegistry, reducedMotion = false, quality = { tier: 'medium' } } = {}) {
+export function showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, worldTextRegistry, reducedMotion = false, quality = { tier: 'medium' } } = {}) {
   if (soundManager) soundManager.playChimeSound();
-  const number = createWorldText(scene, {
-    text: 'อายุ 16 แล้วนะ! 🎉✨',
-    font: '900 116px Prompt, sans-serif',
-    color: '#ffe3aa',
-    width: 58,
-    height: 12,
-    position: new THREE.Vector3(0, 20, -7)
-  });
+  const number = createArrivalNumber(scene, { quality: quality.tier });
   worldTextRegistry?.add(number);
+  if (new URLSearchParams(location.search).get('qa')?.startsWith('arrival-')) {
+    window.__qaArrivalNumber = number;
+    window.__qaArrivalStage = 'number';
+  }
   number.show(reducedMotion ? .05 : .55);
-  const numberDuration = quality.tier === 'low' ? 2100 : 2500;
+  const numberDuration = quality.tier === 'low' ? 1900 : 2200;
   const addCaption = () => {
+    if (window.__qaArrivalNumber) window.__qaArrivalStage = 'caption';
     const caption = document.createElement('div');
-    caption.className = 'ui-captions arrival-caption';
+    caption.className = 'ui-captions arrival-caption arrival-lower-third';
     caption.innerHTML = '<span>สุขสันต์วันเกิดนะข้าวหอม ขอให้วัย 16 ปีนี้เต็มไปด้วยรอยยิ้ม ความสุข<br>และการเติบโตที่เปล่งประกายที่สุดในจักรวาล 💜</span>';
     uiDirector.show({
       id: 'arrival-caption', zone: 'center-stage', layer: 'cinematic', exclusive: true,
@@ -24,10 +21,8 @@ export function showArrivalCelebrationFlow(soundManager, { uiDirector, scene, ca
       onClose: () => showGuideCardPrompt(uiDirector, { reducedMotion })
     });
   };
-  window.setTimeout(() => {
-    number.hide(reducedMotion ? 0 : .3);
-    window.setTimeout(addCaption, reducedMotion ? 50 : 320);
-  }, reducedMotion ? 1000 : numberDuration);
+  flow?.after(() => number.hide(reducedMotion ? 0 : .3), reducedMotion ? 1000 : numberDuration, 'EXPLORE');
+  flow?.after(addCaption, (reducedMotion ? 1000 : numberDuration) + (reducedMotion ? 50 : 620), 'EXPLORE');
 }
 
 export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) {

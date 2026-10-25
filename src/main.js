@@ -39,6 +39,10 @@ const flow = createFlow({
   ui: uiDirector,
   onChange: ({ next }) => {
     document.body.classList.remove('mobile-tools-open');
+    if (!['ARRIVAL', 'EXPLORE'].includes(next)) {
+      activeWorldTexts?.forEach((item) => item.dispose());
+      activeWorldTexts?.clear();
+    }
     const grade = {
       FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
       FINALE_ALIGN: [1.04, 0.98, 0.92], FINALE_HEART: [1.08, 0.99, 0.94], FINALE_CAKE: [1.06, 0.98, 0.92]
@@ -265,12 +269,21 @@ const tiltState = { enabled: false, targetX: 0, targetY: 0, currentX: 0, current
 
 function setupTiltMode() {
   if (queryFlags.fxOff || queryFlags.cinema || prefersReducedMotion || !matchMedia('(pointer: coarse)').matches) return;
+  if (uiDirector.entries.some((entry) => entry.id === 'tilt-mode')) return;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'tilt-mode-button';
   button.textContent = 'เปิดโหมดเอียงเครื่อง';
   button.setAttribute('aria-pressed', 'false');
-  uiDirector.show({ id: 'tilt-mode', zone: 'bottom-left', layer: 'action', exclusive: false, element: button, states: ['EXPLORE', 'EPILOGUE'] });
+  uiDirector.show({ id: 'tilt-mode', zone: 'bottom-left', layer: 'action', exclusive: false, element: button, states: ['EXPLORE', 'EPILOGUE'], onClose: () => {
+    window.removeEventListener('deviceorientation', onOrientation);
+    tiltState.enabled = false;
+    tiltState.targetX = 0;
+    tiltState.targetY = 0;
+    tiltState.appliedX = 0;
+    tiltState.appliedY = 0;
+    tiltState.button = null;
+  } });
   tiltState.button = button;
   const onOrientation = (event) => {
     tiltState.targetX = THREE.MathUtils.clamp((event.gamma || 0) / 30, -1, 1) * 0.052;
@@ -291,6 +304,7 @@ function setupTiltMode() {
         const permission = await window.DeviceOrientationEvent.requestPermission();
         if (permission !== 'granted') return;
       }
+      if (!button.isConnected) return;
       window.addEventListener('deviceorientation', onOrientation, { passive: true });
       tiltState.enabled = true;
       button.textContent = 'ปิดโหมดเอียงเครื่อง';
@@ -346,35 +360,38 @@ function dismissFinaleAfterCake() {
   uiDirector.hide('cake-actions');
   cakeActions = null;
   stopCakeMic();
+  const finishCakeExit = () => {
+    cosmicCake.hide();
+    solarSystem.setCakeStage(false);
+    const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
+    if (!message || queryFlags.fxOff || prefersReducedMotion) {
+      enterEpilogue();
+      return;
+    }
+    flow.go('FINALE_LETTER');
+    const letter = document.createElement('div');
+    letter.className = 'finale-letter-card';
+    const text = document.createElement('p');
+    letter.append(text);
+    let index = 0;
+    const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 6500, element: letter, states: ['FINALE_LETTER'] });
+    const timer = window.setInterval(() => {
+      text.textContent = [...message].slice(0, ++index).join('');
+      if (index >= [...message].length) window.clearInterval(timer);
+    }, Math.max(20, 6000 / [...message].length));
+    letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
+    handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
+  };
   gsap.to(cosmicCake.group.position, {
     y: -30,
     duration: prefersReducedMotion ? 0.18 : 0.7,
     ease: 'power2.in',
-    onComplete: () => { cosmicCake.hide(); solarSystem.setCakeStage(false); }
+    onComplete: finishCakeExit
   });
-  const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
-  if (!message || queryFlags.fxOff || prefersReducedMotion) {
-    enterEpilogue();
-    return;
-  }
-  flow.go('FINALE_LETTER');
-  const letter = document.createElement('div');
-  letter.className = 'finale-letter-card';
-  const text = document.createElement('p');
-  letter.append(text);
-  let index = 0;
-  const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 6500, element: letter, states: ['FINALE_LETTER'] });
-  const timer = window.setInterval(() => {
-    text.textContent = message.slice(0, index += 1);
-    if (index >= [...message].length) window.clearInterval(timer);
-  }, Math.max(20, 6000 / [...message].length));
-  letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
-  handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
 }
 
 function celebrateCake() {
   stopCakeMic();
-  flow.go('FINALE_LETTER');
   fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
   dismissFinaleAfterCake();
 }
@@ -412,7 +429,7 @@ function showCakeActions() {
   const micButton = document.createElement('button');
   micButton.type = 'button';
   micButton.className = 'cake-mic-button secondary';
-  micButton.textContent = 'ใช้ไมค์เป่า';
+  micButton.innerHTML = '<span>ใช้ไมค์เป่า</span><small>ระบบจะขอใช้ไมค์เฉพาะตอนนี้</small>';
   panel.append(blowButton, micButton);
   cakeActions = uiDirector.show({ id: 'cake-actions', zone: 'bottom-center', layer: 'action', exclusive: true, element: panel, states: ['FINALE_CAKE'] });
   blowButton.addEventListener('click', finishCake);
@@ -476,7 +493,7 @@ function setupShootingStarWishes() {
 }
 
 function setupCinemaRecorder() {
-  if (!queryFlags.cinema || !canvas.captureStream || !window.MediaRecorder) return;
+  if (!queryFlags.cinema || !canvas.captureStream || !window.MediaRecorder || uiDirector.entries.some((entry) => entry.id === 'cinema-recorder')) return;
   const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
     .find((type) => MediaRecorder.isTypeSupported?.(type));
   if (!mimeType) return;
@@ -484,7 +501,11 @@ function setupCinemaRecorder() {
   cinemaButton.type = 'button';
   cinemaButton.className = 'cinema-record-button';
   cinemaButton.textContent = 'อัดคลิป';
-  uiDirector.show({ id: 'cinema-recorder', zone: 'bottom-left', layer: 'action', exclusive: false, element: cinemaButton, states: ['FLIGHT', 'ARRIVAL', 'EXPLORE', 'EPILOGUE'] });
+  uiDirector.show({ id: 'cinema-recorder', zone: 'bottom-left', layer: 'action', exclusive: false, element: cinemaButton, states: ['FLIGHT', 'ARRIVAL', 'EXPLORE', 'EPILOGUE'], onClose: () => {
+    window.removeEventListener('keydown', stopRecordingOnEscape);
+    if (cinemaRecorder?.state === 'recording') cinemaRecorder.stop();
+    cinemaButton = null;
+  } });
   cinemaButton.addEventListener('click', () => {
     if (cinemaRecorder?.state === 'recording') {
       cinemaRecorder.stop();
@@ -505,16 +526,17 @@ function setupCinemaRecorder() {
       cinemaStream?.getTracks().forEach((track) => track.stop());
       cinemaStream = null;
       soundManager.stopRecordingAudio();
-      cinemaButton.textContent = 'อัดคลิป';
+      if (cinemaButton) cinemaButton.textContent = 'อัดคลิป';
       document.body.classList.remove('cinema-recording');
     };
     cinemaRecorder.start(500);
     cinemaButton.textContent = 'หยุดและบันทึก';
     document.body.classList.add('cinema-recording');
   });
-  window.addEventListener('keydown', (event) => {
+  const stopRecordingOnEscape = (event) => {
     if (event.key === 'Escape' && cinemaRecorder?.state === 'recording') cinemaRecorder.stop();
-  });
+  };
+  window.addEventListener('keydown', stopRecordingOnEscape);
 }
 
 function setupMobileToolsMenu() {
@@ -881,6 +903,10 @@ function startCinematicApproach(onComplete) {
   skipBtn.className = 'skip-flight-btn ui-action-slot';
   skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง ⏩</span>';
   const skipHandle = uiDirector.show({ id: 'skip-flight', zone: 'bottom-center', layer: 'action', exclusive: true, element: skipBtn, states: ['FLIGHT'] });
+  const flightCaption = document.createElement('div');
+  flightCaption.className = 'ui-captions flight-lower-third';
+  flightCaption.textContent = 'ยินดีต้อนรับสู่ดาวลูกหมู 🐷✨';
+  uiDirector.show({ id: 'flight-caption', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 3600, element: flightCaption, states: ['FLIGHT'] });
 
   soundManager.playWhooshSound();
 
@@ -915,7 +941,7 @@ function startCinematicApproach(onComplete) {
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
       flow.go('EXPLORE');
-      showArrivalCelebrationFlow(soundManager, { uiDirector, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
+      showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
     };
     if (queryFlags.fxOff) finishArrival();
     else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival });
@@ -1234,6 +1260,8 @@ function returnToCenterOrbit() {
     ease: 'power3.out',
     onComplete: () => {
       isCinematicFlying = false;
+      setupTiltMode();
+      setupCinemaRecorder();
     }
   });
 }
@@ -1424,13 +1452,22 @@ if (queryFlags.qaScene === 'name-front') {
   }
 } else if (queryFlags.qaScene === 'modal-slide') {
   hud.hide();
-  flyToPlanet(2);
+  flyToPlanet(Number(new URLSearchParams(location.search).get('qaMemory')) || 2);
+} else if (queryFlags.qaScene?.startsWith('focus-')) {
+  hud.hide();
+  const focusId = Number(queryFlags.qaScene.slice('focus-'.length));
+  if (Number.isInteger(focusId) && focusId >= 1 && focusId <= solarSystem.planetsList.length) flyToPlanet(focusId);
 } else if (queryFlags.qaScene === 'cake') {
   hud.hide();
   camera.position.set(0, 24, 150);
   controls.target.set(0, 4, -5);
   for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
   showCakeActions();
+} else if (queryFlags.qaScene === 'arrival-16' || queryFlags.qaScene === 'arrival-caption') {
+  hud.hide();
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+  showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
 }
 
 setupShootingStarWishes();
@@ -1617,6 +1654,15 @@ document.addEventListener('visibilitychange', () => {
 
 function animate() {
   requestAnimationFrame(animate);
+  if (queryFlags.qaScene) window.__qaIsFlying = isCinematicFlying;
+  if (queryFlags.qaScene === 'flow-stress') {
+    window.__qaRendererInfo = { geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures };
+  }
+  if (queryFlags.qaScene === 'cake') {
+    const message = cosmicCake.group.getObjectByName('cakeSecretMessage');
+    const world = message?.getWorldPosition(new THREE.Vector3());
+    window.__qaCakeMessage = message ? { visible: message.visible, reveal: message.material.userData.shader?.uniforms.uReveal.value, world: world.toArray(), screen: world.clone().project(camera).toArray(), color: message.material.color?.getHexString?.() } : null;
+  }
   if (document.hidden || webglContextLost) return;
   stats?.begin();
 

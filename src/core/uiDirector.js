@@ -10,6 +10,7 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
   const registry = new Map();
   let state = 'LOADING';
   let modalOpen = false;
+  const modalBackgrounds = [];
   const allowed = {
     LOADING: ['system'], INTRO: ['system', 'cinematic'], FLIGHT: ['action', 'cinematic'],
     ARRIVAL: ['cinematic', 'coach'], EXPLORE: ['hud', 'action', 'coach', 'toast', 'cinematic'],
@@ -51,6 +52,7 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
     el.dataset.uiLayer = id;
     el.dataset.uiZone = zone;
     el.dataset.uiLayerType = layer;
+    if (states) el.dataset.uiStates = states.join(',');
     el.classList.add('ui-director-item', `ui-zone-${zone}`, `ui-layer-${layer}`);
     el.style.zIndex = LAYER_Z[layer];
     root.append(el);
@@ -93,6 +95,22 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
     setModalOpen(open) {
       modalOpen = open;
       for (const entry of registry.values()) if (entry.layer !== 'modal') setInert(entry, open);
+      for (const element of root.querySelectorAll('.hud-container, .mobile-tools-toggle, .ui-epilogue-actions')) {
+        if (element.closest('[data-ui-layer]')?.dataset.uiLayerType === 'modal') continue;
+        if (open) {
+          if (!modalBackgrounds.some((item) => item.element === element)) modalBackgrounds.push({ element, inert: element.inert, ariaHidden: element.getAttribute('aria-hidden') });
+          element.inert = true;
+          element.setAttribute('aria-hidden', 'true');
+        } else {
+          const saved = modalBackgrounds.find((item) => item.element === element);
+          if (saved) {
+            element.inert = saved.inert;
+            if (saved.ariaHidden === null) element.removeAttribute('aria-hidden');
+            else element.setAttribute('aria-hidden', saved.ariaHidden);
+          } else element.inert = false;
+        }
+      }
+      if (!open) modalBackgrounds.length = 0;
     },
     get state() { return state; },
     get entries() { return [...registry.values()].map(({ id, zone, layer, el }) => ({ id, zone, layer, el })); }
