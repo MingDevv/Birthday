@@ -201,4 +201,4 @@ npm run visual:qa -- --phase=handoff
 
 ข้อจำกัดที่ยังต้องให้เจ้าของตรวจบนอุปกรณ์จริง: มือถืออย่างน้อย 2 รุ่น, LINE/Instagram in-app browser, ไมค์และ tilt บน iOS, WebGL context restore และประสิทธิภาพ/FPS จริง รูปความทรงจำยังคงเป็น placeholder ตามที่เจ้าของจะส่งรูปภายหลัง; `finalMessage` ยังว่าง จึงไม่มีหน้าจอจดหมายแบบกำหนดเองให้ทดสอบ
 
-การ deploy รอบนี้จะบันทึก commit, deployment ID และ URL ที่ตรวจ HTTP แล้วด้านล่างหลัง push/deploy สำเร็จ.
+การ deploy รอบนี้สำเร็จ: commit `bbf7b5c` ถูก push ไป `main`; Vercel deployment `dpl_3hjEL4DnXsDnAutDQYHZUwvNuvCG` สถานะ READY, production alias `https://birthday-pi-wheat.vercel.app` ตอบ HTTP 200 และหน้าเว็บโหลด `assets/index-CBxQ6oaE.js` / `assets/index-Dhc0DyEQ.css` ตรงกับ build ล่าสุด.
