@@ -9,6 +9,8 @@ const port = Number(process.env.VISUAL_QA_PORT || 4173);
 const baseUrl = `http://127.0.0.1:${port}/`;
 const phaseArg = process.argv.find((argument) => argument.startsWith('--phase='));
 const phase = phaseArg?.split('=')[1] || 'p0';
+const onlyArg = process.argv.find((argument) => argument.startsWith('--only='));
+const onlyScene = onlyArg?.split('=')[1];
 const outputDir = path.resolve('qa', phase);
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -62,6 +64,10 @@ function calculateLuminance(buffer) {
   };
 }
 
+async function waitForAssets(page) {
+  await page.waitForFunction(() => document.querySelector('#asset-loading')?.classList.contains('asset-loading-done'), undefined, { timeout: 90000 });
+}
+
 try {
   await ready();
   browser = await chromium.launch({
@@ -70,7 +76,73 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  for (const viewport of [
+  if (phase === 'round2-R0') {
+    const allScenes = [
+      { file: 'name-front.png', query: 'skipintro=1&quality=low&qa=name-front', wait: 2400 },
+      { file: 'bulge-closeup.png', query: 'skipintro=1&quality=medium&qa=bulge-closeup', wait: 1200 },
+      { file: 'arrival-constellation.png', query: 'skipintro=1&quality=low&qa=arrival-constellation', wait: 1200 },
+      { file: 'final-heart.png', query: 'skipintro=1&quality=low&qa=final-heart', wait: 2400 },
+      { file: 'signature-earth.png', query: 'skipintro=1&quality=medium&qa=signature-earth', wait: 1200 },
+      { file: 'modal-slide.png', query: 'skipintro=1&quality=low&qa=modal-slide', wait: 4200 },
+      { file: 'cinema-recorder.png', query: 'cinema=1&quality=low', wait: 1200, record: true },
+      { file: 'cake.png', query: 'skipintro=1&quality=low&qa=cake', wait: 2600 },
+      { file: 'orbit-visibility.png', query: 'quality=medium&skipintro=1', wait: 1800 }
+    ];
+    const scenes = onlyScene ? allScenes.filter((scene) => scene.file === `${onlyScene}.png`) : allScenes;
+    if (!scenes.length) throw new Error(`Unknown QA scene: ${onlyScene}`);
+    for (const scene of scenes) {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (error) => errors.push(`${scene.file}: ${error.message}`));
+      page.on('console', (message) => { if (message.type() === 'error') errors.push(`${scene.file}: ${message.text()}`); });
+      await page.goto(`${baseUrl}?mute=1&${scene.query}`, { waitUntil: 'domcontentloaded' });
+      await waitForAssets(page);
+      if (scene.file === 'orbit-visibility.png') {
+        await page.locator('#btn-toggle-galaxy').click();
+        await page.waitForTimeout(1200);
+      }
+      await page.waitForTimeout(scene.wait);
+      await page.screenshot({ path: path.join(outputDir, scene.file) });
+      if (scene.record) {
+        const recordButton = page.locator('.cinema-record-button');
+        await recordButton.waitFor({ timeout: 5000 });
+        const download = page.waitForEvent('download', { timeout: 10000 });
+        await recordButton.click();
+        await page.waitForTimeout(900);
+        await page.screenshot({ path: path.join(outputDir, 'cinema-recording.png') });
+        await recordButton.click();
+        const video = await download;
+        if (!video.suggestedFilename().endsWith('.webm')) errors.push('cinema recorder: expected a WebM download');
+      }
+      if (scene.file === 'cake.png') {
+        await page.locator('.cake-blow-button').click();
+        await page.waitForFunction(() => document.querySelector('.cake-blow-button')?.disabled, undefined, { timeout: 5000 });
+        await page.waitForTimeout(1500);
+        await page.screenshot({ path: path.join(outputDir, 'cake-blown.png') });
+      }
+      await page.close();
+      console.log(`${scene.file} -> ${path.join(outputDir, scene.file)}`);
+    }
+    const responsiveScenes = onlyScene ? [] : [
+      { name: 'portrait', viewport: { width: 1080, height: 1920 }, query: 'skipintro=1&ratio=9x16&quality=medium' },
+      { name: 'mobile', viewport: { width: 390, height: 844 }, query: 'skipintro=1&quality=low', isMobile: true, hasTouch: true }
+    ];
+    for (const scene of responsiveScenes) {
+      const page = await browser.newPage({
+        viewport: scene.viewport,
+        deviceScaleFactor: 1,
+        isMobile: scene.isMobile || false,
+        hasTouch: scene.hasTouch || false
+      });
+      page.on('pageerror', (error) => errors.push(`${scene.name}: ${error.message}`));
+      page.on('console', (message) => { if (message.type() === 'error') errors.push(`${scene.name}: ${message.text()}`); });
+      await page.goto(`${baseUrl}?mute=1&${scene.query}`, { waitUntil: 'domcontentloaded' });
+      await waitForAssets(page);
+      await page.waitForTimeout(1400);
+      await page.screenshot({ path: path.join(outputDir, `${scene.name}.png`) });
+      await page.close();
+      console.log(`${scene.name}.png -> ${path.join(outputDir, `${scene.name}.png`)}`);
+    }
+  } else for (const viewport of [
     { name: 'desktop', width: 1920, height: 1080 },
     { name: 'portrait', width: 1080, height: 1920 },
     { name: 'mobile', width: 390, height: 844 }
@@ -83,7 +155,7 @@ try {
       await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     }
     await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#asset-loading.asset-loading-done', { timeout: 20000 });
+    await waitForAssets(page);
     await page.evaluate(() => {
       window.__qaFrameTimes = [];
       let previous = 0;
@@ -130,6 +202,25 @@ try {
         await page.waitForFunction(() => document.querySelector('#memory-modal-backdrop')?.classList.contains('hidden'), undefined, { timeout: 5000 });
         await page.waitForTimeout(1750);
       }
+
+      const detailPage = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      detailPage.on('pageerror', (error) => errors.push(`detail: ${error.message}`));
+      detailPage.on('console', (message) => { if (message.type() === 'error') errors.push(`detail: ${message.text()}`); });
+      await detailPage.goto(`${baseUrl}?mute=1&quality=low&qa=name-front`, { waitUntil: 'domcontentloaded' });
+      await waitForAssets(detailPage);
+      await detailPage.waitForTimeout(2400);
+      await detailPage.screenshot({ path: path.join(outputDir, 'name-front.png') });
+      await detailPage.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium&qa=bulge-closeup`, { waitUntil: 'domcontentloaded' });
+      await waitForAssets(detailPage);
+      await detailPage.waitForTimeout(1200);
+      await detailPage.screenshot({ path: path.join(outputDir, 'bulge-closeup.png') });
+      await detailPage.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded' });
+      await waitForAssets(detailPage);
+      await detailPage.locator('.heart-dot[data-id="5"]').click();
+      await detailPage.waitForSelector('#memory-modal-backdrop.visible', { timeout: 10000 });
+      await detailPage.waitForTimeout(1200);
+      await detailPage.screenshot({ path: path.join(outputDir, 'quality-low-final-rose.png') });
+      await detailPage.close();
     }
     await page.close();
   }

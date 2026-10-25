@@ -122,7 +122,7 @@ export function createGalaxySkybox(scene, quality = {}) {
   // ---------------------------------------------------------------------------
   // 1. Temperature-colored pin-sharp starfield with a very restrained halo.
   // ---------------------------------------------------------------------------
-  const starCount = ({ low: 10000, medium: 20000, high: 30000, ultra: 30000 }[quality.tier])
+  const starCount = ({ low: 8500, medium: 17000, high: 25500, ultra: 25500 }[quality.tier])
     ?? Math.max(14000, quality.backgroundStars ?? 14000);
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(starCount * 3);
@@ -495,6 +495,18 @@ export function createGalaxySkybox(scene, quality = {}) {
   return {
     group: galaxyGroup,
     starField,
+    pickMeteor(raycaster) {
+      const activeHeads = meteorPool.filter((slot) => slot.active && slot.progress >= 0 && slot.progress < 1).map((slot) => slot.head);
+      const hit = raycaster.intersectObjects(activeHeads, false)[0];
+      if (!hit) return false;
+      const slot = meteorPool.find((entry) => entry.head === hit.object);
+      if (slot) {
+        slot.active = false;
+        slot.mat.opacity = 0;
+        slot.headMat.opacity = 0;
+      }
+      return Boolean(slot);
+    },
     setQuality(backgroundStars) {
       starGeo.setDrawRange(0, Math.min(backgroundStars, starCount));
     },

@@ -35,6 +35,24 @@ export async function loadPlanetTextures({ manager = THREE.DefaultLoadingManager
   }));
   const textures = Object.fromEntries(entries);
 
+  // Preload only owner-provided local memory images. Remote placeholder URLs
+  // stay untouched and do not delay the opening experience.
+  const localMemoryImages = MEMORIES_LIST.map((memory) => memory.image).filter((image) => {
+    if (!image) return false;
+    try {
+      return new URL(image, window.location.href).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  });
+  if (localMemoryImages.length) {
+    const imageLoader = new THREE.ImageLoader(manager);
+    await Promise.all(localMemoryImages.map((image) => imageLoader.loadAsync(image).catch((error) => {
+      console.warn(`Local memory image unavailable (${image}); it will use the card fallback.`, error);
+      return null;
+    })));
+  }
+
   // The local albedo maps carry useful relief, but sampling their RGB values
   // directly as bump data produces colored/noisy highlights. Build small
   // linear grayscale height maps once, off the render loop.
@@ -402,7 +420,7 @@ function createSparkleTexture() {
   return texture;
 }
 
-export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
+export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effectsEnabled = true } = {}) {
   const rootGroup = new THREE.Group();
   rootGroup.name = 'solarSystemHeartMaster';
   scene.add(rootGroup);
@@ -413,6 +431,9 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
   const planetsList = [];
   const orbitalParticleSystems = [];
   const orbitPathMaterials = new Map();
+  const memoryLineRecords = [];
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let finalHeartLine = null;
   let secretMessageSprite = null;
   let arrivalEffect = null;
 
@@ -454,6 +475,46 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
   const heartLight = new THREE.PointLight(0xd946ef, 1.05, 36, 1.8);
   heartLight.position.set(0, 0, 0);
   heartGroup.add(heartLight);
+
+  function createMemoryLine(startObject, endObject, color, name, pointCount = 40) {
+    const positions = new Float32Array(pointCount * 3);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setDrawRange(0, 1);
+    const material = new THREE.LineBasicMaterial({
+      color, transparent: true, opacity: 0.72, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const line = new THREE.Line(geometry, material);
+    line.name = name;
+    line.frustumCulled = false;
+    rootGroup.add(line);
+    memoryLineRecords.push({ line, startObject, endObject, pointCount, progress: 0, targetProgress: 1 });
+    return line;
+  }
+
+  function createFinalHeartLine() {
+    const pointCount = quality.tier === 'low' ? 96 : 160;
+    const positions = new Float32Array((pointCount + 1) * 3);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setDrawRange(0, 1);
+    const material = new THREE.LineBasicMaterial({
+      color: 0xff8bd1, transparent: true, opacity: 0.84, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    finalHeartLine = new THREE.Line(geometry, material);
+    finalHeartLine.name = 'memoryConstellationFinalHeart';
+    finalHeartLine.frustumCulled = false;
+    const attribute = geometry.attributes.position;
+    for (let index = 0; index <= pointCount; index += 1) {
+      const angle = (index / pointCount) * Math.PI * 2;
+      const x = 4 * 16 * Math.sin(angle) ** 3;
+      const y = 4 * (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle));
+      attribute.setXYZ(index, x, y, -8);
+    }
+    attribute.needsUpdate = true;
+    rootGroup.add(finalHeartLine);
+    memoryLineRecords.push({ line: finalHeartLine, pointCount: pointCount + 1, progress: 0, targetProgress: 1 });
+  }
 
   // Gentle Crystalline Aura Sprite (subtle romantic glow)
   const auraMat = new THREE.SpriteMaterial({
@@ -625,7 +686,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
     const pathMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
       transparent: true,
-      opacity: idx === 0 ? 0.17 : 0.035,
+      opacity: 0.13,
       blending: THREE.NormalBlending,
       depthWrite: false,
       toneMapped: false
@@ -652,7 +713,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
 
     orbitSparkGeo.setAttribute('position', new THREE.BufferAttribute(orbitSparkPos, 3));
     const orbitSparkMat = new THREE.PointsMaterial({
-      size: 1.0,
+      size: 1.25,
       map: glowTex,
       color: 0xe9d5ff,
       transparent: true,
@@ -1008,7 +1069,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
       enchantedRose.group.visible = true;
     },
 
-    startArrivalShape({ reducedMotion = false, onComplete } = {}) {
+    startArrivalShape({ reducedMotion = false, onComplete, qaPreview = false } = {}) {
       if (arrivalEffect) {
         arrivalEffect.onComplete = onComplete;
         return;
@@ -1025,37 +1086,59 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
       context.bezierCurveTo(172, 16, 236, 32, 236, 86);
       context.bezierCurveTo(236, 144, 160, 194, 128, 224);
       context.fill();
-      const pixels = context.getImageData(0, 0, 256, 256).data;
-      const candidates = [];
-      for (let y = 0; y < 256; y += 2) {
-        for (let x = 0; x < 256; x += 2) {
-          if (pixels[(y * 256 + x) * 4 + 3] > 0) candidates.push([x, y]);
+      const sampleMask = () => {
+        const pixels = context.getImageData(0, 0, 256, 256).data;
+        const candidates = [];
+        for (let y = 0; y < 256; y += 2) {
+          for (let x = 0; x < 256; x += 2) {
+            if (pixels[(y * 256 + x) * 4 + 3] > 0) candidates.push([x, y]);
+          }
         }
-      }
-      const count = reducedMotion ? 220 : 440;
+        return candidates;
+      };
+      const heartCandidates = sampleMask();
+      context.clearRect(0, 0, 256, 256);
+      context.font = '900 156px Prompt, Kanit, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('ขห', 128, 128);
+      const letterCandidates = sampleMask();
+      const count = reducedMotion ? 100 : quality.tier === 'low' ? 200 : quality.tier === 'medium' ? 320 : 500;
       const starts = new Float32Array(count * 3);
-      const targets = new Float32Array(count * 3);
+      const heartTargets = new Float32Array(count * 3);
+      const letterTargets = new Float32Array(count * 3);
       const positions = new Float32Array(count * 3);
       for (let i = 0; i < count; i += 1) {
-        const point = candidates[Math.floor(Math.random() * candidates.length)];
+        const heartPoint = heartCandidates[Math.floor(Math.random() * heartCandidates.length)];
+        const letterPoint = letterCandidates[Math.floor(Math.random() * letterCandidates.length)];
         const angle = Math.random() * Math.PI * 2;
         const radius = 100 + Math.random() * 110;
         const start = [Math.cos(angle) * radius, (Math.random() - 0.5) * 130, Math.sin(angle) * radius - 10];
-        const target = [(point[0] - 128) * 0.66, (128 - point[1]) * 0.62, -10 + (Math.random() - 0.5) * 2];
         starts.set(start, i * 3);
         positions.set(start, i * 3);
-        targets.set(target, i * 3);
+        heartTargets.set([(heartPoint[0] - 128) * 0.66, (128 - heartPoint[1]) * 0.62, -10 + (Math.random() - 0.5) * 2], i * 3);
+        letterTargets.set([(letterPoint[0] - 128) * 0.66, (128 - letterPoint[1]) * 0.62, -10 + (Math.random() - 0.5) * 2], i * 3);
       }
+      if (qaPreview) positions.set(letterTargets);
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       const material = new THREE.PointsMaterial({
-        map: sparkleTex, color: 0xffd9f1, size: 1.55, transparent: true, opacity: 0,
-        blending: THREE.AdditiveBlending, depthWrite: false
+        map: sparkleTex, color: 0xffe8f6, size: 2.1, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
       });
       const points = new THREE.Points(geometry, material);
       points.name = 'arrivalHeartParticleReveal';
       rootGroup.add(points);
-      arrivalEffect = { geometry, material, points, starts, targets, elapsed: 0, onComplete, travel: reducedMotion ? 0.15 : 1.45, hold: 1.2, fade: 0.55 };
+      arrivalEffect = {
+        geometry, material, points, starts, heartTargets, letterTargets,
+        elapsed: qaPreview ? (reducedMotion ? 0.23 : 1.9) : 0,
+        travel: reducedMotion ? 0.15 : 1.45,
+        letterTravel: reducedMotion ? 0.08 : 0.45,
+        hold: qaPreview ? 10 : reducedMotion ? 0.2 : 1.2,
+        onComplete,
+        collapse: reducedMotion ? 0.08 : 0.32,
+        fade: reducedMotion ? 0.16 : 0.45
+      };
     },
 
     update(delta, orbitTime, realTime = orbitTime, musicBass = 0) {
@@ -1064,14 +1147,47 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
         const effect = arrivalEffect;
         effect.elapsed += delta;
         const positions = effect.geometry.attributes.position.array;
-        const progress = THREE.MathUtils.clamp(effect.elapsed / effect.travel, 0, 1);
-        const eased = progress * progress * (3 - 2 * progress);
-        for (let i = 0; i < effect.starts.length; i += 1) positions[i] = THREE.MathUtils.lerp(effect.starts[i], effect.targets[i], eased);
+        const letterStart = effect.travel;
+        const holdStart = letterStart + effect.letterTravel;
+        const collapseStart = holdStart + effect.hold;
+        const fadeStart = collapseStart + effect.collapse;
+        let phaseProgress;
+        let from;
+        let to;
+        if (effect.elapsed < letterStart) {
+          phaseProgress = effect.elapsed / effect.travel;
+          from = effect.starts;
+          to = effect.heartTargets;
+        } else if (effect.elapsed < holdStart) {
+          phaseProgress = (effect.elapsed - letterStart) / effect.letterTravel;
+          from = effect.heartTargets;
+          to = effect.letterTargets;
+        } else if (effect.elapsed < collapseStart) {
+          phaseProgress = 1;
+          from = effect.letterTargets;
+          to = effect.letterTargets;
+        } else if (effect.elapsed < fadeStart) {
+          phaseProgress = (effect.elapsed - collapseStart) / effect.collapse;
+          from = effect.letterTargets;
+          to = null;
+        } else {
+          phaseProgress = 1;
+          from = effect.letterTargets;
+          to = null;
+        }
+        const eased = phaseProgress * phaseProgress * (3 - 2 * phaseProgress);
+        for (let i = 0; i < effect.starts.length; i += 3) {
+          for (let axis = 0; axis < 3; axis += 1) {
+            positions[i + axis] = to
+              ? THREE.MathUtils.lerp(from[i + axis], to[i + axis], eased)
+              : THREE.MathUtils.lerp(from[i + axis], axis === 2 ? 0 : 0, eased);
+          }
+        }
         effect.geometry.attributes.position.needsUpdate = true;
-        effect.material.opacity = effect.elapsed < effect.travel + effect.hold
-          ? Math.min(1, progress * 1.5)
-          : 1 - THREE.MathUtils.clamp((effect.elapsed - effect.travel - effect.hold) / effect.fade, 0, 1);
-        if (effect.elapsed >= effect.travel + effect.hold + effect.fade) {
+        effect.material.opacity = effect.elapsed < holdStart
+          ? Math.min(1, effect.elapsed / Math.max(0.01, effect.travel) * 1.5)
+          : 1 - THREE.MathUtils.clamp((effect.elapsed - fadeStart) / effect.fade, 0, 1);
+        if (effect.elapsed >= fadeStart + effect.fade) {
           rootGroup.remove(effect.points);
           effect.geometry.dispose();
           effect.material.dispose();
@@ -1144,6 +1260,28 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
         ops.points.geometry.attributes.position.needsUpdate = true;
         ops.points.material.opacity = 0.36 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
       });
+
+      memoryLineRecords.forEach((record) => {
+        record.progress = reducedMotion ? record.targetProgress : Math.min(record.targetProgress, record.progress + delta * 0.9);
+        if (record.startObject && record.endObject) {
+          const start = record.startObject.position;
+          const end = record.endObject.position;
+          const positions = record.line.geometry.attributes.position;
+          for (let index = 0; index < record.pointCount; index += 1) {
+            const amount = index / (record.pointCount - 1);
+            positions.setXYZ(index,
+              THREE.MathUtils.lerp(start.x, end.x, amount),
+              THREE.MathUtils.lerp(start.y, end.y, amount),
+              THREE.MathUtils.lerp(start.z, end.z, amount) - (record.startObject === record.endObject ? 8 : 0));
+          }
+          positions.needsUpdate = true;
+        }
+        const max = record.line.geometry.attributes.position.count;
+        record.line.geometry.setDrawRange(0, Math.max(1, Math.ceil(max * record.progress)));
+        record.line.material.opacity = record.line === finalHeartLine
+          ? 0.7 + Math.sin(realTime * 2.2) * 0.14
+          : 0.64 + Math.sin(realTime * 2.2 + record.progress) * 0.1;
+      });
     },
 
     setHover(hitMesh, isHovered, clientX, clientY) {
@@ -1158,7 +1296,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
         planetMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.16 : baseIntensity;
       }
       const orbitMaterial = orbitPathMaterials.get(planetConfig.id);
-      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.28 : 0.035);
+      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.28 : 0.13);
       const selectedPlanet = planetsList.find((planet) => planet.id === planetConfig.id);
       if (selectedPlanet?.labelSprite) selectedPlanet.labelSprite.material.opacity = isHovered ? 1 : 0;
 
@@ -1184,6 +1322,15 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
         p.mesh.material.emissiveIntensity = 0.12;
         const orbitMaterial = orbitPathMaterials.get(p.id);
         if (orbitMaterial) orbitMaterial.opacity = 0.28;
+        if (effectsEnabled) {
+          if (!memoryLineRecords.some((record) => record.startObject === p.group)) {
+            const linkSamples = quality.tier === 'low' ? 20 : quality.tier === 'medium' ? 32 : 40;
+            createMemoryLine(p.group, heartGroup, 0xd8b4fe, `memoryLink-${id}`, linkSamples);
+          }
+          if (planetsList.filter((planet) => planet.mesh.userData.visited).length === planetsList.length && !finalHeartLine) {
+            createFinalHeartLine();
+          }
+        }
       }
     }
   };

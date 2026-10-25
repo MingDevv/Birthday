@@ -138,7 +138,7 @@ export function createGiant3DNameText(scene) {
         steps: 1,
         bevelEnabled: true,
         bevelSegments: 4,
-        bevelSize: 8.5,
+        bevelSize: 4,
         bevelThickness: 0.8,
         curveSegments: 8
       })));
@@ -152,8 +152,8 @@ export function createGiant3DNameText(scene) {
       const scale = TEXT_WIDTH / Math.max(1, size.x);
       const center = bounds.getCenter(new THREE.Vector3());
       glyphGeometries.forEach((geometry) => {
-        geometry.scale(scale, -scale, 1);
-        geometry.translate(-center.x * scale, center.y * scale, -4);
+        geometry.scale(scale, scale, 1);
+        geometry.translate(-center.x * scale, -center.y * scale, -4);
         geometry.computeVertexNormals();
         const material = new THREE.MeshPhysicalMaterial({
           color: 0xd52d5e,
@@ -177,6 +177,11 @@ export function createGiant3DNameText(scene) {
       });
       vectorLoaded = vectorGlyphMeshes.length > 0;
       if (vectorLoaded) {
+        // The SVG outlines are the final letterforms. Keeping the plane
+        // fallback visible underneath creates a doubled, offset name.
+        nameGroup.children.filter((child) => child.userData.nameFallback).forEach((child) => {
+          child.visible = false;
+        });
         fadeMaterials.push(...vectorGlyphMeshes.map((mesh) => mesh.material));
         if (isVisible) revealVectorGlyphs();
       }

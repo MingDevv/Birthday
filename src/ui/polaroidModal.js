@@ -141,7 +141,7 @@ export class PolaroidModal {
     });
   }
 
-  show(memory) {
+  show(memory, origin = null) {
     clearInterval(this.typeTimer);
     this.typeTimer = null;
     this.currentMemory = memory;
@@ -212,6 +212,21 @@ export class PolaroidModal {
 
     // Reveal
     this.container.classList.remove('hidden');
+    const wrap = this.container.querySelector('.modal-card-wrap');
+    if (origin && Number.isFinite(origin.x) && Number.isFinite(origin.y) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      wrap.style.transition = 'none';
+      wrap.style.transform = `translate(${origin.x - window.innerWidth / 2}px, ${origin.y - window.innerHeight / 2}px) scale(.38)`;
+      wrap.style.opacity = '0.45';
+      void wrap.offsetWidth;
+      wrap.style.transition = 'transform 620ms cubic-bezier(.2,.8,.2,1), opacity 420ms ease';
+      requestAnimationFrame(() => {
+        wrap.style.transform = 'translate(0, 0) scale(1)';
+        wrap.style.opacity = '1';
+      });
+    } else {
+      wrap.style.transform = '';
+      wrap.style.opacity = '';
+    }
     setTimeout(() => {
       this.container.classList.add('visible');
     }, 10);

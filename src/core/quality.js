@@ -1,8 +1,8 @@
 const TIERS = {
-  ultra: { pixelRatio: 2, galaxyStars: 180000, backgroundStars: 24000, samples: 4, bloomStrength: 0.24 },
-  high: { pixelRatio: 1.75, galaxyStars: 135000, backgroundStars: 18000, samples: 4, bloomStrength: 0.22 },
-  medium: { pixelRatio: 1.35, galaxyStars: 72000, backgroundStars: 10000, samples: 0, bloomStrength: 0.16 },
-  low: { pixelRatio: 1, galaxyStars: 32000, backgroundStars: 5000, samples: 0, bloomStrength: 0.1 }
+  ultra: { pixelRatio: 2, galaxyStars: 153000, backgroundStars: 20400, samples: 4, bloomStrength: 0.24 },
+  high: { pixelRatio: 1.75, galaxyStars: 114750, backgroundStars: 15300, samples: 4, bloomStrength: 0.22 },
+  medium: { pixelRatio: 1.35, galaxyStars: 61200, backgroundStars: 8500, samples: 0, bloomStrength: 0.16 },
+  low: { pixelRatio: 1, galaxyStars: 27200, backgroundStars: 4250, samples: 0, bloomStrength: 0.1 }
 };
 
 function detectTier() {
@@ -79,8 +79,10 @@ export function getQueryFlags(search = window.location.search) {
     debug: params.get('debug') === '1',
     cinema: params.get('cinema') === '1',
     mute: params.get('mute') === '1',
+    fxOff: params.get('fx') === 'off',
     skipIntro: params.get('skipintro') === '1',
-    portraitRatio: params.get('ratio') === '9x16'
+    portraitRatio: params.get('ratio') === '9x16',
+    qaScene: params.get('qa')
   };
 }
 

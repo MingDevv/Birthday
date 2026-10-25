@@ -10,6 +10,7 @@ export class SoundManager {
     this.analyser = null;
     this.frequencyData = null;
     this.smoothedBass = 0;
+    this.recordDestination = null;
     this.isPlayingBGM = false;
     this.isMuted = false;
     this.bgmAudio = new Audio(`${import.meta.env.BASE_URL}audio/velika-official-audio.mp3`);
@@ -33,6 +34,7 @@ export class SoundManager {
           this.mediaSource = this.ctx.createMediaElementSource(this.bgmAudio);
           this.mediaSource.connect(this.analyser);
           this.analyser.connect(this.ctx.destination);
+          if (this.recordDestination) this.analyser.connect(this.recordDestination);
         } catch (error) {
           console.warn('Music analyser unavailable; continuing without beat response.', error);
         }
@@ -41,6 +43,25 @@ export class SoundManager {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  startRecordingAudio() {
+    this.initAudioContext();
+    if (!this.ctx || !this.analyser) return null;
+    this.recordDestination = this.ctx.createMediaStreamDestination();
+    this.analyser.connect(this.recordDestination);
+    return this.recordDestination.stream;
+  }
+
+  stopRecordingAudio() {
+    if (!this.recordDestination) return;
+    try { this.analyser?.disconnect(this.recordDestination); } catch {}
+    this.recordDestination = null;
+  }
+
+  connectOutput(node) {
+    node.connect(this.ctx.destination);
+    if (this.recordDestination) node.connect(this.recordDestination);
   }
 
   // Plays a pure music box chime tone
@@ -61,7 +82,7 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    this.connectOutput(gain);
 
     osc.start(now);
     osc.stop(now + duration);
@@ -74,6 +95,25 @@ export class SoundManager {
     if (!this.ctx) return;
 
     const now = this.ctx.currentTime;
+    const buffer = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 1.4), this.ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index += 1) samples[index] = (Math.random() * 2 - 1) * (1 - index / samples.length);
+    const noise = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const noiseGain = this.ctx.createGain();
+    noise.buffer = buffer;
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(260, now);
+    filter.frequency.exponentialRampToValueAtTime(1800, now + 0.65);
+    filter.frequency.exponentialRampToValueAtTime(180, now + 1.4);
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(0.025, now + 0.5);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    this.connectOutput(noiseGain);
+    noise.start(now);
+    noise.stop(now + 1.4);
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -87,7 +127,7 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    this.connectOutput(gain);
 
     osc.start(now);
     osc.stop(now + 1.4);
@@ -111,7 +151,7 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.012, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
     oscillator.connect(gain);
-    gain.connect(this.ctx.destination);
+    this.connectOutput(gain);
     oscillator.start(now);
     oscillator.stop(now + 0.04);
   }
@@ -124,6 +164,17 @@ export class SoundManager {
     setTimeout(() => {
       this.playMusicBoxTone(783.99, 1.2, 0.15);
     }, 120);
+  }
+
+  playPlanetNote(planetId) {
+    if (this.isMuted) return;
+    const pentatonic = [523.25, 587.33, 659.25, 783.99, 880];
+    this.playMusicBoxTone(pentatonic[(Math.max(1, Number(planetId)) - 1) % pentatonic.length], 0.72, 0.12);
+  }
+
+  playCandleBell() {
+    if (this.isMuted) return;
+    this.playMusicBoxTone(1046.5, 0.45, 0.035);
   }
 
   // Rocket Launch Sound
@@ -144,7 +195,7 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    this.connectOutput(gain);
 
     osc.start(now);
     osc.stop(now + 0.5);
@@ -169,7 +220,7 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    this.connectOutput(gain);
 
     osc.start(now);
     osc.stop(now + 0.95);

@@ -61,7 +61,7 @@ export function createSpiralGalaxy(scene, quality = {}) {
   galaxyGroup.rotation.z = THREE.MathUtils.degToRad(-4);
 
   const parameters = {
-    count: ({ low: 32000, medium: 72000, high: 135000, ultra: 180000 }[quality.tier])
+    count: ({ low: 27200, medium: 61200, high: 114750, ultra: 153000 }[quality.tier])
       ?? quality.galaxyStars
       ?? 130000,
     innerRadius: 92.0,    // Clear open center! Solar system (R=0-90) is completely unobstructed
@@ -266,16 +266,30 @@ export function createSpiralGalaxy(scene, quality = {}) {
   const bulgeColors = new Float32Array(bulgeCount * 3);
   const bulgePalette = [new THREE.Color(0xffd6a5), new THREE.Color(0xf9a8d4), new THREE.Color(0xfff1d6)];
   for (let i = 0; i < bulgeCount; i += 1) {
-    const radius = 12 + Math.pow(Math.random(), 1.8) * 50;
+    const radius = 8 + Math.pow(Math.random(), 1.8) * 46;
     const angle = Math.random() * Math.PI * 2;
-    bulgePositions.set([Math.cos(angle) * radius, (Math.random() - 0.5) * 12, -105 + Math.sin(angle) * radius * 0.3], i * 3);
+    bulgePositions.set([Math.cos(angle) * radius * 0.38, -35 + (Math.random() - 0.5) * 9, -95 + Math.sin(angle) * radius * 0.22], i * 3);
     const color = bulgePalette[Math.floor(Math.random() * bulgePalette.length)];
     bulgeColors.set([color.r, color.g, color.b], i * 3);
   }
   bulgeGeometry.setAttribute('position', new THREE.BufferAttribute(bulgePositions, 3));
   bulgeGeometry.setAttribute('color', new THREE.BufferAttribute(bulgeColors, 3));
+  const bulgeCanvas = document.createElement('canvas');
+  bulgeCanvas.width = 64;
+  bulgeCanvas.height = 64;
+  const bulgeContext = bulgeCanvas.getContext('2d');
+  const bulgeGradient = bulgeContext.createRadialGradient(32, 32, 0, 32, 32, 32);
+  bulgeGradient.addColorStop(0, 'rgba(255,255,255,1)');
+  bulgeGradient.addColorStop(0.28, 'rgba(255,255,255,0.78)');
+  bulgeGradient.addColorStop(0.72, 'rgba(255,255,255,0.22)');
+  bulgeGradient.addColorStop(1, 'rgba(255,255,255,0)');
+  bulgeContext.fillStyle = bulgeGradient;
+  bulgeContext.fillRect(0, 0, 64, 64);
+  const bulgeTexture = new THREE.CanvasTexture(bulgeCanvas);
+  bulgeTexture.generateMipmaps = true;
+  bulgeTexture.minFilter = THREE.LinearMipmapLinearFilter;
   const bulgePoints = new THREE.Points(bulgeGeometry, new THREE.PointsMaterial({
-    size: 1.35, vertexColors: true, transparent: true, opacity: 0.52,
+    size: 1.5, map: bulgeTexture, alphaTest: 0.025, vertexColors: true, transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false
   }));
   galaxyGroup.add(bulgePoints);
@@ -443,8 +457,8 @@ export function createSpiralGalaxy(scene, quality = {}) {
       crossMat.uniforms.uTime.value = time;
       const cameraDistance = camera ? camera.position.length() : 120;
       coreMaterial.opacity = THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18;
-      const bulgePulse = 0.44 + Math.sin(time * 0.32) * 0.035;
-      bulgePoints.material.opacity = bulgePulse;
+      const bulgePulse = 0.46 + Math.sin(time * 0.32) * 0.035;
+      bulgePoints.material.opacity = bulgePulse * THREE.MathUtils.smoothstep(cameraDistance, 90, 180);
 
       // Ultra-slow cosmic rotation
       galaxyGroup.rotation.y += delta * 0.005;

@@ -14,6 +14,8 @@ import { createGalaxySkybox } from './scene/galaxySkybox.js';
 import { createSpiralGalaxy } from './scene/spiralGalaxy.js';
 import { createSolarSystemHeart, loadPlanetTextures } from './scene/solarSystemHeart.js';
 import { createFireworksSystem } from './scene/fireworks.js';
+import { createCosmicCake } from './scene/cosmicCake.js';
+import { createHeartStreak, createPointerStarTrail } from './scene/pointerStarTrail.js';
 import { SoundManager } from './audio/soundManager.js';
 import { PolaroidModal } from './ui/polaroidModal.js';
 import { HudOverlay } from './ui/hudOverlay.js';
@@ -24,6 +26,7 @@ import { showArrivalCelebrationFlow } from './ui/arrivalPopups.js';
 import { createFrameGovernor, getQualityConfig, getQueryFlags } from './core/quality.js';
 import { heroCamera } from './core/responsive.js';
 import { orbitClock } from './core/orbitClock.js';
+import { OPTIONAL_FEATURE_CONTENT } from './config/optionalFeatures.js';
 import './style.css';
 
 async function initializeApp() {
@@ -208,7 +211,14 @@ const soundManager = new SoundManager();
 soundManager.isMuted = queryFlags.mute;
 const galaxy = createGalaxySkybox(scene, currentQuality);
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
-const solarSystem = createSolarSystemHeart(scene, currentQuality);
+const solarSystem = createSolarSystemHeart(scene, currentQuality, { effectsEnabled: !queryFlags.fxOff });
+const cosmicCake = createCosmicCake(scene, currentQuality, { enabled: !queryFlags.fxOff });
+const pointerStarTrail = queryFlags.fxOff || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ? null
+  : createPointerStarTrail(scene, camera, currentQuality);
+const heartStreak = queryFlags.fxOff || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ? null
+  : createHeartStreak(scene, currentQuality);
 const loadingOverlay = document.getElementById('asset-loading');
 const loadingBar = loadingOverlay?.querySelector('.asset-loading-bar');
 const loadingManager = new THREE.LoadingManager();
@@ -217,6 +227,215 @@ const texturesReady = loadPlanetTextures({
   onProgress: (progress) => loadingBar?.style.setProperty('--progress', `${Math.round(progress * 100)}%`)
 }).then((textures) => solarSystem.setPlanetTextures(textures));
 const fireworks = createFireworksSystem(scene, soundManager);
+let cakeActions = null;
+let cakeMicStream = null;
+let cakeMicContext = null;
+let cakeMicFrame = 0;
+let shootingStarClicks = 0;
+let shootingWishCard = null;
+let cinemaRecorder = null;
+let cinemaStream = null;
+let cinemaButton = null;
+const activeAuroras = new Set();
+let qaFocusPlanet = null;
+const tiltState = { enabled: false, targetX: 0, targetY: 0, currentX: 0, currentY: 0, appliedX: 0, appliedY: 0, button: null };
+
+function setupTiltMode() {
+  if (queryFlags.fxOff || prefersReducedMotion || !matchMedia('(pointer: coarse)').matches) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tilt-mode-button';
+  button.textContent = 'เปิดโหมดเอียงเครื่อง';
+  button.setAttribute('aria-pressed', 'false');
+  document.body.append(button);
+  tiltState.button = button;
+  const onOrientation = (event) => {
+    tiltState.targetX = THREE.MathUtils.clamp((event.gamma || 0) / 30, -1, 1) * 0.052;
+    tiltState.targetY = THREE.MathUtils.clamp((event.beta || 0) / 30, -1, 1) * 0.052;
+  };
+  button.addEventListener('click', async () => {
+    if (tiltState.enabled) {
+      window.removeEventListener('deviceorientation', onOrientation);
+      tiltState.enabled = false;
+      tiltState.targetX = 0;
+      tiltState.targetY = 0;
+      button.textContent = 'เปิดโหมดเอียงเครื่อง';
+      button.setAttribute('aria-pressed', 'false');
+      return;
+    }
+    try {
+      if (typeof window.DeviceOrientationEvent?.requestPermission === 'function') {
+        const permission = await window.DeviceOrientationEvent.requestPermission();
+        if (permission !== 'granted') return;
+      }
+      window.addEventListener('deviceorientation', onOrientation, { passive: true });
+      tiltState.enabled = true;
+      button.textContent = 'ปิดโหมดเอียงเครื่อง';
+      button.setAttribute('aria-pressed', 'true');
+    } catch {
+      button.disabled = true;
+    }
+  });
+}
+
+function stopCakeMic() {
+  if (cakeMicFrame) cancelAnimationFrame(cakeMicFrame);
+  cakeMicFrame = 0;
+  cakeMicStream?.getTracks().forEach((track) => track.stop());
+  cakeMicStream = null;
+  cakeMicContext?.close().catch(() => {});
+  cakeMicContext = null;
+}
+
+function celebrateCake() {
+  stopCakeMic();
+  fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
+  const message = OPTIONAL_FEATURE_CONTENT.finalMessage.trim();
+  if (message && cakeActions) {
+    const note = document.createElement('p');
+    note.className = 'cake-owner-message';
+    note.textContent = message;
+    cakeActions.append(note);
+  }
+  cakeActions?.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+}
+
+function finishCake() {
+  cosmicCake.blowOut(celebrateCake, () => soundManager.playCandleBell());
+}
+
+function showCakeActions() {
+  if (queryFlags.fxOff || cakeActions) return;
+  cosmicCake.reveal();
+  cakeActions = document.createElement('div');
+  cakeActions.className = 'cake-actions';
+  cakeActions.innerHTML = '<button type="button" class="cake-blow-button">เป่าเทียน 🎂</button><button type="button" class="cake-mic-button">ใช้ไมค์เป่า</button>';
+  document.body.append(cakeActions);
+  cakeActions.querySelector('.cake-blow-button').addEventListener('click', finishCake);
+  const micButton = cakeActions.querySelector('.cake-mic-button');
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!navigator.mediaDevices?.getUserMedia || !AudioContextClass) {
+    micButton.hidden = true;
+    return;
+  }
+  micButton.addEventListener('click', async () => {
+    micButton.disabled = true;
+    try {
+      cakeMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      cakeMicContext = new AudioContextClass();
+      const analyser = cakeMicContext.createAnalyser();
+      analyser.fftSize = 1024;
+      cakeMicContext.createMediaStreamSource(cakeMicStream).connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      let strongFrames = 0;
+      const inspectBreath = () => {
+        analyser.getByteTimeDomainData(samples);
+        let energy = 0;
+        for (const sample of samples) {
+          const normalized = (sample - 128) / 128;
+          energy += normalized * normalized;
+        }
+        if (Math.sqrt(energy / samples.length) > 0.11) strongFrames += 1;
+        else strongFrames = Math.max(0, strongFrames - 1);
+        if (strongFrames >= 4) {
+          finishCake();
+          return;
+        }
+        cakeMicFrame = requestAnimationFrame(inspectBreath);
+      };
+      cakeMicFrame = requestAnimationFrame(inspectBreath);
+    } catch {
+      stopCakeMic();
+      micButton.disabled = false;
+    }
+  });
+}
+
+function setupShootingStarWishes() {
+  const messages = OPTIONAL_FEATURE_CONTENT.shootingStarMessages.filter((message) => typeof message === 'string' && message.trim());
+  if (!messages.length || queryFlags.fxOff || prefersReducedMotion) return;
+  shootingWishCard = document.createElement('div');
+  shootingWishCard.className = 'shooting-wish-card';
+  shootingWishCard.setAttribute('role', 'status');
+  shootingWishCard.hidden = true;
+  document.body.append(shootingWishCard);
+}
+
+function setupCinemaRecorder() {
+  if (!queryFlags.cinema || !canvas.captureStream || !window.MediaRecorder) return;
+  const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+    .find((type) => MediaRecorder.isTypeSupported?.(type));
+  if (!mimeType) return;
+  cinemaButton = document.createElement('button');
+  cinemaButton.type = 'button';
+  cinemaButton.className = 'cinema-record-button';
+  cinemaButton.textContent = 'อัดคลิป';
+  document.body.append(cinemaButton);
+  cinemaButton.addEventListener('click', () => {
+    if (cinemaRecorder?.state === 'recording') {
+      cinemaRecorder.stop();
+      return;
+    }
+    cinemaStream = canvas.captureStream(60);
+    soundManager.startRecordingAudio()?.getAudioTracks().forEach((track) => cinemaStream.addTrack(track));
+    const chunks = [];
+    cinemaRecorder = new MediaRecorder(cinemaStream, { mimeType });
+    cinemaRecorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+    cinemaRecorder.onstop = () => {
+      const file = new Blob(chunks, { type: mimeType });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(file);
+      link.download = 'ดาวลูกหมู-001.webm';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      cinemaStream?.getTracks().forEach((track) => track.stop());
+      cinemaStream = null;
+      soundManager.stopRecordingAudio();
+      cinemaButton.textContent = 'อัดคลิป';
+      document.body.classList.remove('cinema-recording');
+    };
+    cinemaRecorder.start(500);
+    cinemaButton.textContent = 'หยุดและบันทึก';
+    document.body.classList.add('cinema-recording');
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && cinemaRecorder?.state === 'recording') cinemaRecorder.stop();
+  });
+}
+
+function setupBirthdayCountdown() {
+  const rawDate = OPTIONAL_FEATURE_CONTENT.birthdayDate.trim();
+  const target = rawDate ? new Date(rawDate).getTime() : NaN;
+  const params = new URLSearchParams(location.search);
+  const simulatedNow = params.get('now') ? new Date(params.get('now')).getTime() : Date.now();
+  if (!Number.isFinite(target) || !Number.isFinite(simulatedNow)) return;
+  if (target <= simulatedNow) {
+    if (rawDate) fireworks.triggerStarBurst(new THREE.Vector3(0, 8, -5));
+    return;
+  }
+  const clockStartedAt = performance.now();
+  const overlay = document.createElement('div');
+  overlay.className = 'birthday-countdown';
+  overlay.innerHTML = '<div><span>ดาวลูกหมู-001 เปิดทำการใน</span><strong aria-live="polite"></strong></div>';
+  document.body.append(overlay);
+  const number = overlay.querySelector('strong');
+  const tick = () => {
+    const now = simulatedNow + (performance.now() - clockStartedAt);
+    const remaining = target - now;
+    if (remaining <= 0) {
+      overlay.remove();
+      fireworks.triggerStarBurst(new THREE.Vector3(0, 8, -5));
+      return;
+    }
+    const days = Math.floor(remaining / 86400000);
+    const hours = Math.floor((remaining % 86400000) / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    number.textContent = `${days} วัน · ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
 const name3DText = createGiant3DNameText(scene);
 const wormhole = createWormhole(scene);
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -553,14 +772,13 @@ function startCinematicApproach(onComplete) {
       runCinemaDirector();
       return;
     }
-    solarSystem.startArrivalShape({
-      reducedMotion: prefersReducedMotion,
-      onComplete: () => {
-        soundManager.playMusicBoxTone(880, 0.8, 0.06);
-        if (onComplete) onComplete();
-        showArrivalCelebrationFlow(soundManager);
-      }
-    });
+    const finishArrival = () => {
+      if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
+      if (onComplete) onComplete();
+      showArrivalCelebrationFlow(soundManager);
+    };
+    if (queryFlags.fxOff) finishArrival();
+    else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival });
   };
 
   skipBtn.addEventListener('click', finishFlight);
@@ -695,6 +913,77 @@ function startCinematicApproach(onComplete) {
 // -----------------------------------------------------------------------------
 // 6. Camera Navigation to Solar System Planets & Galaxy Views
 // -----------------------------------------------------------------------------
+function playPlanetSignature(planetItem) {
+  if (queryFlags.fxOff || prefersReducedMotion) return;
+  const planet = planetItem.group;
+  const radius = planetItem.config.radius;
+  let effect;
+  if (planetItem.id === 1) {
+    effect = new THREE.Mesh(new THREE.RingGeometry(radius * 1.05, radius * 1.16, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffd88a, transparent: true, opacity: 0.82, side: THREE.DoubleSide }));
+    effect.rotation.x = Math.PI / 2;
+    effect.scale.setScalar(0.1);
+    planet.add(effect);
+    gsap.to(effect.scale, { x: 1, y: 1, z: 1, duration: 0.85, ease: 'back.out(1.7)' });
+  } else if (planetItem.id === 2) {
+    const auroraMaterial = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: `varying vec2 vUv; uniform float uTime; void main(){
+        float band = smoothstep(0.05,0.3,sin(vUv.y*24.0 + sin(vUv.x*9.0+uTime*0.65)*1.2)*0.5+0.5);
+        float curtains = smoothstep(0.38,0.95,sin(vUv.x*32.0+uTime*0.35)*0.5+0.5);
+        float mask = smoothstep(0.04,0.2,vUv.y)*(1.0-smoothstep(0.68,0.92,vUv.y));
+        vec3 col = mix(vec3(0.45,0.22,0.9),vec3(0.18,0.95,0.72),curtains);
+        gl_FragColor=vec4(col,band*mask*0.52);
+      }`,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    effect = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.075, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.58), auroraMaterial);
+    effect.userData.aurora = true;
+    activeAuroras.add(effect);
+    planet.add(effect);
+    gsap.to(effect.rotation, { y: 0.25, duration: 3, ease: 'sine.inOut' });
+  } else if (planetItem.id === 3) {
+    const count = currentQuality.tier === 'low' ? 28 : currentQuality.tier === 'medium' ? 54 : 90;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * radius * 3;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * radius * 1.4;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * radius * 0.15;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    effect = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xf97362, size: radius * 0.045, transparent: true, opacity: 0.8, depthWrite: false }));
+    planet.add(effect);
+    gsap.to(effect.position, { x: radius * 2, duration: 1.7, ease: 'power2.out' });
+  } else if (planetItem.id === 4) {
+    const spot = new THREE.Mesh(new THREE.CircleGeometry(radius * 0.19, 32),
+      new THREE.MeshBasicMaterial({ color: 0xe86954, transparent: true, opacity: 0.74, side: THREE.DoubleSide }));
+    spot.position.set(0, radius * 0.18, radius * 0.93);
+    spot.rotation.x = -0.12;
+    planet.add(spot);
+    effect = spot;
+    gsap.to(effect.rotation, { z: Math.PI * 2, duration: 4, ease: 'none' });
+  } else if (planetItem.id === 5) {
+    const petal = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.045, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffa4c9, transparent: true, opacity: 0.9 }));
+    petal.position.set(radius * 0.2, radius * 0.85, 0);
+    planet.add(petal);
+    effect = petal;
+    gsap.to(petal.position, { x: radius * 0.75, y: radius * 0.15, z: radius * 0.4, duration: 2.2, ease: 'power1.in' });
+  }
+  if (!effect) return;
+  gsap.delayedCall(4, () => {
+    activeAuroras.delete(effect);
+    planet.remove(effect);
+    effect.geometry?.dispose();
+    if (Array.isArray(effect.material)) effect.material.forEach((material) => material.dispose());
+    else effect.material?.dispose();
+  });
+}
+
 function flyToPlanet(planetId) {
   const planetItem = solarSystem.planetsList.find(p => p.id === planetId);
   if (!planetItem) return;
@@ -713,11 +1002,16 @@ function flyToPlanet(planetId) {
     visitedMemories.add(planetId);
     solarSystem.markVisited(planetId);
     hud.updateProgress(visitedMemories);
-    if (visitedMemories.size === 5) solarSystem.showSecretMessage('มีความสุขมากๆนะไอ่อ้วนน💗');
+    if (visitedMemories.size === 5) {
+      solarSystem.showSecretMessage(OPTIONAL_FEATURE_CONTENT.secretMessage);
+      showCakeActions();
+    }
   }
+  if (!queryFlags.fxOff && !prefersReducedMotion && navigator.vibrate) navigator.vibrate(12);
   if (planetId === 5) solarSystem.showFinalRose();
 
-  soundManager.playClickSound();
+  soundManager.playPlanetNote(planetId);
+  playPlanetSignature(planetItem);
 
   const targetLookAt = planetItem.group.position.clone();
   const isFinalPlanet = planetId === solarSystem.planetsList[solarSystem.planetsList.length - 1]?.id;
@@ -756,10 +1050,15 @@ function flyToPlanet(planetId) {
       isCinematicFlying = false;
       bokehPass.enabled = false;
       bokehPass.uniforms.aperture.value = 0.00012;
+      const worldPoint = planetItem.group.getWorldPosition(new THREE.Vector3()).project(camera);
+      const modalOrigin = {
+        x: (worldPoint.x * 0.5 + 0.5) * window.innerWidth,
+        y: (-worldPoint.y * 0.5 + 0.5) * window.innerHeight
+      };
       if (isFinalPlanet) {
-        gsap.delayedCall(0.9, () => polaroidModal.show(planetItem.memory));
+        gsap.delayedCall(0.9, () => polaroidModal.show(planetItem.memory, modalOrigin));
       } else {
-        polaroidModal.show(planetItem.memory);
+        polaroidModal.show(planetItem.memory, modalOrigin);
       }
     }
   });
@@ -893,6 +1192,7 @@ const hud = new HudOverlay({
     flyToPlanet(id);
   }
 });
+setupTiltMode();
 
 // Wait for local planet textures so the introduction never opens onto an empty scene.
 await texturesReady;
@@ -919,6 +1219,62 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
     }
   });
 }
+
+if (queryFlags.qaScene === 'name-front') {
+  hud.hide();
+  isGalaxyView = true;
+  name3DText.show();
+  camera.fov = 34;
+  camera.position.set(0, 36, 72);
+  controls.target.set(0, 36, -220);
+  controls.minDistance = 10;
+  controls.maxDistance = 500;
+  camera.updateProjectionMatrix();
+  controls.update();
+} else if (queryFlags.qaScene === 'bulge-closeup') {
+  hud.hide();
+  name3DText.hide();
+  camera.fov = 32;
+  camera.position.set(0, -35, 120);
+  controls.target.set(0, -35, -95);
+  controls.minDistance = 10;
+  controls.maxDistance = 500;
+  camera.updateProjectionMatrix();
+  controls.update();
+} else if (queryFlags.qaScene === 'arrival-constellation') {
+  hud.hide();
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+  solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, qaPreview: true });
+} else if (queryFlags.qaScene === 'final-heart') {
+  hud.hide();
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+  for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
+} else if (queryFlags.qaScene === 'signature-earth') {
+  hud.hide();
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+  const earth = solarSystem.planetsList.find((planet) => planet.id === 2);
+  if (earth) {
+    qaFocusPlanet = earth;
+    controls.minDistance = 3;
+    playPlanetSignature(earth);
+  }
+} else if (queryFlags.qaScene === 'modal-slide') {
+  hud.hide();
+  flyToPlanet(2);
+} else if (queryFlags.qaScene === 'cake') {
+  hud.hide();
+  camera.position.set(0, 24, 150);
+  controls.target.set(0, 4, -5);
+  for (const planet of solarSystem.planetsList) solarSystem.markVisited(planet.id);
+  showCakeActions();
+}
+
+setupShootingStarWishes();
+setupCinemaRecorder();
+setupBirthdayCountdown();
 
 // -----------------------------------------------------------------------------
 // 8. Raycasting & Interactive Solar System Planets
@@ -947,6 +1303,7 @@ window.addEventListener('pointermove', (e) => {
     currentHoveredMesh = null;
     return;
   }
+  pointerStarTrail?.spawn(e.clientX, e.clientY, canvas.getBoundingClientRect());
   if (polaroidModal.isOpen || isCinematicFlying) {
     solarSystem.setHover(null, false);
     return;
@@ -984,6 +1341,15 @@ window.addEventListener('pointerup', (e) => {
 
   if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
+  const wishMessages = OPTIONAL_FEATURE_CONTENT.shootingStarMessages.filter((message) => typeof message === 'string' && message.trim());
+  if (wishMessages.length && shootingStarClicks < 5 && !polaroidModal.isOpen && galaxy.pickMeteor(raycaster)) {
+    shootingStarClicks += 1;
+    const message = wishMessages[(shootingStarClicks - 1) % wishMessages.length];
+    shootingWishCard.textContent = `ขอพรหนึ่งข้อ ✨ ${message}`;
+    shootingWishCard.hidden = false;
+    window.setTimeout(() => { if (shootingWishCard) shootingWishCard.hidden = true; }, 2600);
+    return;
+  }
   const intersects = raycaster.intersectObjects(solarSystem.interactiveMeshes, false);
 
   if (intersects.length > 0) {
@@ -1095,11 +1461,30 @@ function animate() {
   orbitClock.time += delta * orbitClock.scale;
 
   controls.update();
+  const tiltEase = prefersReducedMotion ? 1 : Math.min(1, delta * 5);
+  tiltState.currentX += (tiltState.targetX - tiltState.currentX) * tiltEase;
+  tiltState.currentY += (tiltState.targetY - tiltState.currentY) * tiltEase;
+  const parallaxDistance = camera.position.distanceTo(controls.target);
+  camera.position.x += (tiltState.currentX - tiltState.appliedX) * parallaxDistance;
+  camera.position.y += (tiltState.currentY - tiltState.appliedY) * parallaxDistance;
+  tiltState.appliedX = tiltState.currentX;
+  tiltState.appliedY = tiltState.currentY;
 
   galaxy.update(delta, time);
   spiralGalaxy.update(delta, time, camera);
   const musicBass = soundManager.getMusicBassEnergy();
   solarSystem.update(delta, orbitClock.time, time, musicBass);
+  if (qaFocusPlanet) {
+    solarSystem.group.updateMatrixWorld(true);
+    const focus = qaFocusPlanet.group.getWorldPosition(new THREE.Vector3());
+    controls.target.copy(focus);
+    camera.position.copy(focus).add(new THREE.Vector3(0, qaFocusPlanet.config.radius * 2.1, qaFocusPlanet.config.radius * 5.2));
+    controls.update();
+  }
+  activeAuroras.forEach((aurora) => { aurora.material.uniforms.uTime.value = time; });
+  cosmicCake.update(delta, time);
+  pointerStarTrail?.update(delta);
+  heartStreak?.update(delta, musicBass);
   bloomPass.strength = currentQuality.bloomStrength + Math.min(0.05, musicBass * 0.05);
   fireworks.update(delta);
   updateWarpStreaks(delta);

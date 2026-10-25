@@ -100,3 +100,42 @@ npm run visual:qa -- --phase=handoff
 - มือถือจริง/LINE/Instagram ยังรอทดสอบก่อนยืนยันความพร้อมสมบูรณ์
 - ภาษาไทยใน SVG สร้างจาก Prompt Regular และแสดงผลในภาพ QA แล้ว; ตรวจรายละเอียดตำแหน่งสระบนอุปกรณ์จริงได้อีกครั้ง
 - ไม่ได้อ้างว่า FPS ผ่านจากผล SwiftShader
+
+## อัปเดตแผนรอบ 2 — 25 ตุลาคม 2026
+
+ทำและตรวจในรอบนี้:
+
+- R0.1: แก้แกน Y ของ SVG ชื่อให้ตั้งตรง ลด bevel จาก 8.5 เป็น 4 และซ่อน plane fallback หลัง SVG โหลด เพื่อไม่ให้ชื่อซ้อนสองชั้น
+- R0.2: เพิ่ม radial sprite ให้ bulge และจัดให้อยู่หลังระบบดาว; ลดจำนวนจุด bulge ให้เห็นเป็นกลุ่มดาวแทนก้อนแน่น
+- R0.3: เพิ่ม opacity วงโคจรที่ยังไม่เปิดเป็น 0.13; visited 0.28 และ hover 0.42 คงเดิม
+- R0.4: อัปเกรด Vite เป็น 6.4.5 (ไม่ใช้ `audit fix --force`), audit พบ 0 vulnerabilities; preload เฉพาะ memory image ที่เป็น local origin โดยไม่เปลี่ยน placeholder URL
+- W1: อนุภาค arrival ใช้จำนวนตาม tier, รวมเป็นหัวใจ เปลี่ยนเป็น “ขห” แล้วสลาย; มี `?fx=off`, reduced-motion ลดจำนวนและระยะเอฟเฟกต์
+- W2: เพิ่มเส้นจากดาวที่เปิดไปหัวใจกลาง และเส้นหัวใจครอบระบบเมื่อครบ 5 ดวง; จำนวนจุดลดตาม tier และปิดได้ด้วย `?fx=off`
+- W3: เพิ่มเค้กสามชั้น เทียน 16 เล่ม, ปุ่มเป่าเทียน และตัวเลือกไมค์ที่ขอสิทธิ์เฉพาะตอนกด; ช่อง `finalMessage` เว้นว่างไว้และไม่แตะข้อความลับที่เจ้าของให้ไว้ก่อนหน้า
+- W4: ดาวตกที่ยังเคลื่อนอยู่กดได้, หยุดและแสดงการ์ดข้อความจาก `shootingStarMessages`; จำกัด 5 ครั้งและไม่เปิดทับ modal; ค่าข้อความว่างปิดฟีเจอร์
+- W5: เพิ่ม signature effects สำหรับดาวศุกร์ (วงแสง), โลก (shader aurora), อังคาร (ฝุ่นแดง), พฤหัส (จุดแดงหมุน), เสาร์ (กลีบกุหลาบ) พร้อม slide modal จากตำแหน่งดาว; ปิดเมื่อ reduced-motion/`?fx=off`
+- W6: เสียงดาวแต่ละดวงใช้โน้ตในสเกล pentatonic; เพิ่ม noise/filter sweep สำหรับ whoosh และ bell ตอนเทียนดับ; เสียงทั้งหมดเชื่อม mute เดิมและ output สำหรับบันทึกคลิป
+- W7: ลดจำนวนดาว galaxy/background ลงประมาณ 15% ทุก tier
+- W8: เพิ่มปุ่ม tilt mode บนมือถือ; ขอ permission ตอนกดบน iOS, ปรับมุมกล้องแบบ smoothed ±3°, สั่น 12ms ตอนเปิดความทรงจำ; ปิดเมื่อ reduced-motion หรือ `?fx=off`
+- W9: เพิ่ม pointer stardust pool 60 จุด อายุ 0.6 วินาที และ streak แนวนอน/แนวตั้งตาม bass ของหัวใจ; ปิดเมื่อ reduced-motion หรือ `?fx=off`
+- W10: countdown แสดงเฉพาะเมื่อเจ้าของกำหนดวัน ISO ใน config; `?now=` จำลองเวลา QA; วันว่างปิดหน้าจอ countdown
+- W11: `?cinema=1` แสดงปุ่มอัดเฉพาะเมื่อ MediaRecorder/WebM และ canvas capture ใช้ได้; รวมเสียง Web Audio ถ้ามี, Escape หยุดและดาวน์โหลด `.webm`
+- R2: เพิ่ม Mali local พร้อมไฟล์ OFL, ใช้กับการ์ดข้อความท้ายเกม; เตรียม `public/images/`; เพิ่ม OG/Twitter tags และ `public/og-birthday.png` ขนาด 1200×630 จากภาพ QA
+- ไม่แก้ `memoriesData.js` และไม่เปลี่ยน placeholder รูป
+
+การตรวจ:
+
+- `npm run build` ผ่าน
+- `npm audit` รายงาน 0 vulnerabilities
+- `npm run visual:qa -- --phase=round2-R0` จบโดยไม่มี browser/page/console errors; ทดสอบดาวน์โหลด WebM จาก cinema recorder สำเร็จ และตรวจ `cinema-recording.png` ระหว่างอัด
+- เปิดตรวจภาพ `name-front.png`, `bulge-closeup.png`, `orbit-visibility.png`, `arrival-constellation.png`, `final-heart.png`, `signature-earth.png`, `modal-slide.png`, `cinema-recorder.png`, `cake.png`, `cake-blown.png`, `portrait.png` และ `mobile.png` ใน `qa/round2-R0/`; ชื่อไม่กลับหัว/ไม่ซ้อน, bulge เป็นจุด, วงโคจรเห็นชัด, aurora/การ์ดความทรงจำ/เส้นหัวใจ/เค้ก/ปุ่ม tilt แสดง และเป่าเทียนทำงาน
+- ภาพ arrival ใช้ QA pose ค้างอนุภาคช่วงแปรรูปเป็นตัวอักษร; เห็นกลุ่มอนุภาคแต่ภาพ SwiftShader ยังยืนยันการอ่าน “ขห” ไม่ได้ชัด จึงต้องตรวจบนอุปกรณ์จริง; ไม่ใช่การวัด animation/FPS จริง
+- ไม่อ้าง FPS จาก SwiftShader และยังไม่ได้ทดสอบไมค์บนอุปกรณ์จริง
+
+ยังรอข้อมูล/การตรวจจากเจ้าของ:
+
+- `finalMessage`, `shootingStarMessages[]` และ `birthdayDate` ยังว่างตามข้อกำหนด; W4 และ W10 จึงไม่แสดงจนกว่าเจ้าของจะใส่ค่า
+- R3: ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram in-app browser, ไมค์, tilt iOS, WebGL context restore, FPS/draw calls และ LINE share preview; SwiftShader ไม่ยืนยันประสิทธิภาพจริง
+- ไม่ได้ deploy รอบ 2; production ปัจจุบันยังเป็นรุ่นก่อนรอบนี้
+
+`src/config/optionalFeatures.js` เก็บช่องเจ้าของ `finalMessage`, `shootingStarMessages` และ `birthdayDate` ซึ่งยังว่างอยู่ พร้อมย้ายข้อความลับที่เจ้าของให้ไว้เดิมมาเก็บใน config โดยคงถ้อยคำเดิมทุกตัว

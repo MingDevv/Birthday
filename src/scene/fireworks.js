@@ -487,6 +487,7 @@ export function createFireworksSystem(scene, soundManager) {
   return {
     group: fireworksGroup,
     triggerMakeAWish,
+    triggerStarBurst: (center = new THREE.Vector3(0, 8, 0)) => detonateStarBurst(center),
     update
   };
 }

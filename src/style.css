@@ -1010,6 +1010,74 @@ body.cinema-portrait #webgl-canvas {
   }
 }
 
+.cake-actions {
+  position: fixed;
+  z-index: 1200;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 10px;
+  transform: translateX(-50%);
+}
+
+.tilt-mode-button {
+  position: fixed;
+  z-index: 1190;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 58px);
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(221, 196, 255, 0.52);
+  border-radius: 999px;
+  color: #f8efff;
+  background: rgba(25, 16, 42, 0.82);
+  font: 600 12px "Prompt", sans-serif;
+}
+
+.cake-actions button {
+  min-height: 46px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 220, 247, 0.7);
+  border-radius: 999px;
+  color: #fff7fc;
+  background: rgba(92, 44, 145, 0.92);
+  box-shadow: 0 8px 28px rgba(88, 28, 135, 0.28);
+  font: 700 15px "Prompt", sans-serif;
+  cursor: pointer;
+}
+
+.cake-actions button:disabled {
+  opacity: 0.58;
+  cursor: default;
+}
+
+.cake-owner-message {
+  position: fixed;
+  z-index: 1201;
+  left: 50%;
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 58px);
+  max-width: min(86vw, 680px);
+  margin: 0;
+  padding: 12px 20px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 220, 247, 0.55);
+  border-radius: 18px;
+  color: #fff7fc;
+  background: rgba(22, 12, 37, 0.88);
+  text-align: center;
+  font: 600 18px "Prompt", sans-serif;
+}
+
+@media (max-width: 480px) {
+  .cake-actions { width: calc(100% - 32px); justify-content: center; }
+  .cake-actions button { padding: 0 14px; font-size: 14px; }
+  .cake-owner-message { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cake-actions button { transition: none !important; animation: none !important; }
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px), (max-aspect-ratio: 3/4) {
   .hud-container {
@@ -1489,3 +1557,70 @@ body.cinema-portrait .wish-btn {
 }
 
 
+@font-face {
+  font-family: 'Mali';
+  src: url('/fonts/Mali-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.shooting-wish-card {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  max-width: min(88vw, 420px);
+  padding: 12px 18px;
+  border: 1px solid rgba(255, 226, 245, .55);
+  border-radius: 16px;
+  color: #fff4fb;
+  background: rgba(29, 13, 53, .88);
+  box-shadow: 0 8px 28px rgba(8, 4, 20, .38);
+  font: 500 15px/1.5 'Prompt', sans-serif;
+  text-align: center;
+}
+.shooting-wish-card[hidden] { display: none; }
+.cinema-record-button {
+  position: fixed;
+  z-index: 50;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 999px;
+  padding: 11px 18px;
+  color: #fff;
+  background: rgba(57, 25, 91, .86);
+  font: 600 14px 'Prompt', sans-serif;
+}
+body.cinema-recording .hud-container,
+body.cinema-recording .tilt-mode-button,
+body.cinema-recording .cake-actions,
+body.cinema-recording .shooting-wish-card,
+body.cinema-recording .skip-flight-btn,
+body.cinema-recording .intro-screen-overlay,
+body.cinema-recording .modal-backdrop,
+body.cinema-recording .planet-tooltip { visibility: hidden !important; }
+.birthday-countdown {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 3, 22, .92);
+  color: #faeaff;
+  text-align: center;
+  font-family: 'Prompt', sans-serif;
+}
+.birthday-countdown > div { display: grid; gap: 14px; padding: 24px; }
+.birthday-countdown strong {
+  color: #ffd5ef;
+  font: 600 clamp(25px, 5vw, 48px)/1.2 'Mali', 'Prompt', sans-serif;
+  text-shadow: 0 0 16px rgba(228, 145, 255, .25);
+  transform: translateY(-2px);
+}
+.finale-wish-box { font-family: 'Mali', 'Prompt', sans-serif; }
+@media (prefers-reduced-motion: reduce) {
+  .shooting-wish-card, .cinema-record-button, .birthday-countdown { transition: none !important; }
+}
