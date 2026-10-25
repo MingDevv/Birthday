@@ -83,6 +83,7 @@ try {
       await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     }
     await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=medium`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#asset-loading.asset-loading-done', { timeout: 20000 });
     await page.evaluate(() => {
       window.__qaFrameTimes = [];
       let previous = 0;
@@ -107,6 +108,28 @@ try {
       await page.waitForTimeout(2600);
       const galaxyImage = await page.screenshot({ path: path.join(outputDir, 'galaxy-desktop.png') });
       console.log('galaxy desktop', calculateLuminance(galaxyImage));
+
+      // Walk all five memories to smoke-test planet labels, the finale letter,
+      // rose and the rendered-canvas download path.
+      for (let id = 1; id <= 5; id += 1) {
+        await page.locator(`.heart-dot[data-id="${id}"]`).click();
+        await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 10000 });
+        if (id === 5) {
+          await page.waitForFunction(() => document.querySelector('#wish-body')?.textContent?.length > 20, undefined, { timeout: 8000 });
+          const downloadPromise = page.waitForEvent('download', { timeout: 8000 });
+          await page.locator('#modal-capture-btn').click();
+          const download = await downloadPromise;
+          if (download.suggestedFilename() !== 'happy-birthday-khaohom.png') throw new Error('Birthday screenshot download has an unexpected filename.');
+          const capturePath = path.join(outputDir, 'birthday-smoke.png');
+          await download.saveAs(capturePath);
+          const captureMetrics = calculateLuminance(fs.readFileSync(capturePath));
+          if (captureMetrics.centerMean < 0.008) throw new Error('Birthday screenshot appears black.');
+          console.log('birthday screenshot', captureMetrics, `-> ${capturePath}`);
+        }
+        await page.locator('#modal-back-btn').click();
+        await page.waitForFunction(() => document.querySelector('#memory-modal-backdrop')?.classList.contains('hidden'), undefined, { timeout: 5000 });
+        await page.waitForTimeout(1750);
+      }
     }
     await page.close();
   }

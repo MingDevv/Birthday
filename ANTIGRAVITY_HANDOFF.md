@@ -68,3 +68,35 @@ npm run visual:qa -- --phase=handoff
 ## หมายเหตุเรื่องขอบเขต
 
 เอกสาร [แผนใหม่.md](./แผนใหม่.md) ครอบคลุมงานหลายเฟส P0–P9 และมีบางส่วนเป็นงานต่อยอด เช่น texture/โมเดลภายนอกที่ตรวจ license แล้ว, atmosphere/normal maps, เส้นทางกล้อง cinematic ที่ละเอียด, บันทึกวิดีโออัตโนมัติ และตรวจประสิทธิภาพบนอุปกรณ์จริง อย่าอ้างว่างานเหล่านี้เสร็จแล้วหากยังไม่ได้ทำและตรวจจริง ให้บันทึกสิ่งที่ทำเพิ่มและผล QA ในไฟล์นี้หรือ `UPGRADE_STATUS.md`
+
+## อัปเดตตามแผนรอบ 25 ตุลาคม 2026
+
+ทำรายการตามแผนต่อ โดยเว้นรูปจริงไว้ก่อน:
+
+- A1: แก้ glow หลังชื่อให้ใช้ canvas 256×256 และขยาย sprite เป็นวงรี
+- A2–A3: ล็อกชื่อไม่ให้ตัดบรรทัด; มือถือใช้ชื่อย่อ “ข้าวหอม” และแสดงหัวใจ 5 ดวงในแถวเดียว; แตะการ์ดชื่อเพื่อขยาย subtitle
+- A4: แยก MSAA และ bloom ตาม quality tier, จำกัด pixel ratio มือถือที่ 1.5, ให้ tier ต่ำลดดาวผ่าน `setQuality` ที่มีอยู่และลด bloom
+- A5: เพิ่มแถบ progress ใช้ `THREE.LoadingManager` กับ texture ดาวเคราะห์ และรอ texture ก่อนเปิด intro; ภาพความทรงจำยังเป็น placeholder ระยะไกลและยังไม่ได้ preload
+- A6: ตั้ง Vite `base: './'` และเปลี่ยน texture/audio URLs ให้ใช้ `BASE_URL` เพื่อรองรับ subpath
+- B1: เพิ่ม RoomEnvironment + PMREM environment map
+- B2: เพิ่ม transmission/iridescence ให้หัวใจเฉพาะ tier high/ultra (tier ต่ำปิด); ค่าความหนาและ IOR ถูกตั้งไว้
+- B3: เพิ่ม cinematic ShaderPass สำหรับ vignette, grain และ chromatic aberration บน high/ultra; reduced motion ปิด grain
+- B4: เปิด BokehPass เฉพาะช่วงบิน/Director บน high/ultra และปิดบน tier ต่ำ/reduced-motion
+- B5–B6: เพิ่ม Fresnel atmosphere โลก/ศุกร์, procedural city lights กลางคืนของโลก, เงาจางบนวงแหวนเสาร์, ป้ายชื่อดาวบน hover และลดความสว่างวงโคจรที่ยังไม่เปิด
+- ปรับ visual QA ให้รอ loading overlay จบก่อนถ่ายภาพ
+
+ตรวจแล้ว:
+
+- `npm run build` ผ่านหลังเพิ่มฟีเจอร์
+- `npm run visual:qa -- --phase=all-features-verified` จบโดยไม่มี browser/page/console errors
+- QA desktop เปิดครบ 5 ความทรงจำ; ปุ่มเก็บภาพดาวน์โหลด PNG ที่ไม่ดำ (mean luminance 0.3752)
+- ภาพ 4 มุมมองและ `birthday-smoke.png` อยู่ใน `qa/all-features-verified/`; SwiftShader ใช้ดูภาพ/ข้อผิดพลาดเท่านั้น ไม่ใช้ยืนยัน FPS จริง
+
+ยังต้องทำก่อนเผยแพร่:
+
+- H: รอรูปจริง 5 รูปตามที่เจ้าของจะส่งภายหลัง; `memoriesData.js` และ placeholder เดิมยังไม่ถูกแก้
+- ลองฟัง analyzer/typewriter sound บนอุปกรณ์จริง; ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram, reduced-motion และ WebGL context restore
+- Deploy production บน Vercel แล้ว: https://birthday-pi-wheat.vercel.app; ตรวจ `/`, SVG, texture เสาร์ และเพลง ได้ HTTP 200
+- มือถือจริง/LINE/Instagram ยังรอทดสอบก่อนยืนยันความพร้อมสมบูรณ์
+- ภาษาไทยใน SVG สร้างจาก Prompt Regular และแสดงผลในภาพ QA แล้ว; ตรวจรายละเอียดตำแหน่งสระบนอุปกรณ์จริงได้อีกครั้ง
+- ไม่ได้อ้างว่า FPS ผ่านจากผล SwiftShader

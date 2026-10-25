@@ -8,11 +8,14 @@ import { PLANET_CONFIG } from '../config/memoriesData.js';
  * - Special finale letter for Memory 05
  */
 export class PolaroidModal {
-  constructor({ onNext, onPrev, onBackToGalaxy, onWish }) {
+  constructor({ onNext, onPrev, onBackToGalaxy, onWish, onTypeTick, onCapture }) {
     this.onNext = onNext;
     this.onPrev = onPrev;
     this.onBackToGalaxy = onBackToGalaxy;
     this.onWish = onWish;
+    this.onTypeTick = onTypeTick;
+    this.onCapture = onCapture;
+    this.typeTimer = null;
 
     this.currentMemory = null;
     this.container = null;
@@ -77,6 +80,9 @@ export class PolaroidModal {
               <button class="action-btn next-memory-btn" id="modal-next-btn">
                 <span>ความทรงจำถัดไป ➔</span>
               </button>
+              <button class="action-btn capture-memory-btn" id="modal-capture-btn" type="button">
+                <span>เก็บภาพความทรงจำ 📸</span>
+              </button>
             </div>
           </div>
         </div>
@@ -90,6 +96,7 @@ export class PolaroidModal {
     // Event Listeners
     this.container.querySelector('#modal-close-btn').addEventListener('click', () => this.close());
     this.container.querySelector('#modal-back-btn').addEventListener('click', () => this.close());
+    this.container.querySelector('#modal-capture-btn').addEventListener('click', () => this.onCapture?.());
 
     this.container.querySelector('#modal-next-btn').addEventListener('click', () => {
       if (this.currentMemory && this.onNext) {
@@ -135,6 +142,8 @@ export class PolaroidModal {
   }
 
   show(memory) {
+    clearInterval(this.typeTimer);
+    this.typeTimer = null;
     this.currentMemory = memory;
     this.isOpen = true;
     window.dispatchEvent(new CustomEvent('memory-modal-opened', { detail: memory }));
@@ -176,14 +185,29 @@ export class PolaroidModal {
 
     // Finale box on memory 5
     const finaleBox = this.container.querySelector('#finale-wish-box');
+    const wishBody = this.container.querySelector('#wish-body');
     const nextBtn = this.container.querySelector('#modal-next-btn');
 
     if (memory.id === 5) {
       finaleBox.classList.remove('hidden');
       nextBtn.innerHTML = '<span>วนกลับสู่จุดเริ่มต้น ↺</span>';
+      const wishText = Array.from(PLANET_CONFIG.wishBody);
+      wishBody.textContent = '';
+      let character = 0;
+      this.typeTimer = setInterval(() => {
+        if (!this.isOpen || character >= wishText.length) {
+          clearInterval(this.typeTimer);
+          this.typeTimer = null;
+          return;
+        }
+        wishBody.textContent += wishText[character];
+        if (character % 8 === 0) this.onTypeTick?.();
+        character += 1;
+      }, 26);
     } else {
       finaleBox.classList.add('hidden');
       nextBtn.innerHTML = '<span>ความทรงจำถัดไป ➔</span>';
+      wishBody.textContent = PLANET_CONFIG.wishBody;
     }
 
     // Reveal
@@ -195,6 +219,8 @@ export class PolaroidModal {
 
   close(triggerBack = true) {
     this.isOpen = false;
+    clearInterval(this.typeTimer);
+    this.typeTimer = null;
     this.container.classList.remove('visible');
     setTimeout(() => {
       this.container.classList.add('hidden');

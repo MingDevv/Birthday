@@ -6,9 +6,13 @@
 export class SoundManager {
   constructor() {
     this.ctx = null;
+    this.mediaSource = null;
+    this.analyser = null;
+    this.frequencyData = null;
+    this.smoothedBass = 0;
     this.isPlayingBGM = false;
     this.isMuted = false;
-    this.bgmAudio = new Audio('/audio/velika-official-audio.mp3');
+    this.bgmAudio = new Audio(`${import.meta.env.BASE_URL}audio/velika-official-audio.mp3`);
     this.bgmAudio.loop = true;
     this.bgmAudio.preload = 'none';
     this.bgmAudio.volume = 0.35;
@@ -21,6 +25,17 @@ export class SoundManager {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         this.ctx = new AudioContext();
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 1024;
+        this.analyser.smoothingTimeConstant = 0.82;
+        this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
+        try {
+          this.mediaSource = this.ctx.createMediaElementSource(this.bgmAudio);
+          this.mediaSource.connect(this.analyser);
+          this.analyser.connect(this.ctx.destination);
+        } catch (error) {
+          console.warn('Music analyser unavailable; continuing without beat response.', error);
+        }
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -82,6 +97,23 @@ export class SoundManager {
   playHoverSound() {
     if (this.isMuted) return;
     this.playMusicBoxTone(880, 0.45, 0.06);
+  }
+
+  playLetterTick() {
+    if (this.isMuted) return;
+    this.initAudioContext();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const oscillator = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(1480, now);
+    gain.gain.setValueAtTime(0.012, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+    oscillator.connect(gain);
+    gain.connect(this.ctx.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.04);
   }
 
   // Checkpoint Click / Fly-to Sound
@@ -195,5 +227,19 @@ export class SoundManager {
 
   isPlaying() {
     return this.isPlayingBGM && !this.bgmAudio.paused;
+  }
+
+  getMusicBassEnergy() {
+    if (!this.isPlaying() || !this.analyser || !this.frequencyData) {
+      this.smoothedBass *= 0.82;
+      return this.smoothedBass;
+    }
+    this.analyser.getByteFrequencyData(this.frequencyData);
+    const count = Math.min(8, this.frequencyData.length);
+    let sum = 0;
+    for (let index = 0; index < count; index += 1) sum += this.frequencyData[index] / 255;
+    const bass = count ? sum / count : 0;
+    this.smoothedBass += (bass - this.smoothedBass) * 0.18;
+    return this.smoothedBass;
   }
 }

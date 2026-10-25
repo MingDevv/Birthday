@@ -4,6 +4,9 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import gsap from 'gsap';
 
 import { MEMORIES_LIST, PLANET_CONFIG } from './config/memoriesData.js';
@@ -48,6 +51,7 @@ if (queryFlags.portraitRatio) currentQuality.pixelRatio = 1;
 let currentHoveredMesh = null;
 let isCinematicFlying = false;
 let isGalaxyView = false;
+let captureRequestPending = false;
 
 const canvas = document.getElementById('webgl-canvas');
 const renderer = new THREE.WebGLRenderer({
@@ -68,6 +72,11 @@ const scene = new THREE.Scene();
 // Deep Cosmic Purple & Midnight Indigo space
 scene.background = new THREE.Color(0x060212);
 scene.fog = null;
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+const environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
+scene.environment = environment.texture;
+scene.environmentIntensity = 0.55;
+pmremGenerator.dispose();
 
 let heroPose = heroCamera(renderViewport.aspect);
 const camera = new THREE.PerspectiveCamera(
@@ -100,7 +109,7 @@ controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
 // -----------------------------------------------------------------------------
 const renderTarget = new THREE.WebGLRenderTarget(renderViewport.width, renderViewport.height, {
   type: renderer.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType,
-  samples: renderer.capabilities.isWebGL2 ? 4 : 0
+  samples: renderer.capabilities.isWebGL2 ? currentQuality.samples : 0
 });
 const composer = new EffectComposer(renderer, renderTarget);
 composer.setPixelRatio(currentQuality.pixelRatio);
@@ -110,11 +119,34 @@ composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(renderViewport.width, renderViewport.height),
-  0.24, // Keep bloom on the star cores without softening planetary silhouettes
+  currentQuality.bloomStrength, // Keep bloom on the star cores without softening planetary silhouettes
   0.42,
   1.0
 );
 composer.addPass(bloomPass);
+const bokehPass = new BokehPass(scene, camera, { focus: 24, aperture: 0.00012, maxblur: 0.006 });
+bokehPass.enabled = false;
+composer.addPass(bokehPass);
+const cinematicPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.28 }, uGrain: { value: 0.018 }, uCA: { value: 0.0012 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float uTime,uVignette,uGrain,uCA;
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+    void main(){ vec2 d=vUv-0.5; float r=dot(d,d); vec2 off=d*uCA*r*4.0;
+      vec3 c=vec3(texture2D(tDiffuse,vUv+off).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-off).b);
+      c*=1.0-uVignette*smoothstep(0.15,0.75,r*2.0); c+=(hash(vUv*vec2(1920.,1080.)+uTime)-0.5)*uGrain;
+      gl_FragColor=vec4(c,1.0); }`
+});
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const syncCinematicPass = () => {
+  const enabled = currentQuality.tier === 'high' || currentQuality.tier === 'ultra';
+  cinematicPass.enabled = enabled;
+  cinematicPass.uniforms.uGrain.value = reducedMotion.matches ? 0 : 0.018;
+  cinematicPass.uniforms.uCA.value = enabled ? 0.0012 : 0;
+  cinematicPass.uniforms.uVignette.value = enabled ? 0.28 : 0.16;
+};
+syncCinematicPass();
+composer.addPass(cinematicPass);
 const outputPass = new OutputPass();
 composer.addPass(outputPass);
 
@@ -176,8 +208,14 @@ const soundManager = new SoundManager();
 soundManager.isMuted = queryFlags.mute;
 const galaxy = createGalaxySkybox(scene, currentQuality);
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
-const solarSystem = createSolarSystemHeart(scene);
-loadPlanetTextures().then((textures) => solarSystem.setPlanetTextures(textures));
+const solarSystem = createSolarSystemHeart(scene, currentQuality);
+const loadingOverlay = document.getElementById('asset-loading');
+const loadingBar = loadingOverlay?.querySelector('.asset-loading-bar');
+const loadingManager = new THREE.LoadingManager();
+const texturesReady = loadPlanetTextures({
+  manager: loadingManager,
+  onProgress: (progress) => loadingBar?.style.setProperty('--progress', `${Math.round(progress * 100)}%`)
+}).then((textures) => solarSystem.setPlanetTextures(textures));
 const fireworks = createFireworksSystem(scene, soundManager);
 const name3DText = createGiant3DNameText(scene);
 const wormhole = createWormhole(scene);
@@ -189,8 +227,17 @@ const frameGovernor = createFrameGovernor({
   getSize: getRenderSize,
   onTierChange: (next) => {
     currentQuality = next;
+    solarSystem.setQuality(next);
     galaxy.setQuality(next.backgroundStars);
     spiralGalaxy.setQuality(next.galaxyStars);
+    renderTarget.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
+    composer.renderTarget1.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
+    composer.renderTarget2.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
+    composer.renderTarget1.dispose();
+    composer.renderTarget2.dispose();
+    bloomPass.strength = next.bloomStrength;
+    if (next.tier === 'low' || next.tier === 'medium') bokehPass.enabled = false;
+    syncCinematicPass();
     debugQuality.quality = next.tier;
     qualityController?.updateDisplay();
   }
@@ -417,6 +464,7 @@ function updateWarpStreaks(delta) {
 let approachTimeline = null;
 
 function runCinemaDirector() {
+  bokehPass.enabled = (currentQuality.tier === 'high' || currentQuality.tier === 'ultra') && !prefersReducedMotion;
   hud.hide();
   isCinematicFlying = true;
   controls.autoRotate = false;
@@ -426,6 +474,7 @@ function runCinemaDirector() {
     onComplete: () => {
       isCinematicFlying = false;
       controls.autoRotate = false;
+      bokehPass.enabled = false;
     }
   });
 
@@ -504,8 +553,14 @@ function startCinematicApproach(onComplete) {
       runCinemaDirector();
       return;
     }
-    showArrivalCelebrationFlow(soundManager);
-    if (onComplete) onComplete();
+    solarSystem.startArrivalShape({
+      reducedMotion: prefersReducedMotion,
+      onComplete: () => {
+        soundManager.playMusicBoxTone(880, 0.8, 0.06);
+        if (onComplete) onComplete();
+        showArrivalCelebrationFlow(soundManager);
+      }
+    });
   };
 
   skipBtn.addEventListener('click', finishFlight);
@@ -658,7 +713,9 @@ function flyToPlanet(planetId) {
     visitedMemories.add(planetId);
     solarSystem.markVisited(planetId);
     hud.updateProgress(visitedMemories);
+    if (visitedMemories.size === 5) solarSystem.showSecretMessage('มีความสุขมากๆนะไอ่อ้วนน💗');
   }
+  if (planetId === 5) solarSystem.showFinalRose();
 
   soundManager.playClickSound();
 
@@ -672,6 +729,11 @@ function flyToPlanet(planetId) {
   const targetCamPos = targetLookAt.clone().add(cameraOffset);
 
   const currentDist = camera.position.distanceTo(targetCamPos);
+  bokehPass.enabled = (currentQuality.tier === 'high' || currentQuality.tier === 'ultra') && !prefersReducedMotion;
+  if (bokehPass.enabled) {
+    gsap.to(bokehPass.uniforms.focus, { value: Math.max(6, currentDist), duration: 0.75, ease: 'power2.out' });
+    gsap.to(bokehPass.uniforms.aperture, { value: 0.00028, duration: 0.7, ease: 'power2.out' });
+  }
   const duration = isFinalPlanet
     ? (currentDist > 90 ? 2.8 : 2.0)
     : (currentDist > 90 ? 2.2 : 1.5);
@@ -692,6 +754,8 @@ function flyToPlanet(planetId) {
     ease: 'power3.inOut',
     onComplete: () => {
       isCinematicFlying = false;
+      bokehPass.enabled = false;
+      bokehPass.uniforms.aperture.value = 0.00012;
       if (isFinalPlanet) {
         gsap.delayedCall(0.9, () => polaroidModal.show(planetItem.memory));
       } else {
@@ -777,6 +841,8 @@ function toggleGalaxyView(forcedState) {
 // 7. UI Modals & HUD Overlay
 // -----------------------------------------------------------------------------
 const polaroidModal = new PolaroidModal({
+  onTypeTick: () => soundManager.playLetterTick(),
+  onCapture: () => { captureRequestPending = true; },
   onNext: (nextId) => {
     polaroidModal.close(false);
     setTimeout(() => flyToPlanet(nextId), 380);
@@ -827,6 +893,10 @@ const hud = new HudOverlay({
     flyToPlanet(id);
   }
 });
+
+// Wait for local planet textures so the introduction never opens onto an empty scene.
+await texturesReady;
+loadingOverlay?.classList.add('asset-loading-done');
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
 if (queryFlags.skipIntro || queryFlags.cinema) {
@@ -959,6 +1029,57 @@ window.addEventListener('resize', () => {
 // 9. 60 FPS Render Loop with Post-Processing Bloom
 // -----------------------------------------------------------------------------
 const clock = new THREE.Clock();
+
+function downloadBirthdaySnapshot() {
+  let renderedFrame;
+  try {
+    // Copy the just-rendered frame synchronously, before the browser releases
+    // the WebGL drawing buffer at the end of this animation frame.
+    renderedFrame = canvas.toDataURL('image/png');
+  } catch (error) {
+    console.warn('Could not read the rendered WebGL frame for the birthday image.', error);
+    return;
+  }
+  if (renderedFrame.length < 1000) return;
+  const image = new Image();
+    image.onload = () => {
+      const frame = document.createElement('canvas');
+      frame.width = image.width;
+      frame.height = image.height;
+      const context = frame.getContext('2d');
+      context.fillStyle = '#080516';
+      context.fillRect(0, 0, frame.width, frame.height);
+      context.drawImage(image, 0, 0);
+      const margin = Math.max(18, Math.round(frame.width * 0.018));
+      context.strokeStyle = 'rgba(255, 226, 244, 0.92)';
+      context.lineWidth = Math.max(3, Math.round(frame.width * 0.003));
+      context.strokeRect(margin, margin, frame.width - margin * 2, frame.height - margin * 2);
+      const bandHeight = Math.max(76, Math.round(frame.height * 0.085));
+      const gradient = context.createLinearGradient(0, frame.height - bandHeight, 0, frame.height);
+      gradient.addColorStop(0, 'rgba(20, 8, 38, 0.0)');
+      gradient.addColorStop(1, 'rgba(20, 8, 38, 0.88)');
+      context.fillStyle = gradient;
+      context.fillRect(0, frame.height - bandHeight, frame.width, bandHeight);
+      context.textAlign = 'center';
+      context.textBaseline = 'bottom';
+      context.font = `700 ${Math.max(24, Math.round(frame.width * 0.032))}px Prompt, sans-serif`;
+      context.fillStyle = '#fff0f8';
+      context.shadowColor = 'rgba(0,0,0,.8)';
+      context.shadowBlur = 8;
+      context.fillText('Happy Birthday ข้าวหอม 💗', frame.width / 2, frame.height - margin * 1.6);
+      frame.toBlob((result) => {
+        if (!result) return;
+        const url = URL.createObjectURL(result);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'happy-birthday-khaohom.png';
+        link.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    };
+  image.src = renderedFrame;
+}
+
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) clock.start();
 });
@@ -970,13 +1091,16 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.1);
   const time = clock.getElapsedTime();
+  cinematicPass.uniforms.uTime.value = time;
   orbitClock.time += delta * orbitClock.scale;
 
   controls.update();
 
   galaxy.update(delta, time);
   spiralGalaxy.update(delta, time, camera);
-  solarSystem.update(delta, orbitClock.time, time);
+  const musicBass = soundManager.getMusicBassEnergy();
+  solarSystem.update(delta, orbitClock.time, time, musicBass);
+  bloomPass.strength = currentQuality.bloomStrength + Math.min(0.05, musicBass * 0.05);
   fireworks.update(delta);
   updateWarpStreaks(delta);
   name3DText.update(delta, time, camera);
@@ -985,6 +1109,10 @@ function animate() {
 
   // Render through EffectComposer with UnrealBloomPass for celestial glowing aesthetics
   composer.render();
+  if (captureRequestPending) {
+    captureRequestPending = false;
+    downloadBirthdaySnapshot();
+  }
   stats?.end();
 }
 

@@ -35,7 +35,7 @@ export class HudOverlay {
           <div class="hud-brand">
             <div class="hud-title-wrap">
               <span class="hud-planet-icon" id="hud-brand-icon">🎂</span>
-              <h1 class="hud-main-title">${PLANET_CONFIG.mainTitle}</h1>
+              <h1 class="hud-main-title"><span class="hud-title-desktop">${PLANET_CONFIG.mainTitle}</span><span class="hud-title-mobile">${PLANET_CONFIG.recipientName}</span></h1>
             </div>
             <p class="hud-subtitle" id="hud-brand-sub">${PLANET_CONFIG.subtitle}</p>
           </div>
@@ -102,6 +102,11 @@ export class HudOverlay {
     `;
 
     document.body.appendChild(this.container);
+
+    const brand = this.container.querySelector('.hud-brand');
+    brand.addEventListener('click', () => {
+      if (window.matchMedia('(max-width: 480px)').matches) brand.classList.toggle('show-subtitle');
+    });
 
     // Bind Toggle Galaxy
     this.container.querySelector('#btn-toggle-galaxy').addEventListener('click', () => {

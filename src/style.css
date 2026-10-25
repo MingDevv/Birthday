@@ -38,6 +38,20 @@ body::after {
   background: radial-gradient(ellipse at center, transparent 52%, rgba(3, 1, 12, 0.26) 100%);
 }
 
+.asset-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: #080516;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+.asset-loading-done { opacity: 0; visibility: hidden; pointer-events: none; }
+.asset-loading-card { width: min(78vw, 320px); color: #f3e8ff; text-align: center; font-size: 0.95rem; }
+.asset-loading-track { height: 4px; margin-top: 1rem; overflow: hidden; border-radius: 4px; background: rgba(255,255,255,.14); }
+.asset-loading-bar { width: var(--progress, 4%); height: 100%; background: linear-gradient(90deg, #a78bfa, #f9a8d4); transition: width .2s ease; }
+
 #webgl-canvas {
   position: fixed;
   top: 0;
@@ -347,14 +361,16 @@ body.cinema-portrait #webgl-canvas {
 }
 
 .hud-main-title {
-  font-size: clamp(0.95rem, 1.8vw, 1.35rem);
+  font-size: clamp(0.95rem, 1.65vw, 1.22rem);
   font-weight: 700;
   background: linear-gradient(135deg, #ffffff 20%, #ffd700 70%, #ff9a9e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 0.5px;
   line-height: 1.35;
+  white-space: nowrap;
 }
+.hud-title-mobile { display: none; }
 
 .hud-subtitle {
   font-size: 0.84rem;
@@ -889,6 +905,7 @@ body.cinema-portrait #webgl-canvas {
 /* Action Buttons */
 .memory-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   margin-top: 1.3rem;
@@ -905,6 +922,8 @@ body.cinema-portrait #webgl-canvas {
   cursor: pointer;
   transition: all 0.22s ease;
   display: flex;
+  flex: 1 1 30%;
+  justify-content: center;
   align-items: center;
   gap: 0.4rem;
 }
@@ -931,6 +950,13 @@ body.cinema-portrait #webgl-canvas {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(255, 154, 158, 0.5);
 }
+
+.capture-memory-btn {
+  color: #fff5fb;
+  background: rgba(192, 132, 252, 0.24);
+  border: 1px solid rgba(233, 213, 255, 0.42);
+}
+.capture-memory-btn:hover { background: rgba(192, 132, 252, 0.4); transform: translateY(-1px); }
 
 /* Animations */
 @keyframes breathingPulse {
@@ -1010,10 +1036,17 @@ body.cinema-portrait #webgl-canvas {
     padding: 0.42rem 0.65rem;
     border-radius: 0.75rem;
   }
+  .hud-subtitle { display: none; }
+  .hud-left-panel { flex-direction: row; align-items: center; gap: 0.35rem; }
+  .hud-brand { flex: 1 1 auto; min-width: 0; }
+  .hud-beacons-tracker { flex: 0 0 auto; width: auto; display: flex; padding: 0.3rem 0.5rem; }
+  .tracker-header { display: none; }
   .hud-title-wrap {
     min-width: 0;
+    flex: 1 1 auto;
   }
   .hud-main-title {
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1106,6 +1139,18 @@ body.cinema-portrait #webgl-canvas {
   .memory-title {
     font-size: 1.25rem;
   }
+}
+
+@media (max-width: 480px) {
+  .hud-header { gap: 0.25rem; }
+  .hud-top-actions { gap: 0.3rem; }
+  .hud-brand { padding: 0.32rem 0.48rem; }
+  .hud-brand.show-subtitle .hud-subtitle { display: block; }
+  .hud-title-desktop { display: none; }
+  .hud-title-mobile { display: inline; }
+  .hud-beacons-tracker { display: flex; width: auto; padding: 0.3rem 0.5rem; }
+  .hud-planet-icon { font-size: 1rem; }
+  .tracker-hearts { gap: 0.12rem; font-size: 0.88rem; }
 }
 
 /* Keep the interface aligned to a centered 9:16 recording canvas. */

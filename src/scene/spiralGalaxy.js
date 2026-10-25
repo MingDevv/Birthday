@@ -255,7 +255,49 @@ export function createSpiralGalaxy(scene, quality = {}) {
   });
   const coreSprite = new THREE.Sprite(coreMaterial);
   coreSprite.scale.set(56, 56, 1);
+  coreSprite.position.z = -105;
   galaxyGroup.add(coreSprite);
+
+  // A compact warm bulge sits behind the solar system and fills the otherwise
+  // empty inner rim without competing with the heart and orbiting planets.
+  const bulgeCount = Math.max(600, Math.floor(parameters.count * 0.035));
+  const bulgeGeometry = new THREE.BufferGeometry();
+  const bulgePositions = new Float32Array(bulgeCount * 3);
+  const bulgeColors = new Float32Array(bulgeCount * 3);
+  const bulgePalette = [new THREE.Color(0xffd6a5), new THREE.Color(0xf9a8d4), new THREE.Color(0xfff1d6)];
+  for (let i = 0; i < bulgeCount; i += 1) {
+    const radius = 12 + Math.pow(Math.random(), 1.8) * 50;
+    const angle = Math.random() * Math.PI * 2;
+    bulgePositions.set([Math.cos(angle) * radius, (Math.random() - 0.5) * 12, -105 + Math.sin(angle) * radius * 0.3], i * 3);
+    const color = bulgePalette[Math.floor(Math.random() * bulgePalette.length)];
+    bulgeColors.set([color.r, color.g, color.b], i * 3);
+  }
+  bulgeGeometry.setAttribute('position', new THREE.BufferAttribute(bulgePositions, 3));
+  bulgeGeometry.setAttribute('color', new THREE.BufferAttribute(bulgeColors, 3));
+  const bulgePoints = new THREE.Points(bulgeGeometry, new THREE.PointsMaterial({
+    size: 1.35, vertexColors: true, transparent: true, opacity: 0.52,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  galaxyGroup.add(bulgePoints);
+
+  // Dark, narrow dust lanes cut through the spiral arms to give the star field
+  // contrast and depth. Geometry cost stays low and does not add particles.
+  const dustLaneMaterials = [];
+  for (let arm = 0; arm < parameters.branches; arm += 1) {
+    const start = (arm / parameters.branches) * Math.PI * 2;
+    const points = Array.from({ length: 96 }, (_, index) => {
+      const radius = 108 + (index / 95) * 210;
+      const angle = start + Math.log(radius / 30) * parameters.spin * 1.8 + 0.12;
+      return new THREE.Vector3(Math.cos(angle) * radius, -1.5, Math.sin(angle) * radius);
+    });
+    const lane = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 160, 2.1, 4, false),
+      new THREE.MeshBasicMaterial({ color: 0x080519, transparent: true, opacity: 0.48, depthWrite: false })
+    );
+    lane.renderOrder = 3;
+    galaxyGroup.add(lane);
+    dustLaneMaterials.push(lane.material);
+  }
 
   // ===========================================================================
   // 2. Volumetric Glowing Nebula Gas Clouds (Smooth Gaussian, Outside Solar System)
@@ -401,6 +443,8 @@ export function createSpiralGalaxy(scene, quality = {}) {
       crossMat.uniforms.uTime.value = time;
       const cameraDistance = camera ? camera.position.length() : 120;
       coreMaterial.opacity = THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18;
+      const bulgePulse = 0.44 + Math.sin(time * 0.32) * 0.035;
+      bulgePoints.material.opacity = bulgePulse;
 
       // Ultra-slow cosmic rotation
       galaxyGroup.rotation.y += delta * 0.005;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import gsap from 'gsap';
 
 /**
@@ -116,25 +117,87 @@ export function createGiant3DNameText(scene) {
   const textPlane = new THREE.PlaneGeometry(TEXT_WIDTH, TEXT_HEIGHT);
   const layerCount = 10;
   const layerSpacing = 0.65;
+  const vectorGlyphMeshes = [];
+  let vectorLoaded = false;
 
   for (let i = 0; i < layerCount; i++) {
     const isFront = i === layerCount - 1;
     const mesh = new THREE.Mesh(textPlane, isFront ? frontMaterial : extrusionMaterial);
+    mesh.userData.nameFallback = true;
     mesh.position.z = (i - (layerCount - 1) / 2) * layerSpacing;
     nameGroup.add(mesh);
   }
 
+  // Build real extruded glyphs from shaped Prompt outlines. The stacked planes
+  // above remain visible as a fallback until every vector glyph is ready.
+  const svgLoader = new SVGLoader();
+  svgLoader.load(`${import.meta.env.BASE_URL}models/khaohom.svg`, (svgData) => {
+    try {
+      const glyphGeometries = svgData.paths.flatMap((path) => SVGLoader.createShapes(path).map((shape) => new THREE.ExtrudeGeometry(shape, {
+        depth: 8,
+        steps: 1,
+        bevelEnabled: true,
+        bevelSegments: 4,
+        bevelSize: 8.5,
+        bevelThickness: 0.8,
+        curveSegments: 8
+      })));
+      if (!glyphGeometries.length) throw new Error('The Thai SVG contains no extrudable glyph paths.');
+      const bounds = new THREE.Box3();
+      glyphGeometries.forEach((geometry) => {
+        geometry.computeBoundingBox();
+        bounds.union(geometry.boundingBox);
+      });
+      const size = bounds.getSize(new THREE.Vector3());
+      const scale = TEXT_WIDTH / Math.max(1, size.x);
+      const center = bounds.getCenter(new THREE.Vector3());
+      glyphGeometries.forEach((geometry) => {
+        geometry.scale(scale, -scale, 1);
+        geometry.translate(-center.x * scale, center.y * scale, -4);
+        geometry.computeVertexNormals();
+        const material = new THREE.MeshPhysicalMaterial({
+          color: 0xd52d5e,
+          emissive: 0x680f37,
+          emissiveIntensity: 0.52,
+          metalness: 0.12,
+          roughness: 0.26,
+          clearcoat: 1,
+          clearcoatRoughness: 0.08,
+          iridescence: 0.32,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          side: THREE.DoubleSide
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.visible = false;
+        mesh.userData.baseScale = 1;
+        nameGroup.add(mesh);
+        vectorGlyphMeshes.push(mesh);
+      });
+      vectorLoaded = vectorGlyphMeshes.length > 0;
+      if (vectorLoaded) {
+        fadeMaterials.push(...vectorGlyphMeshes.map((mesh) => mesh.material));
+        if (isVisible) revealVectorGlyphs();
+      }
+    } catch (error) {
+      console.warn('3D Thai name outline could not be extruded; keeping the plane fallback.', error);
+    }
+  }, undefined, (error) => {
+    console.warn('3D Thai name SVG unavailable; keeping the plane fallback.', error);
+  });
+
   // Soft Ruby Celestial Glow Backdrop
   const glowCanvas = document.createElement('canvas');
   glowCanvas.width = 256;
-  glowCanvas.height = 128;
+  glowCanvas.height = 256;
   const glowCtx = glowCanvas.getContext('2d');
-  const glow = glowCtx.createRadialGradient(128, 64, 10, 128, 64, 128);
+  const glow = glowCtx.createRadialGradient(128, 128, 8, 128, 128, 128);
   glow.addColorStop(0, 'rgba(192, 132, 252, 0.22)');
   glow.addColorStop(0.5, 'rgba(136, 19, 55, 0.1)');
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   glowCtx.fillStyle = glow;
-  glowCtx.fillRect(0, 0, 256, 128);
+  glowCtx.fillRect(0, 0, 256, 256);
 
   const glowTexture = new THREE.CanvasTexture(glowCanvas);
   const glowMaterial = new THREE.SpriteMaterial({
@@ -146,7 +209,7 @@ export function createGiant3DNameText(scene) {
     depthTest: true
   });
   const glowSprite = new THREE.Sprite(glowMaterial);
-  glowSprite.scale.set(TEXT_WIDTH * 1.12, TEXT_HEIGHT * 1.12, 1);
+  glowSprite.scale.set(TEXT_WIDTH * 1.12, TEXT_HEIGHT * 1.4, 1);
   glowSprite.position.set(0, 0, -4);
   nameGroup.add(glowSprite);
 
@@ -192,6 +255,17 @@ export function createGiant3DNameText(scene) {
   let isVisible = false;
   let currentTween = null;
 
+  function revealVectorGlyphs() {
+    if (!vectorLoaded) return;
+    gsap.to([frontMaterial, extrusionMaterial], { opacity: 0, duration: 0.35, ease: 'power1.out' });
+    vectorGlyphMeshes.forEach((mesh, index) => {
+      mesh.visible = true;
+      mesh.scale.setScalar(0.82);
+      gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 0.34, delay: index * 0.12, ease: 'back.out(1.6)' });
+      gsap.to(mesh.material, { opacity: 1, duration: 0.3, delay: index * 0.12, ease: 'power1.out' });
+    });
+  }
+
   return {
     group: nameGroup,
 
@@ -202,14 +276,16 @@ export function createGiant3DNameText(scene) {
       currentTween?.kill();
       currentTween = gsap.to(fadeMaterials, {
         opacity: (_idx, target) => {
-          if (target === frontMaterial) return 1.0;
-          if (target === extrusionMaterial) return 0.75;
+          if (target === frontMaterial) return vectorLoaded ? 0 : 1.0;
+          if (target === extrusionMaterial) return vectorLoaded ? 0 : 0.75;
+          if (vectorGlyphMeshes.some((mesh) => mesh.material === target)) return 1.0;
           if (target === glowMaterial) return 0.2;
           return 0.72;
         },
         duration: 1.5,
         ease: 'power2.out'
       });
+      if (vectorLoaded) revealVectorGlyphs();
     },
 
     hide() {
@@ -222,6 +298,7 @@ export function createGiant3DNameText(scene) {
         ease: 'power2.in',
         onComplete: () => {
           nameGroup.visible = false;
+          vectorGlyphMeshes.forEach((mesh) => { mesh.visible = false; });
         }
       });
     },

@@ -1,21 +1,25 @@
 import * as THREE from 'three';
 import { createGlowTexture } from './galaxySkybox.js';
 import { MEMORIES_LIST } from '../config/memoriesData.js';
+import { createEnchantedRose } from './enchantedRose.js';
 
 const PLANET_TEXTURE_URLS = {
-  venus: '/textures/planets/2k_venus_atmosphere.jpg',
-  venusSurface: '/textures/planets/2k_venus_surface.jpg',
-  earth: '/textures/planets/2k_earth_daymap.jpg',
-  earthClouds: '/textures/planets/2k_earth_clouds.jpg',
-  moon: '/textures/planets/2k_moon.jpg',
-  mars: '/textures/planets/2k_mars.jpg',
-  jupiter: '/textures/planets/2k_jupiter.jpg',
-  saturn: '/textures/planets/2k_saturn.jpg',
-  saturnRing: '/textures/planets/2k_saturn_ring_alpha.png'
+  venus: `${import.meta.env.BASE_URL}textures/planets/2k_venus_atmosphere.jpg`,
+  venusSurface: `${import.meta.env.BASE_URL}textures/planets/2k_venus_surface.jpg`,
+  earth: `${import.meta.env.BASE_URL}textures/planets/2k_earth_daymap.jpg`,
+  earthClouds: `${import.meta.env.BASE_URL}textures/planets/2k_earth_clouds.jpg`,
+  moon: `${import.meta.env.BASE_URL}textures/planets/2k_moon.jpg`,
+  mars: `${import.meta.env.BASE_URL}textures/planets/2k_mars.jpg`,
+  jupiter: `${import.meta.env.BASE_URL}textures/planets/2k_jupiter.jpg`,
+  saturn: `${import.meta.env.BASE_URL}textures/planets/2k_saturn.jpg`,
+  saturnRing: `${import.meta.env.BASE_URL}textures/planets/2k_saturn_ring_alpha.png`
 };
 
-export async function loadPlanetTextures() {
-  const loader = new THREE.TextureLoader();
+export async function loadPlanetTextures({ manager = THREE.DefaultLoadingManager, onProgress } = {}) {
+  const loader = new THREE.TextureLoader(manager);
+  if (onProgress) {
+    manager.onProgress = (_url, loaded, total) => onProgress(total ? loaded / total : 1);
+  }
   const entries = await Promise.all(Object.entries(PLANET_TEXTURE_URLS).map(async ([key, url]) => {
     try {
       const texture = await loader.loadAsync(url);
@@ -398,7 +402,7 @@ function createSparkleTexture() {
   return texture;
 }
 
-export function createSolarSystemHeart(scene) {
+export function createSolarSystemHeart(scene, quality = { tier: 'high' }) {
   const rootGroup = new THREE.Group();
   rootGroup.name = 'solarSystemHeartMaster';
   scene.add(rootGroup);
@@ -409,6 +413,8 @@ export function createSolarSystemHeart(scene) {
   const planetsList = [];
   const orbitalParticleSystems = [];
   const orbitPathMaterials = new Map();
+  let secretMessageSprite = null;
+  let arrivalEffect = null;
 
   // ===========================================================================
   // 1. The Sculpted 3D Crystalline Heart at (0, 0, 0)
@@ -428,6 +434,11 @@ export function createSolarSystemHeart(scene) {
     metalness: 0.08,
     clearcoat: 0.76,
     clearcoatRoughness: 0.12,
+    transmission: quality.tier === 'high' || quality.tier === 'ultra' ? 0.35 : 0,
+    thickness: 0.7,
+    ior: 1.4,
+    iridescence: quality.tier === 'high' || quality.tier === 'ultra' ? 0.6 : 0,
+    iridescenceIOR: 1.3,
     side: THREE.DoubleSide,      // Render both front and back cleanly from all angles
     transparent: false,
     reflectivity: 0.78
@@ -614,7 +625,7 @@ export function createSolarSystemHeart(scene) {
     const pathMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
       transparent: true,
-      opacity: idx === 4 ? 0.17 : 0.13,
+      opacity: idx === 0 ? 0.17 : 0.035,
       blending: THREE.NormalBlending,
       depthWrite: false,
       toneMapped: false
@@ -684,6 +695,43 @@ export function createSolarSystemHeart(scene) {
     planetMesh.userData.baseEmissiveIntensity = sphereMat.emissiveIntensity;
     planetMesh.userData.visited = false;
     planetNode.add(planetMesh);
+
+    if (pConfig.type === 'earth' || pConfig.type === 'venus') {
+      const atmosphereMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(pConfig.type === 'earth' ? 0x63caff : 0xffe6bd) },
+          uOpacity: { value: pConfig.type === 'earth' ? 0.42 : 0.25 }
+        },
+        vertexShader: `varying vec3 vNormalView; varying vec3 vViewDirection; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vNormalView=normalize(normalMatrix*normal); vViewDirection=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
+        fragmentShader: `uniform vec3 uColor; uniform float uOpacity; varying vec3 vNormalView; varying vec3 vViewDirection; void main(){ float rim=pow(1.0-max(dot(normalize(vNormalView),normalize(vViewDirection)),0.0),2.6); gl_FragColor=vec4(uColor,rim*uOpacity); }`,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.055, 48, 48), atmosphereMaterial);
+      atmosphere.name = `${pConfig.type}AtmosphereFresnel`;
+      planetNode.add(atmosphere);
+    }
+
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 640;
+    labelCanvas.height = 128;
+    const labelContext = labelCanvas.getContext('2d');
+    const labelText = `${String(pConfig.id).padStart(2, '0')} · ${memData.planetThai}`;
+    labelContext.textAlign = 'center';
+    labelContext.textBaseline = 'middle';
+    labelContext.font = '700 42px Prompt, sans-serif';
+    labelContext.lineWidth = 8;
+    labelContext.strokeStyle = 'rgba(12,5,24,.9)';
+    labelContext.strokeText(labelText, 320, 64);
+    labelContext.fillStyle = '#fff4fd';
+    labelContext.fillText(labelText, 320, 64);
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    labelTexture.colorSpace = THREE.SRGBColorSpace;
+    const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+    labelSprite.scale.set(pConfig.radius * 6.5, pConfig.radius * 1.3, 1);
+    labelSprite.position.set(0, pConfig.radius * 1.65, 0);
+    planetNode.add(labelSprite);
 
     // Subtle Atmospheric Rim Glow (Makes each planet pop out as a luminous celestial jewel)
     const planetGlowMat = new THREE.SpriteMaterial({
@@ -769,6 +817,27 @@ export function createSolarSystemHeart(scene) {
       saturnRingMesh.rotation.x = Math.PI / 2 + 0.42;
       saturnRingMesh.rotation.y = 0.25;
       planetNode.add(saturnRingMesh);
+
+      const shadowCanvas = document.createElement('canvas');
+      shadowCanvas.width = 256;
+      shadowCanvas.height = 64;
+      const shadowContext = shadowCanvas.getContext('2d');
+      const shadowGradient = shadowContext.createLinearGradient(0, 0, 256, 0);
+      shadowGradient.addColorStop(0, 'rgba(8,5,18,0)');
+      shadowGradient.addColorStop(0.35, 'rgba(8,5,18,0.1)');
+      shadowGradient.addColorStop(0.5, 'rgba(8,5,18,0.72)');
+      shadowGradient.addColorStop(0.65, 'rgba(8,5,18,0.1)');
+      shadowGradient.addColorStop(1, 'rgba(8,5,18,0)');
+      shadowContext.fillStyle = shadowGradient;
+      shadowContext.fillRect(0, 0, 256, 64);
+      const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+      const ringShadow = new THREE.Mesh(new THREE.PlaneGeometry(pConfig.radius * 2.1, pConfig.radius * 0.3), new THREE.MeshBasicMaterial({
+        map: shadowTexture, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide
+      }));
+      ringShadow.rotation.copy(saturnRingMesh.rotation);
+      ringShadow.position.set(-pConfig.radius * 0.65, 0, 0.06);
+      ringShadow.renderOrder = 2;
+      planetNode.add(ringShadow);
     }
 
     // 6. Interactive Hitbox
@@ -797,6 +866,33 @@ export function createSolarSystemHeart(scene) {
       cloudLayer = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.012, 64, 64), cloudMaterial);
       cloudLayer.name = 'earthCloudLayer';
       planetMesh.add(cloudLayer);
+
+      const cityCanvas = document.createElement('canvas');
+      cityCanvas.width = 512;
+      cityCanvas.height = 256;
+      const cityContext = cityCanvas.getContext('2d');
+      cityContext.clearRect(0, 0, 512, 256);
+      const cityCenters = Array.from({ length: 15 }, () => [Math.random() * 512, 46 + Math.random() * 164]);
+      cityCenters.forEach(([cx, cy]) => {
+        const cities = 14 + Math.floor(Math.random() * 24);
+        for (let city = 0; city < cities; city += 1) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * (4 + Math.random() * 20);
+          cityContext.fillStyle = `rgba(255, 210, 128, ${0.2 + Math.random() * 0.7})`;
+          cityContext.beginPath();
+          cityContext.arc(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, 0.4 + Math.random() * 0.8, 0, Math.PI * 2);
+          cityContext.fill();
+        }
+      });
+      const cityTexture = new THREE.CanvasTexture(cityCanvas);
+      const cityLights = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.008, 48, 48), new THREE.ShaderMaterial({
+        uniforms: { uMap: { value: cityTexture } },
+        vertexShader: `varying vec2 vUv; varying vec3 vWorldPosition; varying vec3 vWorldNormal; void main(){ vUv=uv; vec4 world=modelMatrix*vec4(position,1.0); vWorldPosition=world.xyz; vWorldNormal=normalize(mat3(modelMatrix)*normal); gl_Position=projectionMatrix*viewMatrix*world; }`,
+        fragmentShader: `uniform sampler2D uMap; varying vec2 vUv; varying vec3 vWorldPosition; varying vec3 vWorldNormal; void main(){ vec4 lights=texture2D(uMap,vUv); float lit=dot(normalize(vWorldNormal),normalize(-vWorldPosition)); float night=1.0-smoothstep(-0.18,0.12,lit); float alpha=lights.a*night*0.92; gl_FragColor=vec4(vec3(1.0,0.68,0.28),alpha); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      }));
+      cityLights.name = 'proceduralEarthCityLights';
+      planetMesh.add(cityLights);
     }
 
     planetsList.push({
@@ -808,9 +904,20 @@ export function createSolarSystemHeart(scene) {
       cloudLayer,
       moonNode: moonNode,
       saturnRing: saturnRingMesh,
+      labelSprite,
       hitMesh: hitMesh
     });
   });
+
+  const enchantedRose = createEnchantedRose(scene);
+  scene.remove(enchantedRose.group);
+  const saturnPlanet = planetsList.find((planet) => planet.id === 5);
+  if (saturnPlanet) {
+    enchantedRose.group.position.set(0, saturnPlanet.config.radius * 1.35, 0);
+    enchantedRose.group.scale.setScalar(0.22);
+    enchantedRose.group.visible = false;
+    saturnPlanet.group.add(enchantedRose.group);
+  }
 
   // Screen Space HTML Tooltip
   let tooltipEl = document.getElementById('planet-hover-tooltip');
@@ -866,7 +973,112 @@ export function createSolarSystemHeart(scene) {
       });
     },
 
-    update(delta, orbitTime, realTime = orbitTime) {
+    setQuality(nextQuality) {
+      const premiumTier = nextQuality.tier === 'high' || nextQuality.tier === 'ultra';
+      heartMat.transmission = premiumTier ? 0.35 : 0;
+      heartMat.iridescence = premiumTier ? 0.6 : 0;
+      heartMat.needsUpdate = true;
+    },
+
+    showSecretMessage(message) {
+      if (secretMessageSprite) return;
+      const messageCanvas = document.createElement('canvas');
+      messageCanvas.width = 1200;
+      messageCanvas.height = 180;
+      const context = messageCanvas.getContext('2d');
+      context.font = '700 72px Prompt, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.lineJoin = 'round';
+      context.lineWidth = 10;
+      context.strokeStyle = 'rgba(31, 11, 47, 0.94)';
+      context.strokeText(message, 600, 90);
+      context.fillStyle = '#ffe4f2';
+      context.fillText(message, 600, 90);
+      const texture = new THREE.CanvasTexture(messageCanvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+      secretMessageSprite = new THREE.Sprite(material);
+      secretMessageSprite.position.set(0, -12, 3);
+      secretMessageSprite.scale.set(35, 5.25, 1);
+      rootGroup.add(secretMessageSprite);
+    },
+
+    showFinalRose() {
+      enchantedRose.group.visible = true;
+    },
+
+    startArrivalShape({ reducedMotion = false, onComplete } = {}) {
+      if (arrivalEffect) {
+        arrivalEffect.onComplete = onComplete;
+        return;
+      }
+      const shapeCanvas = document.createElement('canvas');
+      shapeCanvas.width = 256;
+      shapeCanvas.height = 256;
+      const context = shapeCanvas.getContext('2d', { willReadFrequently: true });
+      context.fillStyle = '#fff';
+      context.beginPath();
+      context.moveTo(128, 224);
+      context.bezierCurveTo(96, 194, 20, 144, 20, 86);
+      context.bezierCurveTo(20, 32, 84, 16, 128, 68);
+      context.bezierCurveTo(172, 16, 236, 32, 236, 86);
+      context.bezierCurveTo(236, 144, 160, 194, 128, 224);
+      context.fill();
+      const pixels = context.getImageData(0, 0, 256, 256).data;
+      const candidates = [];
+      for (let y = 0; y < 256; y += 2) {
+        for (let x = 0; x < 256; x += 2) {
+          if (pixels[(y * 256 + x) * 4 + 3] > 0) candidates.push([x, y]);
+        }
+      }
+      const count = reducedMotion ? 220 : 440;
+      const starts = new Float32Array(count * 3);
+      const targets = new Float32Array(count * 3);
+      const positions = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) {
+        const point = candidates[Math.floor(Math.random() * candidates.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 100 + Math.random() * 110;
+        const start = [Math.cos(angle) * radius, (Math.random() - 0.5) * 130, Math.sin(angle) * radius - 10];
+        const target = [(point[0] - 128) * 0.66, (128 - point[1]) * 0.62, -10 + (Math.random() - 0.5) * 2];
+        starts.set(start, i * 3);
+        positions.set(start, i * 3);
+        targets.set(target, i * 3);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        map: sparkleTex, color: 0xffd9f1, size: 1.55, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      });
+      const points = new THREE.Points(geometry, material);
+      points.name = 'arrivalHeartParticleReveal';
+      rootGroup.add(points);
+      arrivalEffect = { geometry, material, points, starts, targets, elapsed: 0, onComplete, travel: reducedMotion ? 0.15 : 1.45, hold: 1.2, fade: 0.55 };
+    },
+
+    update(delta, orbitTime, realTime = orbitTime, musicBass = 0) {
+      if (enchantedRose.group.visible) enchantedRose.update(delta, realTime);
+      if (arrivalEffect) {
+        const effect = arrivalEffect;
+        effect.elapsed += delta;
+        const positions = effect.geometry.attributes.position.array;
+        const progress = THREE.MathUtils.clamp(effect.elapsed / effect.travel, 0, 1);
+        const eased = progress * progress * (3 - 2 * progress);
+        for (let i = 0; i < effect.starts.length; i += 1) positions[i] = THREE.MathUtils.lerp(effect.starts[i], effect.targets[i], eased);
+        effect.geometry.attributes.position.needsUpdate = true;
+        effect.material.opacity = effect.elapsed < effect.travel + effect.hold
+          ? Math.min(1, progress * 1.5)
+          : 1 - THREE.MathUtils.clamp((effect.elapsed - effect.travel - effect.hold) / effect.fade, 0, 1);
+        if (effect.elapsed >= effect.travel + effect.hold + effect.fade) {
+          rootGroup.remove(effect.points);
+          effect.geometry.dispose();
+          effect.material.dispose();
+          arrivalEffect = null;
+          effect.onComplete?.();
+        }
+      }
       // 1. Realistic Biomimetic Heartbeat Pulse
       const cycle = (realTime * 2.2) % (Math.PI * 2);
       let beat = 0;
@@ -876,6 +1088,7 @@ export function createSolarSystemHeart(scene) {
         beat = Math.sin((cycle - 0.8) * (Math.PI / 0.6)) * 0.08;
       }
 
+      beat += Math.min(0.08, musicBass * 0.12);
       const heartScale = 1.0 + beat;
       heartMesh.scale.set(heartScale, heartScale, heartScale);
       heartLight.intensity = 1.45 + beat * 1.2;
@@ -945,7 +1158,9 @@ export function createSolarSystemHeart(scene) {
         planetMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.16 : baseIntensity;
       }
       const orbitMaterial = orbitPathMaterials.get(planetConfig.id);
-      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.5 : (planetMesh?.userData.visited ? 0.3 : (planetConfig.id === 5 ? 0.24 : 0.2));
+      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.28 : 0.035);
+      const selectedPlanet = planetsList.find((planet) => planet.id === planetConfig.id);
+      if (selectedPlanet?.labelSprite) selectedPlanet.labelSprite.material.opacity = isHovered ? 1 : 0;
 
       if (tooltipEl) {
         if (isHovered && clientX !== undefined && clientY !== undefined) {
@@ -968,7 +1183,7 @@ export function createSolarSystemHeart(scene) {
         p.mesh.userData.visited = true;
         p.mesh.material.emissiveIntensity = 0.12;
         const orbitMaterial = orbitPathMaterials.get(p.id);
-        if (orbitMaterial) orbitMaterial.opacity = 0.3;
+        if (orbitMaterial) orbitMaterial.opacity = 0.28;
       }
     }
   };

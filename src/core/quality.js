@@ -1,8 +1,8 @@
 const TIERS = {
-  ultra: { pixelRatio: 2, galaxyStars: 180000, backgroundStars: 24000 },
-  high: { pixelRatio: 1.75, galaxyStars: 135000, backgroundStars: 18000 },
-  medium: { pixelRatio: 1.35, galaxyStars: 72000, backgroundStars: 10000 },
-  low: { pixelRatio: 1, galaxyStars: 32000, backgroundStars: 5000 }
+  ultra: { pixelRatio: 2, galaxyStars: 180000, backgroundStars: 24000, samples: 4, bloomStrength: 0.24 },
+  high: { pixelRatio: 1.75, galaxyStars: 135000, backgroundStars: 18000, samples: 4, bloomStrength: 0.22 },
+  medium: { pixelRatio: 1.35, galaxyStars: 72000, backgroundStars: 10000, samples: 0, bloomStrength: 0.16 },
+  low: { pixelRatio: 1, galaxyStars: 32000, backgroundStars: 5000, samples: 0, bloomStrength: 0.1 }
 };
 
 function detectTier() {
@@ -19,7 +19,8 @@ export function getQualityConfig(search = window.location.search) {
   const params = new URLSearchParams(search);
   const requested = params.get('quality');
   const tier = Object.prototype.hasOwnProperty.call(TIERS, requested) ? requested : detectTier();
-  return { tier, ...TIERS[tier], pixelRatio: Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1) };
+  const isMobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+  return { tier, ...TIERS[tier], pixelRatio: Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, isMobile ? 1.5 : Infinity) };
 }
 
 /** Dynamically adjusts render resolution without rebuilding scene geometry. */
@@ -34,7 +35,8 @@ export function createFrameGovernor({ renderer, composer, initialConfig, onTierC
   function apply(nextTier) {
     if (nextTier === tier) return;
     tier = nextTier;
-    const pixelRatio = Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1);
+    const isMobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const pixelRatio = Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, isMobile ? 1.5 : Infinity);
     const { width, height } = getSize();
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
