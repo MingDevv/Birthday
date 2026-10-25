@@ -160,3 +160,20 @@ npm run visual:qa -- --phase=handoff
 - ยังไม่ได้ทำ automated stress test เปิดดาวแบบสุ่ม 5 ลำดับและเป่าซ้ำ 5 รอบเพื่อตรวจ renderer resource; ยังไม่ได้ทดสอบมือถือจริง 2 รุ่น, LINE/Instagram, ไมค์จริง, tilt iOS หรือ FPS จริง
 - ไม่แก้ `memoriesData.js`, รูป placeholder หรือ `src/config/optionalFeatures.js`; ข้อความลับยังคงเป็น `มีความสุขมากๆนะไอ่อ้วนน💗`
 - Push `main` ด้วย commit `d7684ce` และ deploy production บน Vercel สำเร็จ 26 ตุลาคม 2026; deployment `dpl_3kbZnR16QGL98pFym8z72DBE9m98` สถานะ READY, alias `https://birthday-pi-wheat.vercel.app` ตอบ HTTP 200 และเสิร์ฟ `assets/index-BrI1JQwE.js`
+
+### ตรวจทานความครบถ้วนของแผนรอบ 3 เพิ่มเติม — 26 ตุลาคม 2026
+
+สถานะที่ถูกต้อง: **ยังไม่ผ่านเกณฑ์ครบทุกข้อของแผน** แม้โค้ดหลักหลายส่วนทำแล้วและ deploy อยู่ production; รายการด้านบนเป็นบันทึกสิ่งที่ทำ ไม่ใช่การรับรองว่า acceptance criteria ทั้งหมดผ่าน
+
+ช่องว่างที่ตรวจพบจากการเทียบแผนกับ implementation:
+
+- QA ยังไม่ครอบคลุมชุดภาพที่แผนระบุ: ไม่มีภาพ/การตรวจ state S0–S8 ครบ, memory reveal ทีละขั้น, focus ครบ 5 ดาว, `FINALE_LETTER`, mobile landscape และ overlap check ยังถูกรันเฉพาะฉากท้ายบางฉาก ไม่ได้วัดจำนวน element ตาม allowlist ทุก state
+- ยังไม่ได้ automate สถานการณ์สุ่มลำดับเปิดดาว 5 แบบ, คลิกรัว/resize ระหว่างบิน, สลับแท็บ, ไมค์ถูกปฏิเสธ, reduced-motion และเป่าเทียนซ้ำ 5 รอบพร้อมเทียบ `renderer.info`; full visual run ล่าสุด browser ปิดระหว่างเปิดฉาก WebGL หลายหน้า
+- เมนูปุ่มรอง ⋯ บนมือถือไม่ได้ทำ; ปุ่มรองยังวางแยกกัน และ guide กับ action slot เค้กมีรูปแบบ/ตำแหน่งต่างจาก storyboard บางจุด
+- storyboard S0/S1/S2 ยังไม่ได้ปรับครบ: loading ไม่มี iris เปิดม่าน, intro ยังเป็น overlay เดิม ไม่ได้รีวีลตัวอักษรบนฉาก 3D, และ flight caption/lower-third ตามบรรทัดยังไม่มี
+- S3 ใช้ canvas plane แสดงวลีอายุ 16 ไม่ใช่เลข “16” แบบ 3D/extruded ตามแบบ; caption อยู่กลางจอและยังไม่ตรวจจังหวะแตะข้ามแต่ละขั้น
+- finale จัดดาวเป็นตำแหน่งวงโค้งแล้ว แต่หัวใจใหญ่ไม่ได้ย่อเป็นฐานเค้ก; เค้กไม่มีเสียงติ๊กตอนจุดเทียน; secret message เป็นแผ่นข้อความตรงใต้หน้าเค้ก ไม่ใช่แคปชั่นโค้งและไม่มี wipe reveal
+- `flow.go()` kill tweens แค่ camera/controls/orbitClock; delayed calls, timeouts และ signature/effect timelines ไม่ได้ถูกผูกทั้งหมดกับ state/generation จึงยังยืนยัน dismissal/cleanup contract ครบไม่ได้
+- ไม่ได้ตรวจด้วยตาว่าทุกภาพที่แผนกำหนดครบ เพราะภาพเหล่านั้นยังไม่ได้สร้าง; ภาพ targeted ที่เปิดดูยืนยันเฉพาะฉากที่บันทึกไว้เท่านั้น
+
+ดังนั้น production ปัจจุบันมี implementation รอบ 3 ที่ใช้งานได้สำหรับ flow ที่ตรวจแล้ว แต่ไม่ควรเรียกว่าแผนรอบ 3 เสร็จครบจนกว่าจะปิดรายการข้างต้นและรัน QA ตาม acceptance criteria สำเร็จ
