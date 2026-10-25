@@ -110,8 +110,8 @@ composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(renderViewport.width, renderViewport.height),
-  0.32, // Bloom only catches the brightest star and heart highlights
-  0.55,
+  0.24, // Keep bloom on the star cores without softening planetary silhouettes
+  0.42,
   1.0
 );
 composer.addPass(bloomPass);
@@ -461,7 +461,6 @@ function runCinemaDirector() {
   tour.call(() => {
     isGalaxyView = true;
     name3DText.show();
-    fireworks.triggerMakeAWish();
     galaxy.triggerGrandShower?.(10);
   }, [], revealAt + 3.1);
   tour.to({}, { duration: 3.0 }, revealAt + 3.2);
@@ -498,7 +497,7 @@ function startCinematicApproach(onComplete) {
     camera.updateProjectionMatrix();
     camera.position.copy(defaultCameraPos);
     controls.target.copy(defaultCameraTarget);
-    bloomPass.strength = 0.32;
+    bloomPass.strength = 0.24;
     isCinematicFlying = false;
     controls.autoRotate = true;
     if (queryFlags.cinema) {

@@ -31,40 +31,40 @@ function createTextTexture(isExtrusion = false) {
   ctx.lineJoin = 'round';
 
   if (isExtrusion) {
-    // Bevel & Extrusion Layers: Deep dark wine-red
-    ctx.lineWidth = 26;
-    ctx.strokeStyle = '#4c0519';
+    // Dark wine side wall gives the stacked planes a readable extrusion.
+    ctx.lineWidth = 30;
+    ctx.strokeStyle = '#24102f';
     ctx.strokeText(TEXT, x, y);
-    ctx.fillStyle = '#881337';
+    ctx.fillStyle = '#5b123f';
     ctx.fillText(TEXT, x, y);
   } else {
-    // Front Face: Brilliant Ruby Red with Gold Rim and Neon Crimson Glow
-    ctx.shadowColor = 'rgba(239, 68, 68, 0.9)';
-    ctx.shadowBlur = 35;
+    // A ruby face with a restrained violet edge; keep the name crisp at distance.
+    ctx.shadowColor = 'rgba(168, 85, 247, 0.24)';
+    ctx.shadowBlur = 16;
 
-    // Outer Crimson Glow
+    // Deep red edge separates the letters from the galaxy.
     ctx.lineWidth = 28;
-    ctx.strokeStyle = '#be123c';
+    ctx.strokeStyle = '#4c123f';
     ctx.strokeText(TEXT, x, y);
 
-    // Gold Bevel Edge
-    ctx.lineWidth = 12;
-    ctx.strokeStyle = '#fef08a';
+    // Fine lavender rim, replacing the bright gold outline.
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#c4b5fd';
     ctx.strokeText(TEXT, x, y);
 
     // Front Ruby-to-Crimson Gradient
     const grad = ctx.createLinearGradient(0, y - 180, 0, y + 180);
-    grad.addColorStop(0, '#fff1f2');
-    grad.addColorStop(0.18, '#ff718c');
-    grad.addColorStop(0.52, '#f52255');
-    grad.addColorStop(1, '#b80f3e');
+    grad.addColorStop(0, '#ffe4ef');
+    grad.addColorStop(0.2, '#fb7185');
+    grad.addColorStop(0.58, '#e11d48');
+    grad.addColorStop(1, '#881337');
     ctx.fillStyle = grad;
     ctx.fillText(TEXT, x, y);
 
-    // Upper Specular Highlight
+    // Thin upper highlight preserves a dimensional face without a neon halo.
     ctx.shadowBlur = 0;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255, 240, 250, 0.72)';
     ctx.strokeText(TEXT, x, y);
 
     // Celestial Crown above name
@@ -130,8 +130,8 @@ export function createGiant3DNameText(scene) {
   glowCanvas.height = 128;
   const glowCtx = glowCanvas.getContext('2d');
   const glow = glowCtx.createRadialGradient(128, 64, 10, 128, 64, 128);
-  glow.addColorStop(0, 'rgba(244, 63, 94, 0.45)');
-  glow.addColorStop(0.5, 'rgba(190, 18, 60, 0.15)');
+  glow.addColorStop(0, 'rgba(192, 132, 252, 0.22)');
+  glow.addColorStop(0.5, 'rgba(136, 19, 55, 0.1)');
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   glowCtx.fillStyle = glow;
   glowCtx.fillRect(0, 0, 256, 128);
@@ -146,19 +146,19 @@ export function createGiant3DNameText(scene) {
     depthTest: true
   });
   const glowSprite = new THREE.Sprite(glowMaterial);
-  glowSprite.scale.set(TEXT_WIDTH * 1.3, TEXT_HEIGHT * 1.3, 1);
+  glowSprite.scale.set(TEXT_WIDTH * 1.12, TEXT_HEIGHT * 1.12, 1);
   glowSprite.position.set(0, 0, -4);
   nameGroup.add(glowSprite);
 
   // Orbiting Stardust Embers
-  const emberCount = 140;
+  const emberCount = 64;
   const emberPositions = new Float32Array(emberCount * 3);
   const emberColors = new Float32Array(emberCount * 3);
   const emberData = [];
   const emberPalette = [
-    new THREE.Color(0xf43f5e), // Ruby Rose
-    new THREE.Color(0xfef08a), // 24k Gold
-    new THREE.Color(0xfca5a5), // Rose Diamond
+    new THREE.Color(0xe11d48), // Ruby Rose
+    new THREE.Color(0xc4b5fd), // Violet rim
+    new THREE.Color(0xfda4af), // Rose Diamond
     new THREE.Color(0xffffff)  // White Spark
   ];
 
@@ -204,8 +204,8 @@ export function createGiant3DNameText(scene) {
         opacity: (_idx, target) => {
           if (target === frontMaterial) return 1.0;
           if (target === extrusionMaterial) return 0.75;
-          if (target === glowMaterial) return 0.36;
-          return 0.9;
+          if (target === glowMaterial) return 0.2;
+          return 0.72;
         },
         duration: 1.5,
         ease: 'power2.out'

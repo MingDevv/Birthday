@@ -20,3 +20,4 @@ lerna-debug.log*
 *.swo
 .vercel
 qa/cinematic-*/
+.env.local

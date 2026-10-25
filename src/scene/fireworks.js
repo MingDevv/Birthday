@@ -3,13 +3,8 @@ import confetti from 'canvas-confetti';
 import { createGlowTexture } from './galaxySkybox.js';
 
 /**
- * Grand Cosmic Supernova & Birthday Wish Phenomenon (Give Love Studio Style):
- * 1. Triple Starlight Rockets shooting from planet with luminous particle tails
- * 2. Blinding Supernova Core Flash & Expanding Double 3D Shockwaves
- * 3. Giant Radiant 3D Heart Constellation with pulsating stardust (1,200 particles)
- * 4. Cascading Fairy Stardust Rain (800+ diamond sparks floating slowly around planet)
- * 5. Floating Glowing 3D Romantic Wish Banner in space
- * 6. Multi-stage canvas stardust hearts shower & automatic GPU resource disposal
+ * A focused birthday starburst: one clear launch, a heart-shaped constellation,
+ * and a short violet-gold sparkle fall without filling the whole scene with haze.
  */
 export function createFireworksSystem(scene, soundManager) {
   const fireworksGroup = new THREE.Group();
@@ -25,7 +20,7 @@ export function createFireworksSystem(scene, soundManager) {
   // 1. Starlight Rocket with Shimmering Particle Trail
   // ---------------------------------------------------------------------------
   function launchBurstRocket(startPos, targetPos, colorHex = 0xffe066, onDetonate) {
-    const trailCount = 28;
+    const trailCount = 18;
     const trailGeo = new THREE.BufferGeometry();
     const trailPositions = new Float32Array(trailCount * 3);
     const trailAlphas = new Float32Array(trailCount);
@@ -41,10 +36,10 @@ export function createFireworksSystem(scene, soundManager) {
 
     const trailMat = new THREE.PointsMaterial({
       color: colorHex,
-      size: 2.8,
+      size: 2.0,
       map: particleTexture,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.78,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -82,7 +77,7 @@ export function createFireworksSystem(scene, soundManager) {
       color: colorHex,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.66,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -111,32 +106,32 @@ export function createFireworksSystem(scene, soundManager) {
     }
 
     // 1. Double Shockwaves (Gold & Rose Magenta)
-    createShockwaveRing(center, 0xffd700, 26.0, 1.6);
+    createShockwaveRing(center, 0xd8b4fe, 22.0, 1.35);
     setTimeout(() => {
-      createShockwaveRing(center, 0xff6b8b, 34.0, 1.8);
-    }, 180);
+      createShockwaveRing(center, 0xf4d98b, 28.0, 1.5);
+    }, 220);
 
     // 2. Radiant Supernova Core Flash Sprite
     const flashTex = createGlowTexture(128, 'rgba(255,255,255,1)', 'rgba(255,200,240,0)');
     const flashMat = new THREE.SpriteMaterial({
       map: flashTex,
-      color: 0xfff9e6,
+      color: 0xf5eaff,
       transparent: true,
       opacity: 1.0,
       blending: THREE.AdditiveBlending
     });
     const flashSprite = new THREE.Sprite(flashMat);
     flashSprite.position.copy(center);
-    flashSprite.scale.set(38, 38, 1);
+    flashSprite.scale.set(24, 24, 1);
     fireworksGroup.add(flashSprite);
 
     // Fade out flash sprite
     let flashAge = 0;
     const flashInterval = setInterval(() => {
       flashAge += 0.05;
-      flashSprite.scale.multiplyScalar(1.05);
-      flashMat.opacity = Math.max(0, 1.0 - flashAge / 0.5);
-      if (flashAge >= 0.5) {
+      flashSprite.scale.multiplyScalar(1.035);
+      flashMat.opacity = Math.max(0, 0.82 - flashAge / 0.34);
+      if (flashAge >= 0.34) {
         clearInterval(flashInterval);
         fireworksGroup.remove(flashSprite);
         flashMat.dispose();
@@ -144,19 +139,19 @@ export function createFireworksSystem(scene, soundManager) {
     }, 30);
 
     // 3. Multi-tier Particle Explosion (Heart Constellation + Radial Blast)
-    const count = 1200;
+    const count = 480;
+    const heartParticleCount = 260;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const velocities = [];
     const isHeartParticle = [];
 
     const palette = [
-      new THREE.Color(0xffd700), // Stardust Gold
-      new THREE.Color(0xff6b8b), // Romantic Rose
-      new THREE.Color(0xff477e), // Vivid Magenta
-      new THREE.Color(0x00f2fe), // Electric Cyan
-      new THREE.Color(0xffffff), // Starlight Diamond White
-      new THREE.Color(0xdda0dd)  // Lavender Stardust
+      new THREE.Color(0xf4d98b), // Soft stardust gold
+      new THREE.Color(0xe879f9), // Violet rose
+      new THREE.Color(0xc4b5fd), // Lavender
+      new THREE.Color(0xffffff), // Starlight diamond
+      new THREE.Color(0x8b5cf6)  // Deep cosmic violet
     ];
 
     for (let i = 0; i < count; i++) {
@@ -171,21 +166,21 @@ export function createFireworksSystem(scene, soundManager) {
 
       const vel = new THREE.Vector3();
 
-      if (i < 580) {
+      if (i < heartParticleCount) {
         // Grand 3D Parametric Heart Constellation
         isHeartParticle.push(true);
-        const t = (i / 580) * Math.PI * 2;
+        const t = (i / heartParticleCount) * Math.PI * 2;
         // Heart curve formula
         const hx = 16 * Math.pow(Math.sin(t), 3) * 0.088;
         const hy = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * 0.088;
         const hz = (Math.random() - 0.5) * 0.35;
-        vel.set(hx, hy, hz).multiplyScalar(1.05 + Math.random() * 0.3);
+        vel.set(hx, hy, hz).multiplyScalar(0.9 + Math.random() * 0.22);
       } else {
         // Outer Radial Sparkle Blast & Stardust Rain
         isHeartParticle.push(false);
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const speed = (Math.random() < 0.3 ? 0.35 : 0.85) + Math.random() * 0.55;
+        const speed = (Math.random() < 0.3 ? 0.3 : 0.68) + Math.random() * 0.4;
         vel.set(
           speed * Math.sin(phi) * Math.cos(theta),
           speed * Math.sin(phi) * Math.sin(theta),
@@ -201,7 +196,7 @@ export function createFireworksSystem(scene, soundManager) {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     const mat = new THREE.PointsMaterial({
-      size: 2.2,
+      size: 1.65,
       map: particleTexture,
       vertexColors: true,
       transparent: true,
@@ -222,13 +217,13 @@ export function createFireworksSystem(scene, soundManager) {
       isHeartParticle,
       count,
       age: 0,
-      maxAge: 4.8
+      maxAge: 3.6
     });
 
     // 4. Cascading Fairy Stardust Rain (800 Falling Diamond Sparks)
     setTimeout(() => {
       createCascadingStardustRain(center);
-    }, 700);
+    }, 420);
 
     // 5. Canvas Confetti Heart Shower
     try {
@@ -238,19 +233,19 @@ export function createFireworksSystem(scene, soundManager) {
 
       // Triple burst
       confetti({
-        particleCount: 85,
-        spread: 100,
+        particleCount: 48,
+        spread: 78,
         origin: { y: 0.6 },
-        colors: ['#FFD700', '#FF6B8B', '#00f2fe', '#FFAAA6', '#FFFFFF'],
+        colors: ['#f4d98b', '#c4b5fd', '#e879f9', '#ffffff'],
         shapes: [heartShape, 'circle']
       });
 
       setTimeout(() => {
         confetti({
-          particleCount: 65,
-          spread: 120,
+          particleCount: 28,
+          spread: 92,
           origin: { y: 0.55 },
-          colors: ['#FFD700', '#FF6B8B', '#00f2fe']
+          colors: ['#f4d98b', '#c4b5fd', '#e879f9']
         });
       }, 800);
     } catch (e) {
@@ -262,17 +257,17 @@ export function createFireworksSystem(scene, soundManager) {
   // 4. Cascading Fairy Stardust Rain (ฝนดาวตกประกายเพชรโปรยปรายทั่วจอ)
   // ---------------------------------------------------------------------------
   function createCascadingStardustRain(origin) {
-    const count = 750;
+    const count = 240;
     const rainPositions = new Float32Array(count * 3);
     const rainColors = new Float32Array(count * 3);
     const speeds = new Float32Array(count);
     const sways = new Float32Array(count);
 
     const rainPalette = [
-      new THREE.Color(0xffd700),
-      new THREE.Color(0xff70a6),
+      new THREE.Color(0xf4d98b),
+      new THREE.Color(0xc4b5fd),
       new THREE.Color(0xffffff),
-      new THREE.Color(0x00f2fe)
+      new THREE.Color(0xe879f9)
     ];
 
     for (let i = 0; i < count; i++) {
@@ -301,7 +296,7 @@ export function createFireworksSystem(scene, soundManager) {
       map: particleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.72,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -318,7 +313,7 @@ export function createFireworksSystem(scene, soundManager) {
       sways,
       count,
       age: 0,
-      maxAge: 6.5
+      maxAge: 4.2
     });
   }
 
@@ -361,31 +356,13 @@ export function createFireworksSystem(scene, soundManager) {
       soundManager.playChimeSound();
     }
 
-    // Launch Triple Shooting Star Rockets
-    // Rocket 1 (Center Main)
+    // One hero rocket keeps the wish legible and avoids stacking three full
+    // particle showers over the 3D scene.
     const start1 = new THREE.Vector3(0, 14, 0);
     const target1 = new THREE.Vector3(0, 36, 0);
-    launchBurstRocket(start1, target1, 0xffd700, () => {
+    launchBurstRocket(start1, target1, 0xc4b5fd, () => {
       detonateStarBurst(target1);
     });
-
-    // Rocket 2 (Left Rose Comet, +0.45s)
-    setTimeout(() => {
-      const start2 = new THREE.Vector3(-10, 13, 5);
-      const target2 = new THREE.Vector3(-16, 32, 10);
-      launchBurstRocket(start2, target2, 0xff70a6, () => {
-        detonateStarBurst(target2);
-      });
-    }, 450);
-
-    // Rocket 3 (Right Cyan Comet, +0.9s)
-    setTimeout(() => {
-      const start3 = new THREE.Vector3(10, 13, -5);
-      const target3 = new THREE.Vector3(16, 33, -10);
-      launchBurstRocket(start3, target3, 0x00f2fe, () => {
-        detonateStarBurst(target3);
-      });
-    }, 900);
   }
 
   // ---------------------------------------------------------------------------

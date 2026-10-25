@@ -2,7 +2,9 @@ export function heroCamera(aspect) {
   const portrait = aspect < 1;
   const fov = portrait ? 58 : 68;
   // A high portrait angle keeps the orbital plane legible in a narrow frame.
-  const orbitalRadius = 108;
+  // The outer Saturn ring reaches roughly 96 world units after tightening
+  // the orbit layout; include breathing room for its tilt and hit target.
+  const orbitalRadius = 100;
   const elevation = (portrait ? 72 : 46) * Math.PI / 180;
   const halfFov = Math.tan((fov * Math.PI / 180) / 2);
   // Solve against perspective-projected points, rather than estimating from
@@ -38,7 +40,7 @@ export function heroCamera(aspect) {
     const targetMax = portrait ? 8 : 48;
     for (let y = targetMin; y <= targetMax; y += 2) {
       const bounds = measure(distance, y);
-      const score = Math.max(bounds.maxX / 0.88, bounds.maxY / 0.78);
+      const score = Math.max(bounds.maxX / 0.88, bounds.maxY / 0.8);
       if (score < best.score) best = { y, score };
     }
     return best;

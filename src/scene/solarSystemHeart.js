@@ -29,7 +29,48 @@ export async function loadPlanetTextures() {
       return [key, null];
     }
   }));
-  return Object.fromEntries(entries);
+  const textures = Object.fromEntries(entries);
+
+  // The local albedo maps carry useful relief, but sampling their RGB values
+  // directly as bump data produces colored/noisy highlights. Build small
+  // linear grayscale height maps once, off the render loop.
+  const bumpSources = {
+    venus: textures.venusSurface || textures.venus,
+    earth: textures.earth,
+    moon: textures.moon,
+    mars: textures.mars,
+    jupiter: textures.jupiter,
+    saturn: textures.saturn
+  };
+  for (const [planet, source] of Object.entries(bumpSources)) {
+    if (!source?.image) continue;
+    try {
+      const width = Math.min(1024, source.image.width || 1024);
+      const height = Math.max(1, Math.round(width / 2));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(source.image, 0, 0, width, height);
+      const pixels = context.getImageData(0, 0, width, height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const luminance = pixels.data[i] * 0.2126 + pixels.data[i + 1] * 0.7152 + pixels.data[i + 2] * 0.0722;
+        pixels.data[i] = luminance;
+        pixels.data[i + 1] = luminance;
+        pixels.data[i + 2] = luminance;
+      }
+      context.putImageData(pixels, 0, 0);
+      const bumpMap = new THREE.CanvasTexture(canvas);
+      bumpMap.colorSpace = THREE.NoColorSpace;
+      bumpMap.anisotropy = 4;
+      bumpMap.generateMipmaps = true;
+      bumpMap.minFilter = THREE.LinearMipmapLinearFilter;
+      textures[`${planet}Bump`] = bumpMap;
+    } catch (error) {
+      console.warn(`Planet relief map unavailable (${planet}); keeping smooth surface.`, error);
+    }
+  }
+  return textures;
 }
 
 /**
@@ -382,14 +423,14 @@ export function createSolarSystemHeart(scene) {
   const heartMat = new THREE.MeshPhysicalMaterial({
     color: 0xdb2777,             // Deep Radiant Cosmic Rose
     emissive: 0x9333ea,          // Deep Royal Cosmic Purple (Khao Hom's favorite color)
-    emissiveIntensity: 0.34,     // Keep the gem saturated without washing out its facets
-    roughness: 0.12,             // Smooth crystal polish
+    emissiveIntensity: 0.2,      // Let the key light reveal facets instead of washing them out
+    roughness: 0.2,              // Polished crystal with enough surface definition
     metalness: 0.08,
-    clearcoat: 1.0,              // Lacquered crystal diamond shine
-    clearcoatRoughness: 0.05,
+    clearcoat: 0.76,
+    clearcoatRoughness: 0.12,
     side: THREE.DoubleSide,      // Render both front and back cleanly from all angles
     transparent: false,
-    reflectivity: 0.95
+    reflectivity: 0.78
   });
 
   const heartMesh = new THREE.Mesh(heartGeo, heartMat);
@@ -399,7 +440,7 @@ export function createSolarSystemHeart(scene) {
   heartGroup.add(heartMesh);
 
   // Soft romantic Point Light (gentle starlight, no blinding blowout)
-  const heartLight = new THREE.PointLight(0xd946ef, 1.35, 42, 1.8);
+  const heartLight = new THREE.PointLight(0xd946ef, 1.05, 36, 1.8);
   heartLight.position.set(0, 0, 0);
   heartGroup.add(heartLight);
 
@@ -408,13 +449,13 @@ export function createSolarSystemHeart(scene) {
     map: glowTex,
     color: 0xd946ef,
     transparent: true,
-    opacity: 0.16,
+    opacity: 0.1,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: false
   });
   const auraSprite = new THREE.Sprite(auraMat);
-  auraSprite.scale.set(15, 15, 1);
+  auraSprite.scale.set(12, 12, 1);
   heartGroup.add(auraSprite);
 
   // Floating Cosmic Purple Stardust Sparks (Round soft diamond glows, NO square pixels)
@@ -457,11 +498,11 @@ export function createSolarSystemHeart(scene) {
   sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkColors, 3));
 
   const sparkMat = new THREE.PointsMaterial({
-    size: 1.35,
+    size: 1.1,
     map: sparkleTex,
     vertexColors: true,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.4,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: false
@@ -480,7 +521,7 @@ export function createSolarSystemHeart(scene) {
       badgeSub: 'The First Day 🌸',
       type: 'venus',
       radius: 3.2,
-      orbitRadius: 28,
+      orbitRadius: 25,
       orbitSpeed: 0.16,
       initialAngle: 0.0,            // 0° (Golden Ratio Star point 1)
       inclination: 0.03,
@@ -494,7 +535,7 @@ export function createSolarSystemHeart(scene) {
       badgeSub: 'Our Safe Zone ☕',
       type: 'earth',
       radius: 4.0,
-      orbitRadius: 42,
+      orbitRadius: 38,
       orbitSpeed: 0.12,
       initialAngle: 1.2566,         // 72° (Golden Ratio Star point 2)
       inclination: -0.02,
@@ -509,7 +550,7 @@ export function createSolarSystemHeart(scene) {
       badgeSub: 'The Journey 🌊',
       type: 'mars',
       radius: 2.9,
-      orbitRadius: 56,
+      orbitRadius: 52,
       orbitSpeed: 0.095,
       initialAngle: 2.5133,         // 144° (Golden Ratio Star point 3)
       inclination: 0.04,
@@ -523,7 +564,7 @@ export function createSolarSystemHeart(scene) {
       badgeSub: 'Beside You Always 🧸',
       type: 'jupiter',
       radius: 6.8,
-      orbitRadius: 72,
+      orbitRadius: 66,
       orbitSpeed: 0.07,
       initialAngle: 3.7699,         // 216° (Golden Ratio Star point 4)
       inclination: -0.03,
@@ -537,7 +578,7 @@ export function createSolarSystemHeart(scene) {
       badgeSub: 'Happy Birthday My Universe 👑',
       type: 'saturn',
       radius: 5.4,
-      orbitRadius: 92,
+      orbitRadius: 82,
       orbitSpeed: 0.052,
       initialAngle: 5.0265,         // 288° (Golden Ratio Star point 5)
       inclination: 0.05,
@@ -568,13 +609,13 @@ export function createSolarSystemHeart(scene) {
     // where LineBasicMaterial linewidth is ignored.
     const curvePoints = Array.from({ length: 192 }, (_, i) => orbitPoint((i / 192) * Math.PI * 2));
     const orbitCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
-    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.15 : 0.11, 5, true);
+    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.105 : 0.075, 5, true);
 
     const pathMat = new THREE.MeshBasicMaterial({
       color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
       transparent: true,
-      opacity: idx === 4 ? 0.24 : 0.2,
-      blending: THREE.AdditiveBlending,
+      opacity: idx === 4 ? 0.17 : 0.13,
+      blending: THREE.NormalBlending,
       depthWrite: false,
       toneMapped: false
     });
@@ -600,11 +641,11 @@ export function createSolarSystemHeart(scene) {
 
     orbitSparkGeo.setAttribute('position', new THREE.BufferAttribute(orbitSparkPos, 3));
     const orbitSparkMat = new THREE.PointsMaterial({
-      size: 1.25,
+      size: 1.0,
       map: glowTex,
       color: 0xe9d5ff,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.36,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -634,7 +675,7 @@ export function createSolarSystemHeart(scene) {
       map: texture,
       bumpMap: texture.userData.bumpMap,
       bumpScale: pConfig.type === 'mars' ? 0.12 : pConfig.type === 'jupiter' ? 0.08 : 0.035,
-      roughness: 0.78,
+      roughness: pConfig.type === 'venus' ? 0.62 : pConfig.type === 'earth' ? 0.86 : 0.8,
       metalness: 0.015,
       emissive: new THREE.Color(pConfig.color),
       emissiveIntensity: 0.015
@@ -649,12 +690,12 @@ export function createSolarSystemHeart(scene) {
       map: glowTex,
       color: new THREE.Color(pConfig.color),
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.045,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const planetGlow = new THREE.Sprite(planetGlowMat);
-    planetGlow.scale.set(pConfig.radius * 2.1, pConfig.radius * 2.1, 1);
+    planetGlow.scale.set(pConfig.radius * 1.75, pConfig.radius * 1.75, 1);
     planetNode.add(planetGlow);
 
     // 4. Moon for Earth
@@ -748,10 +789,10 @@ export function createSolarSystemHeart(scene) {
     if (pConfig.type === 'earth') {
       const cloudMaterial = new THREE.MeshBasicMaterial({
         transparent: true,
-        opacity: 0.34,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.24,
+        blending: THREE.NormalBlending,
         depthWrite: false,
-        toneMapped: false
+        toneMapped: true
       });
       cloudLayer = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.012, 64, 64), cloudMaterial);
       cloudLayer.name = 'earthCloudLayer';
@@ -790,28 +831,33 @@ export function createSolarSystemHeart(scene) {
     planetsList: planetsList,
 
     setPlanetTextures(textures) {
-      const assignMap = (material, texture, fallbackTexture) => {
+      const assignMap = (material, texture, bumpMap, fallbackTexture) => {
         if (!texture) return;
+        const previousMap = material.map;
+        const previousBump = material.bumpMap;
         material.map = texture;
-        material.bumpMap = null;
+        material.bumpMap = bumpMap || null;
+        material.bumpScale = 0.06;
         material.needsUpdate = true;
-        fallbackTexture?.dispose();
+        if (previousMap && previousMap !== texture) previousMap.dispose();
+        if (previousBump && previousBump !== bumpMap) previousBump.dispose();
         fallbackTexture?.userData?.bumpMap?.dispose();
       };
       planetsList.forEach((planet) => {
-        assignMap(planet.mesh.material, textures[planet.config.type], planet.mesh.material.map);
-        if (planet.config.type === 'venus' && textures.venusSurface) {
-          planet.mesh.material.bumpMap = textures.venusSurface;
-          planet.mesh.material.bumpScale = 0.025;
-          planet.mesh.material.needsUpdate = true;
-        }
+        const type = planet.config.type;
+        const bumpScale = { venus: 0.025, earth: 0.045, moon: 0.14, mars: 0.16, jupiter: 0.035, saturn: 0.025 }[type] ?? 0.05;
+        assignMap(planet.mesh.material, textures[type], textures[`${type}Bump`], planet.mesh.material.map);
+        planet.mesh.material.bumpScale = bumpScale;
         if (planet.cloudLayer && textures.earthClouds) {
           planet.cloudLayer.material.map = textures.earthClouds;
           planet.cloudLayer.material.needsUpdate = true;
         }
         if (planet.config.hasMoon && textures.moon) {
           const moonMesh = planet.moonNode?.children.find((child) => child.isMesh);
-          if (moonMesh) assignMap(moonMesh.material, textures.moon, moonMesh.material.map);
+          if (moonMesh) {
+            assignMap(moonMesh.material, textures.moon, textures.moonBump, moonMesh.material.map);
+            moonMesh.material.bumpScale = 0.14;
+          }
         }
         if (planet.saturnRing && textures.saturnRing) {
           planet.saturnRing.material.map = textures.saturnRing;
