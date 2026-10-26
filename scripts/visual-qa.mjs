@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
@@ -92,8 +93,8 @@ async function assertDirectorState(page, state) {
       const layers = {
         LOADING: ['system'], INTRO: ['system', 'cinematic'], FLIGHT: ['action', 'cinematic'],
         ARRIVAL: ['cinematic', 'coach'], EXPLORE: ['hud', 'action', 'coach', 'toast', 'cinematic'],
-        FOCUS: ['cinematic'], MEMORY: ['modal'], FINALE_ALIGN: ['cinematic'], FINALE_HEART: ['cinematic'],
-        FINALE_CAKE: ['action', 'cinematic'], FINALE_LETTER: ['cinematic'], EPILOGUE: ['hud', 'action', 'toast']
+        FOCUS: ['cinematic'], MEMORY: ['modal'], FINALE_ALIGN: ['cinematic', 'coach'], FINALE_HEART: ['cinematic', 'coach'],
+        FINALE_CAKE: ['action', 'cinematic', 'coach'], FINALE_LETTER: ['cinematic', 'coach'], EPILOGUE: ['hud', 'action', 'toast', 'coach']
       };
       const declaredStates = el.dataset.uiStates;
       return !layers[expected]?.includes(el.dataset.uiLayerType) || (declaredStates && !declaredStates.split(',').includes(expected));
@@ -110,7 +111,240 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round4-')) {
+  if (phase.startsWith('round5-')) {
+    console.log(`Running Round 5 QA Suite for phase: ${phase}...`);
+    // 0. MD5 Check on memory images (R5-1)
+    const md5Hashes = {};
+    for (let i = 1; i <= 5; i++) {
+      const p = path.resolve(`public/images/memory-${i}.jpg`);
+      if (fs.existsSync(p)) {
+        const hash = crypto.createHash('md5').update(fs.readFileSync(p)).digest('hex');
+        md5Hashes[i] = hash;
+      }
+    }
+    console.log('Memory images MD5:', md5Hashes);
+    if (md5Hashes[4] && md5Hashes[5] && md5Hashes[4] === md5Hashes[5]) {
+      console.log('Notice: memory-4 and memory-5 share identical MD5. Checking collage setting in memoriesData.js...');
+      const memDataFile = fs.readFileSync(path.resolve('src/config/memoriesData.js'), 'utf8');
+      if (!memDataFile.includes('collage: [1, 2, 3, 4]')) {
+        errors.push('R5-1: memory-5 is a duplicate file of memory-4 and collage fallback is missing!');
+      } else {
+        console.log('PASS R5-1: Duplicate image resolved with 2x2 collage fallback for memory 5.');
+      }
+    }
+
+    // 1. Memory Cards 1..5 in Desktop & Mobile Portrait (R5-2)
+    for (const vp of [
+      { mode: 'desktop', width: 1920, height: 1080 },
+      { mode: 'portrait', width: 390, height: 844 }
+    ]) {
+      for (let id = 1; id <= 5; id++) {
+        const page = await browser.newPage({
+          viewport: { width: vp.width, height: vp.height },
+          deviceScaleFactor: 1
+        });
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        page.on('pageerror', (err) => errors.push(`memory-${id}-${vp.mode}: ${err.message}`));
+        await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=high&guide=off`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await waitForAssets(page);
+        await page.waitForFunction(() => document.body.dataset.flowState === 'EXPLORE', undefined, { timeout: 15000 });
+        await page.waitForFunction(() => !window.__qaIsFlying, undefined, { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(400);
+        await page.locator(`.heart-dot[data-id="${id}"]`).click({ force: true });
+        await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 35000 });
+        await page.waitForSelector('#memory-card', { state: 'visible', timeout: 15000 });
+        await page.waitForFunction(() => getComputedStyle(document.querySelector('#memory-modal-backdrop')).opacity === '1', undefined, { timeout: 15000 });
+        await page.waitForTimeout(id === 5 ? 1200 : 600);
+        await page.screenshot({ path: path.join(outputDir, `memory-${id}-${vp.mode}.png`) });
+
+        if (id === 1 && vp.mode === 'desktop') {
+          await page.locator('#polaroid-frame').click();
+          await page.waitForSelector('#memory-lightbox.visible', { timeout: 10000 });
+          await page.screenshot({ path: path.join(outputDir, `memory-1-lightbox.png`) });
+          await page.keyboard.press('Escape');
+          await page.waitForFunction(() => document.querySelector('#memory-lightbox')?.classList.contains('hidden'), undefined, { timeout: 10000 });
+        }
+        await page.close();
+        console.log(`Captured memory-${id}-${vp.mode}.png`);
+      }
+    }
+
+    // 2. Guide Intro State
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-intro: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&guide=reset`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.locator('#intro-greeting-wrap:not(.hidden)').waitFor({ timeout: 15000 });
+      await page.waitForTimeout(2800);
+      const soundHintVisible = await page.locator('#intro-sound-hint').isVisible();
+      const idleCtaVisible = await page.locator('#intro-idle-cta').isVisible();
+      console.log('Intro guide elements:', { soundHintVisible, idleCtaVisible });
+      await page.screenshot({ path: path.join(outputDir, 'guide-intro.png') });
+      await page.close();
+    }
+
+    // 3. First Explore & Spotlight & Next Chip
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-explore-first: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=reset`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1000);
+      const qaGuide = await page.evaluate(() => window.__qaGuide?.());
+      console.log('Explore first __qaGuide:', qaGuide);
+      if (qaGuide?.visibleGuideCount > 1) {
+        errors.push(`Guide rule violated: visibleGuideCount is ${qaGuide.visibleGuideCount} (must be <= 1)`);
+      }
+      await page.screenshot({ path: path.join(outputDir, 'guide-explore-first.png') });
+      await page.screenshot({ path: path.join(outputDir, 'guide-next-chip.png') });
+      await page.close();
+    }
+
+    // 4. First-run Tour Steps 1..6
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-tour: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=reset`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(800);
+      const closeBtn = page.locator('.guide-bubble-close');
+      if (await closeBtn.isVisible()) {
+        await closeBtn.click();
+      }
+      await page.waitForTimeout(500);
+
+      for (let step = 1; step <= 6; step++) {
+        const tourCard = page.locator('.guide-tour-card');
+        if (await tourCard.isVisible()) {
+          await page.screenshot({ path: path.join(outputDir, `guide-tour-${step}.png`) });
+          console.log(`Captured guide-tour-${step}.png`);
+          const nextBtn = page.locator('#tour-next-btn');
+          if (await nextBtn.isVisible()) {
+            await nextBtn.click();
+            await page.waitForTimeout(400);
+          }
+        }
+      }
+      await page.close();
+    }
+
+    // 5. Idle Nudge (Level 2) with ?qaTime=fast
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-idle2: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=reset&qaTime=fast`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1100);
+      await page.screenshot({ path: path.join(outputDir, 'guide-idle2.png') });
+      await page.close();
+    }
+
+    // 6. Screen Edge Arrow Indicator
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-edge-arrow: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=reset&qaTime=fast`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.evaluate(() => {
+        window.__qaGuidePointAtPlanet?.(1);
+      });
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: path.join(outputDir, 'guide-edge-arrow.png') });
+      await page.close();
+    }
+
+    // 7. Guide Help Sheet & "ลองเลย"
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-help-sheet: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=off`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(800);
+      await page.locator('#btn-guide-help').click();
+      await page.waitForSelector('.guide-help-backdrop.visible', { timeout: 5000 });
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: path.join(outputDir, 'guide-help-sheet.png') });
+      const actionBtn = page.locator('.guide-help-action-btn').first();
+      if (await actionBtn.isVisible()) {
+        await actionBtn.click();
+      }
+      await page.waitForTimeout(400);
+      await page.close();
+    }
+
+    // 8. After Close Memory Guide Bubble
+    {
+      const page = await browser.newPage({
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce'
+      });
+      page.on('pageerror', (err) => errors.push(`guide-after-close: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=reset`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(600);
+      await page.evaluate(() => {
+        document.querySelector('.guide-bubble-close')?.click();
+        document.querySelector('#tour-skip-btn')?.click();
+        sessionStorage.setItem('tourSeen', 'true');
+        document.querySelector('.guide-spotlight')?.remove();
+      });
+      await page.waitForTimeout(400);
+      await page.locator('.heart-dot[data-id="1"]').click({ force: true });
+      await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 35000 });
+      await page.waitForTimeout(400);
+      await page.locator('#modal-back-btn').click();
+      await page.waitForFunction(() => document.querySelector('#memory-modal-backdrop')?.classList.contains('hidden'), undefined, { timeout: 10000 });
+      await page.waitForTimeout(600);
+      await page.screenshot({ path: path.join(outputDir, 'guide-after-close.png') });
+      await page.close();
+    }
+
+    // 9. Cake Scene Guide & Secret Message Dish Clearance
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-cake: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1600);
+      await assertDirectorState(page, 'FINALE_CAKE');
+      await page.screenshot({ path: path.join(outputDir, 'guide-cake.png') });
+      await page.close();
+    }
+
+    // 10. Epilogue Scene Guide
+    {
+      const page = await browser.newPage({
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce'
+      });
+      page.on('pageerror', (err) => errors.push(`guide-epilogue: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low&qa=cake`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1000);
+      await page.locator('.cake-blow-button').click();
+      await page.waitForSelector('.ui-epilogue-actions', { timeout: 20000 });
+      await page.waitForTimeout(600);
+      await assertDirectorState(page, 'EPILOGUE');
+      await page.screenshot({ path: path.join(outputDir, 'guide-epilogue.png') });
+      await page.close();
+    }
+
+    // 11. Guide OFF check (?guide=off)
+    {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&guide=off`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1000);
+      const qaGuideOff = await page.evaluate(() => window.__qaGuide?.());
+      if (qaGuideOff?.visibleGuideCount !== 0) {
+        errors.push(`?guide=off failed! visibleGuideCount is ${qaGuideOff?.visibleGuideCount}`);
+      }
+      await page.close();
+    }
+  } else if (phase.startsWith('round4-')) {
     console.log(`Running Round 4 QA Suite for phase: ${phase}...`);
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     page.on('pageerror', (error) => { console.log('PAGE ERROR:', error.message); errors.push(`round4: ${error.message}`); });

@@ -8,17 +8,20 @@ import { PLANET_CONFIG } from '../config/memoriesData.js';
  * 4. Memory Beacon Tracker (5 hearts)
  */
 export class HudOverlay {
-  constructor({ onMakeWish, onToggleSound, onResetCamera, onToggleGalaxy, onSelectMemory }) {
+  constructor({ onMakeWish, onToggleSound, onResetCamera, onToggleGalaxy, onSelectMemory, onNextPlanet, onOpenHelp }) {
     this.onMakeWish = onMakeWish;
     this.onToggleSound = onToggleSound;
     this.onResetCamera = onResetCamera;
     this.onToggleGalaxy = onToggleGalaxy;
     this.onSelectMemory = onSelectMemory;
+    this.onNextPlanet = onNextPlanet;
+    this.onOpenHelp = onOpenHelp;
 
     this.container = null;
     this.visitedCount = 0;
     this.totalMemories = 5;
     this.isGalaxyMode = false;
+    this.nextPlanetId = null;
 
     this.initDOM();
   }
@@ -53,6 +56,11 @@ export class HudOverlay {
               <span class="heart-dot clickable" data-id="4" title="04. ♃ ดาวพฤหัสบดี (Jupiter) · Beside You">🤍</span>
               <span class="heart-dot clickable" data-id="5" title="05. 🪐 ดาวเสาร์ (Saturn) · My Universe">🤍</span>
             </div>
+            <!-- Next Planet Action Chip (Chip "ต่อไป →") -->
+            <div class="hud-next-chip hidden" id="hud-next-chip" role="button" tabindex="0" title="แตะเพื่อบินไปดาวดวงนี้ทันที">
+              <span class="chip-arrow">👉</span>
+              <span class="chip-label" id="hud-next-chip-text">ต่อไป: 01 ดาวศุกร์</span>
+            </div>
           </div>
         </div>
 
@@ -64,13 +72,13 @@ export class HudOverlay {
           </button>
 
           <!-- Reset Center View Button -->
-          <button id="btn-reset-cam" class="hud-icon-btn" title="กลับสู่ศูนย์กลางดวงใจวันเกิด">
-            <span>🎂</span>
+          <button id="btn-reset-cam" class="hud-icon-btn" title="กลับมาที่หัวใจกลาง" aria-label="กลับมาที่หัวใจกลาง">
+            <span>🎯</span>
             <span class="btn-label">ดวงใจวันเกิด</span>
           </button>
 
           <!-- Floating Vinyl Record Music Player Widget -->
-          <div class="vinyl-widget" id="vinyl-widget" title="เปิด/ปิดเพลงประกอบ">
+          <div class="vinyl-widget" id="vinyl-widget" role="button" tabindex="0" title="แตะเพื่อเปิดเพลง 🔊" aria-label="แตะเพื่อเปิดเพลง 🔊">
             <div class="vinyl-disc" id="vinyl-disc">
               <div class="vinyl-groove"></div>
               <div class="vinyl-center"></div>
@@ -81,8 +89,13 @@ export class HudOverlay {
               <span class="bar bar-3"></span>
               <span class="bar bar-4"></span>
             </div>
-            <span class="vinyl-label" id="vinyl-status">เปิดเพลง</span>
+            <span class="vinyl-label" id="vinyl-status">แตะเพื่อเปิดเพลง</span>
           </div>
+
+          <!-- Help Guide Button (?) -->
+          <button id="btn-guide-help" class="hud-icon-btn hud-help-btn" title="คู่มือการใช้งาน ✨" aria-label="คู่มือการใช้งาน">
+            <span>?</span>
+          </button>
         </div>
       </header>
 
@@ -93,7 +106,7 @@ export class HudOverlay {
 
       <!-- Bottom-Right: Make a Wish Button (ปุ่มขอพรวันเกิด) -->
       <div class="hud-wish-wrap">
-        <button id="btn-make-wish" class="wish-btn">
+        <button id="btn-make-wish" class="wish-btn" title="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)" aria-label="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)">
           <span class="wish-star">🎂</span>
           <span class="wish-text">อธิษฐานขอพรวันเกิด</span>
           <span class="wish-star">🌠✨</span>
@@ -120,16 +133,43 @@ export class HudOverlay {
 
     // Bind Vinyl Player
     const vinylWidget = this.container.querySelector('#vinyl-widget');
-    vinylWidget.addEventListener('click', () => {
+    const toggleAudio = () => {
       if (this.onToggleSound) {
         const isPlaying = this.onToggleSound();
         this.setSoundPlayingState(isPlaying);
+      }
+    };
+    vinylWidget.addEventListener('click', toggleAudio);
+    vinylWidget.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleAudio();
       }
     });
 
     // Bind Reset Camera
     this.container.querySelector('#btn-reset-cam').addEventListener('click', () => {
       if (this.onResetCamera) this.onResetCamera();
+    });
+
+    // Bind Help Button
+    this.container.querySelector('#btn-guide-help').addEventListener('click', () => {
+      if (this.onOpenHelp) this.onOpenHelp();
+    });
+
+    // Bind Next Chip
+    const nextChip = this.container.querySelector('#hud-next-chip');
+    const triggerNext = () => {
+      if (this.nextPlanetId && this.onNextPlanet) {
+        this.onNextPlanet(this.nextPlanetId);
+      }
+    };
+    nextChip.addEventListener('click', triggerNext);
+    nextChip.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        triggerNext();
+      }
     });
 
     // Bind Clickable Heart Dots in Tracker
@@ -144,6 +184,7 @@ export class HudOverlay {
 
   setGalaxyMode(isGalaxy) {
     this.isGalaxyMode = isGalaxy;
+    const btn = this.container.querySelector('#btn-toggle-galaxy');
     const btnIcon = this.container.querySelector('#galaxy-btn-icon');
     const btnText = this.container.querySelector('#galaxy-btn-text');
     const brandIcon = this.container.querySelector('#hud-brand-icon');
@@ -151,12 +192,14 @@ export class HudOverlay {
     const hintText = this.container.querySelector('#hud-hint-text');
 
     if (isGalaxy) {
+      btn.classList.add('is-galaxy-active');
       btnIcon.textContent = '💖';
       btnText.textContent = 'ดวงใจสุริยะ';
       brandIcon.textContent = '🌌';
       brandSub.textContent = 'มหากาแล็กซี่สีม่วงแห่งความทรงจำ · 120,000+ ดวงดาว';
       hintText.innerHTML = '🌌 <b>โหมดท่องกาแล็กซี่:</b> ลากเมาส์หมุนสำรวจทางช้างเผือกสีม่วง · คลิกดาวเคราะห์หรือหัวใจเพื่อวาร์ปเปิดความทรงจำ';
     } else {
+      btn.classList.remove('is-galaxy-active');
       btnIcon.textContent = '🌌';
       btnText.textContent = 'ท่องกาแล็กซี่ 3D';
       brandIcon.textContent = '💖';
@@ -165,11 +208,43 @@ export class HudOverlay {
     }
   }
 
+  updateNextPlanet(nextId, name = '') {
+    this.nextPlanetId = nextId;
+    const nextChip = this.container.querySelector('#hud-next-chip');
+    const chipText = this.container.querySelector('#hud-next-chip-text');
+    if (!nextChip) return;
+
+    if (nextId) {
+      chipText.textContent = `ต่อไป: ${String(nextId).padStart(2, '0')} ${name}`;
+      nextChip.classList.remove('hidden');
+    } else {
+      nextChip.classList.add('hidden');
+    }
+  }
+
+  pulseNextChip(fast = true) {
+    const nextChip = this.container.querySelector('#hud-next-chip');
+    if (!nextChip || nextChip.classList.contains('hidden')) return;
+    if (fast) {
+      nextChip.classList.add('pulse-fast');
+    } else {
+      nextChip.classList.remove('pulse-fast');
+    }
+  }
+
+  hideHint() {
+    const hint = this.container.querySelector('.hud-hints');
+    if (hint) hint.style.display = 'none';
+  }
 
   updateProgress(visitedSet) {
     this.visitedCount = visitedSet.size;
     const countEl = this.container.querySelector('#tracker-count');
     countEl.textContent = `${this.visitedCount} / ${this.totalMemories}`;
+
+    if (this.visitedCount > 0) {
+      this.hideHint();
+    }
 
     const heartDots = this.container.querySelectorAll('.heart-dot');
     heartDots.forEach(dot => {
@@ -201,12 +276,16 @@ export class HudOverlay {
     const bars = this.container.querySelector('#sound-wave-bars');
 
     if (isPlaying) {
-      statusLabel.textContent = 'เล่นเพลง';
+      statusLabel.textContent = 'เพลงเปิดอยู่ · แตะเพื่อปิด';
+      vinylWidget.setAttribute('title', 'เพลงเปิดอยู่ · แตะเพื่อปิด');
+      vinylWidget.setAttribute('aria-label', 'เพลงเปิดอยู่ · แตะเพื่อปิด');
       vinylWidget.classList.add('playing');
       disc.classList.add('spinning');
       bars.classList.add('active');
     } else {
-      statusLabel.textContent = 'เปิดเพลง';
+      statusLabel.textContent = 'แตะเพื่อเปิดเพลง';
+      vinylWidget.setAttribute('title', 'แตะเพื่อเปิดเพลง 🔊');
+      vinylWidget.setAttribute('aria-label', 'แตะเพื่อเปิดเพลง 🔊');
       vinylWidget.classList.remove('playing');
       disc.classList.remove('spinning');
       bars.classList.remove('active');

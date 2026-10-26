@@ -425,27 +425,37 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
 
       const canvas = document.createElement('canvas');
       canvas.width = 1600;
-      canvas.height = 180;
+      canvas.height = 200;
       const context = canvas.getContext('2d');
-      context.font = '700 70px Mali, Prompt, sans-serif';
+
+      // Soft radial dark shadow behind the secret message to prevent rim clash
+      const bgGrad = context.createRadialGradient(800, 100, 0, 800, 100, 720);
+      bgGrad.addColorStop(0, 'rgba(12, 5, 20, 0.88)');
+      bgGrad.addColorStop(0.55, 'rgba(12, 5, 20, 0.52)');
+      bgGrad.addColorStop(1, 'rgba(12, 5, 20, 0)');
+      context.fillStyle = bgGrad;
+      context.fillRect(0, 0, 1600, 200);
+
+      // 15% larger font size (from 70px to 82px)
+      context.font = '700 82px Mali, Prompt, sans-serif';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
-      context.lineWidth = 10;
-      context.strokeStyle = 'rgba(28, 10, 38, 0.92)';
-      context.strokeText(message, 800, 90);
+      context.lineWidth = 12;
+      context.strokeStyle = 'rgba(24, 8, 34, 0.95)';
+      context.strokeText(message, 800, 100);
       context.fillStyle = '#fff4fa';
-      context.fillText(message, 800, 90);
+      context.fillText(message, 800, 100);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
 
-      // Plane placed safely under plate base (y ≈ -18.5) with slight curve
-      const geometry = new THREE.PlaneGeometry(44, 4.9, 48, 1);
+      // Plane placed safely under plate base with slight curve
+      const geometry = new THREE.PlaneGeometry(46, 5.6, 48, 1);
       const positions = geometry.attributes.position;
       for (let index = 0; index < positions.count; index += 1) {
         const x = positions.getX(index);
-        positions.setY(index, positions.getY(index) - Math.pow(x / 44, 2) * 1.2);
-        positions.setZ(index, -Math.pow(x / 44, 2) * 3.6);
+        positions.setY(index, positions.getY(index) - Math.pow(x / 46, 2) * 1.2);
+        positions.setZ(index, -Math.pow(x / 46, 2) * 3.6);
       }
       geometry.computeVertexNormals();
 
@@ -462,7 +472,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       cakeMessage.name = 'cakeSecretMessage';
       cakeMessageReveal = 0;
       // Positioned underneath presentation plate with comfortable clearance from action buttons
-      cakeMessage.position.set(0, -13.5, 22);
+      cakeMessage.position.set(0, -15.4, 23.5);
       cakeMessage.scale.x = 0.01;
       group.add(cakeMessage);
     },

@@ -14,8 +14,8 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
   const allowed = {
     LOADING: ['system'], INTRO: ['system', 'cinematic'], FLIGHT: ['action', 'cinematic'],
     ARRIVAL: ['cinematic', 'coach'], EXPLORE: ['hud', 'action', 'coach', 'toast', 'cinematic'],
-    FOCUS: ['cinematic'], MEMORY: ['modal'], FINALE_ALIGN: ['cinematic'], FINALE_HEART: ['cinematic'],
-    FINALE_CAKE: ['action', 'cinematic'], FINALE_LETTER: ['cinematic'], EPILOGUE: ['hud', 'action', 'toast']
+    FOCUS: ['cinematic'], MEMORY: ['modal'], FINALE_ALIGN: ['cinematic', 'coach'], FINALE_HEART: ['cinematic', 'coach'],
+    FINALE_CAKE: ['action', 'cinematic', 'coach'], FINALE_LETTER: ['cinematic', 'coach'], EPILOGUE: ['hud', 'action', 'toast', 'coach']
   };
 
   function removeEntry(entry, { immediate = false, callClose = true } = {}) {

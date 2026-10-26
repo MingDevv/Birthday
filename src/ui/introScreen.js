@@ -58,6 +58,8 @@ export class IntroScreen {
             <span>ออกเดินทางสู่ดาวลูกหมู</span>
             <span class="btn-sparkle">✨</span>
           </button>
+          <div class="intro-sound-hint" id="intro-sound-hint">เปิดเสียงไว้ด้วยนะ จะมีเพลงให้ฟังตลอดทาง 🔊</div>
+          <div class="intro-idle-cta hidden" id="intro-idle-cta">แตะปุ่มเพื่อออกเดินทางได้เลย 🚀</div>
         </div>
 
         <!-- Small Skip Button -->
@@ -140,12 +142,20 @@ export class IntroScreen {
       if (this.soundManager) {
         this.soundManager.playChimeSound();
       }
+
+      this.idleTimer = setTimeout(() => {
+        if (!this.hasEntered) {
+          const idleCta = this.container.querySelector('#intro-idle-cta');
+          if (idleCta) idleCta.classList.remove('hidden');
+        }
+      }, 2500);
     }, 320);
   }
 
   enterGalaxy() {
     if (this.hasEntered) return;
     this.hasEntered = true;
+    if (this.idleTimer) clearTimeout(this.idleTimer);
 
     if (this.soundManager) {
       this.soundManager.initAudioContext();

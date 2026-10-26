@@ -30,15 +30,20 @@ import { OPTIONAL_FEATURE_CONTENT } from './config/optionalFeatures.js';
 import { createUIDirector } from './core/uiDirector.js';
 import { createFlow } from './core/flow.js';
 import { createWorldText } from './scene/worldText.js';
+import { createProgressManager } from './core/progress.js';
+import { createGuideDirector } from './ui/guideDirector.js';
+import { GUIDE_COPY, formatCopy } from './config/guideCopy.js';
 import './style.css';
 
 async function initializeApp() {
+let guideDirector = null;
 const queryFlags = getQueryFlags();
 const uiDirector = createUIDirector({ root: document.body, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
 const flow = createFlow({
   ui: uiDirector,
   onChange: ({ next }) => {
     document.body.classList.remove('mobile-tools-open');
+    guideDirector?.onState(next);
     if (!['ARRIVAL', 'EXPLORE'].includes(next)) {
       activeWorldTexts?.forEach((item) => item.dispose());
       activeWorldTexts?.clear();
@@ -70,9 +75,8 @@ const GUI = debugModules?.[0].default;
 const Stats = debugModules?.[1].default;
 
 // -----------------------------------------------------------------------------
-// 1. Initial State & Setup
-// -----------------------------------------------------------------------------
-const visitedMemories = new Set();
+const progress = createProgressManager();
+const visitedMemories = progress.visited;
 let currentQuality = getQualityConfig();
 if (queryFlags.portraitRatio) currentQuality.pixelRatio = 1;
 let currentHoveredMesh = null;
@@ -438,7 +442,7 @@ function showCakeActions() {
   const micButton = document.createElement('button');
   micButton.type = 'button';
   micButton.className = 'cake-mic-button secondary';
-  micButton.innerHTML = '<span>ใช้ไมค์เป่า</span><small>ระบบจะขอใช้ไมค์เฉพาะตอนนี้</small>';
+  micButton.innerHTML = `<span>ใช้ไมค์เป่า</span><small>${GUIDE_COPY.cake.mic}</small>`;
   panel.append(blowButton, micButton);
   cakeActions = uiDirector.show({ id: 'cake-actions', zone: 'bottom-center', layer: 'action', exclusive: true, element: panel, states: ['FINALE_CAKE'] });
   blowButton.addEventListener('click', finishCake);
@@ -949,7 +953,7 @@ function startCinematicApproach(onComplete) {
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
       flow.go('EXPLORE');
-      showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
+      showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, solarSystem, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
     };
     if (queryFlags.fxOff) finishArrival();
     else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival });
@@ -1175,10 +1179,9 @@ function flyToPlanet(planetId) {
   name3DText.hide();
 
   // Mark visited
-  if (!visitedMemories.has(planetId)) {
-    visitedMemories.add(planetId);
+  if (!progress.isVisited(planetId)) {
+    progress.markVisited(planetId);
     solarSystem.markVisited(planetId);
-    hud.updateProgress(visitedMemories);
   }
   if (!queryFlags.fxOff && !prefersReducedMotion && navigator.vibrate) navigator.vibrate(12);
   if (planetId === 5) solarSystem.showFinalRose();
@@ -1201,9 +1204,11 @@ function flyToPlanet(planetId) {
     gsap.to(bokehPass.uniforms.focus, { value: Math.max(6, currentDist), duration: 0.75, ease: 'power2.out' });
     gsap.to(bokehPass.uniforms.aperture, { value: 0.00028, duration: 0.7, ease: 'power2.out' });
   }
-  const duration = isFinalPlanet
-    ? (currentDist > 90 ? 2.8 : 2.0)
-    : (currentDist > 90 ? 2.2 : 1.5);
+  const duration = prefersReducedMotion
+    ? 0.08
+    : (isFinalPlanet
+      ? (currentDist > 90 ? 2.8 : 2.0)
+      : (currentDist > 90 ? 2.2 : 1.5));
   const focusCaption = document.createElement('div');
   focusCaption.className = 'ui-captions focus-caption';
   focusCaption.textContent = `PLANET 0${planetId} · ${planetItem.config.name}`;
@@ -1232,7 +1237,7 @@ function flyToPlanet(planetId) {
         x: (worldPoint.x * 0.5 + 0.5) * window.innerWidth,
         y: (-worldPoint.y * 0.5 + 0.5) * window.innerHeight
       };
-      if (isFinalPlanet) {
+      if (isFinalPlanet && !prefersReducedMotion) {
         gsap.delayedCall(0.9, () => polaroidModal.show(planetItem.memory, modalOrigin));
       } else {
         polaroidModal.show(planetItem.memory, modalOrigin);
@@ -1329,8 +1334,14 @@ const polaroidModal = new PolaroidModal({
   },
   onBackToGalaxy: () => {
     uiDirector.setModalOpen(false);
-    if (visitedMemories.size === solarSystem.planetsList.length) startFinaleSequence();
-    else {
+    if (progress.isComplete()) {
+      guideDirector?.showBubble(GUIDE_COPY.memory.last, { ttl: 2600, zone: 'bottom-left' });
+      setTimeout(() => startFinaleSequence(), prefersReducedMotion ? 400 : 1800);
+    } else {
+      const nextId = progress.getNextId();
+      const nextPlanet = solarSystem.planetsList.find((p) => p.id === nextId);
+      const name = nextPlanet?.config?.name?.split(' ')[0] || '';
+      guideDirector?.showBubble(formatCopy(GUIDE_COPY.memory.afterClose, { done: progress.size, name }), { ttl: 5500, zone: 'bottom-left' });
       flow.go('EXPLORE');
       returnToCenterOrbit();
     }
@@ -1345,7 +1356,10 @@ window.addEventListener('memory-modal-opened', () => {
   uiDirector.setModalOpen(true);
   flow.go('MEMORY');
 });
-window.addEventListener('memory-modal-closed', () => uiDirector.setModalOpen(false));
+window.addEventListener('memory-modal-closed', () => {
+  uiDirector.setModalOpen(false);
+  guideDirector?.noteInteraction();
+});
 
 const hud = new HudOverlay({
   onMakeWish: () => {
@@ -1382,11 +1396,43 @@ const hud = new HudOverlay({
   onSelectMemory: (id) => {
     if (polaroidModal.isOpen) polaroidModal.close(false);
     flyToPlanet(id);
+  },
+  onNextPlanet: (id) => {
+    if (polaroidModal.isOpen) polaroidModal.close(false);
+    flyToPlanet(id);
+  },
+  onOpenHelp: () => {
+    guideDirector?.openHelp();
   }
 });
+
+guideDirector = createGuideDirector({
+  uiDirector,
+  flow,
+  solarSystem,
+  camera,
+  renderer,
+  hud,
+  polaroidModal,
+  progress,
+  reducedMotion: prefersReducedMotion,
+  onFlyToPlanet: (id) => {
+    if (polaroidModal.isOpen) polaroidModal.close(false);
+    flyToPlanet(id);
+  }
+});
+guideDirector.onState(flow.state);
 // Wait for local planet textures so the introduction never opens onto an empty scene.
 await texturesReady;
 loadingOverlay?.classList.add('asset-loading-done');
+
+// Preload local memory photos so opening cards does not stutter
+MEMORIES_LIST.forEach((m) => {
+  if (m.image) {
+    const img = new Image();
+    img.src = m.image;
+  }
+});
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
 if (queryFlags.skipIntro || queryFlags.cinema) {
@@ -1447,7 +1493,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.target.set(0, 0, -6);
   for (const planet of solarSystem.planetsList) {
     solarSystem.markVisited(planet.id);
-    visitedMemories.add(planet.id);
+    progress.markVisited(planet.id);
   }
   solarSystem.setStage('finale-align');
 } else if (queryFlags.qaScene === 'epilogue-return') {
@@ -1456,7 +1502,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.target.set(0, 0, -6);
   for (const planet of solarSystem.planetsList) {
     solarSystem.markVisited(planet.id);
-    visitedMemories.add(planet.id);
+    progress.markVisited(planet.id);
   }
   solarSystem.setStage('finale-align');
   window.setTimeout(() => {
@@ -1468,7 +1514,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.target.copy(defaultCameraTarget);
   for (const planet of solarSystem.planetsList) {
     solarSystem.markVisited(planet.id);
-    visitedMemories.add(planet.id);
+    progress.markVisited(planet.id);
   }
   solarSystem.setStage('finale-heart');
 } else if (queryFlags.qaScene === 'signature-earth') {
@@ -1492,7 +1538,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   hud.hide();
   for (const planet of solarSystem.planetsList) {
     solarSystem.markVisited(planet.id);
-    visitedMemories.add(planet.id);
+    progress.markVisited(planet.id);
   }
   showCakeActions();
   if (queryFlags.qaScene === 'cake-top') {
@@ -1506,7 +1552,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   hud.hide();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
-  showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
+  showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, solarSystem, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
 }
 
 setupShootingStarWishes();

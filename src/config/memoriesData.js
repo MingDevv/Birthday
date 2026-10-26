@@ -35,6 +35,7 @@ export const MEMORIES_LIST = [
     description: "เราได้รู้จักกันเพราะมีคนแนะนำมา แล้วชั้นก็ดันตกหลุมรักรอยยิ้มของข้าวหอมเข้าเต็มๆ ยิ่งมีหน้าสุดอ้วนๆ มาด้วยก็ยิ่งน่ารักจนใจเจ็บเลย",
     quote: "แค่ข้าวหอมยิ้ม ชั้นก็แพ้แล้ว 💗",
     image: `${import.meta.env.BASE_URL}images/memory-1.jpg`,
+    imagePosition: "50% 20%",
     color: "#f472b6"
   },
   {
@@ -49,6 +50,7 @@ export const MEMORIES_LIST = [
     description: "ชั้นชอบเวลาข้าวหอมเล่นมุกนะ มันน่ารักตรงที่ข้าวหอมเป็นตัวเองเต็มที่ ไม่ต้องฝืน",
     quote: "มุกจะเล่นอะไรไม่รู้ แต่คนเล่นน่ารักแน่นอน",
     image: `${import.meta.env.BASE_URL}images/memory-2.jpg`,
+    imagePosition: "50% 22%",
     color: "#38bdf8"
   },
   {
@@ -63,6 +65,7 @@ export const MEMORIES_LIST = [
     description: "เวลาไปเรียนแล้วเจอกัน ข้าวหอมชอบเดินหนีชั้นตลอดเลยนะ ไอ่ข้าวหอม! ถึงจะชอบหนี แต่ทุกครั้งที่บังเอิญเจอกันก็กลายเป็นเรื่องที่ชั้นจำได้ทุกที",
     quote: "คราวหน้าเจอกันแล้วอย่าเพิ่งเดินหนีสิ 😆",
     image: `${import.meta.env.BASE_URL}images/memory-3.jpg`,
+    imagePosition: "50% 55%",
     color: "#f97316"
   },
   {
@@ -77,6 +80,7 @@ export const MEMORIES_LIST = [
     description: "ข้าวหอมเป็นคนใจดี รอบคอบ แล้วก็ปากแข็งสุดๆ ชั้นชอบความเป็นข้าวหอม ทั้งตอนนอนเก่ง คิดเลขเก่ง และดูหนังผีทั้งที่กลัวด้วยนะ ขอบคุณที่คอยเตือนเวลาชั้นทำตัวไม่น่ารัก ช่วยให้ชั้นได้คิดและปรับตัวขึ้นเยอะเลย",
     quote: "ปากจะแข็งแค่ไหน ก็ขอบคุณที่คอยใส่ใจกันนะ 💜",
     image: `${import.meta.env.BASE_URL}images/memory-4.jpg`,
+    imagePosition: "50% 52%",
     color: "#fbbf24"
   },
   {
@@ -91,6 +95,8 @@ export const MEMORIES_LIST = [
     description: "ขอให้เป็น 16 ที่ดีนะไอ่หมู มีความสุขมากๆ ตั้งใจเรียน ได้เกรดดีๆ แล้วขอให้ปีนี้มีแต่เรื่องที่ทำให้ยิ้มได้ ขอบคุณที่เกิดมาและคอยทำตัวน่ารักๆนะไอ่อ้วน 💗",
     quote: "มีความสุขมากๆนะไอ่อ้วนน💗",
     image: `${import.meta.env.BASE_URL}images/memory-5.jpg`,
+    imagePosition: "50% 25%",
+    collage: [1, 2, 3, 4],
     color: "#fef08a"
   }
 ];

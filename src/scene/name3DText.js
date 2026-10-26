@@ -217,11 +217,11 @@ export function buildNameMesh({ isArrival = false } = {}) {
   const group = new THREE.Group();
   group.name = isArrival ? 'arrival3DNameText' : 'giant3DNameText';
 
-  // Front Material: Warm Cream + Rose Gold, high emissive
+  // Front Material: Warm Cream + Rose Gold, balanced emissive without blowout
   const frontMat = new THREE.MeshPhysicalMaterial({
     color: 0xfff4ea,
     emissive: 0xffc4da,
-    emissiveIntensity: isArrival ? 0.55 : 0.45,
+    emissiveIntensity: isArrival ? 0.38 : 0.40,
     roughness: 0.18,
     metalness: 0.25,
     clearcoat: 1.0,
@@ -233,7 +233,7 @@ export function buildNameMesh({ isArrival = false } = {}) {
   const sideMat = new THREE.MeshPhysicalMaterial({
     color: 0xff4f8c,
     emissive: 0xdb2777,
-    emissiveIntensity: isArrival ? 0.75 : 0.62,
+    emissiveIntensity: isArrival ? 0.68 : 0.60,
     roughness: 0.25,
     metalness: 0.18,
     clearcoat: 0.85,
@@ -289,12 +289,12 @@ export function buildNameMesh({ isArrival = false } = {}) {
   glowSprite.position.set(0, 0, -6);
   group.add(glowSprite);
 
-  // Dedicated Front Key Light + Soft Purple Backlight for crisp edge separation
-  const keyLight = new THREE.DirectionalLight(0xfffaed, isArrival ? 1.4 : 1.1);
+  // Dedicated Front Key Light + Soft Purple Backlight tuned to avoid bloom hotspots
+  const keyLight = new THREE.DirectionalLight(0xfffaed, isArrival ? 1.15 : 1.05);
   keyLight.position.set(0, 40, 80);
   group.add(keyLight);
 
-  const backLight = new THREE.PointLight(0xc084fc, isArrival ? 1.2 : 0.8, 180);
+  const backLight = new THREE.PointLight(0xc084fc, isArrival ? 0.95 : 0.8, 180);
   backLight.position.set(0, -10, -25);
   group.add(backLight);
 

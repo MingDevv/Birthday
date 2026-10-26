@@ -6,6 +6,7 @@ export function showArrivalCelebrationFlow(soundManager, {
   flow,
   scene,
   camera,
+  solarSystem,
   worldTextRegistry,
   reducedMotion = false,
   quality = { tier: 'medium' }
@@ -13,6 +14,9 @@ export function showArrivalCelebrationFlow(soundManager, {
   const isQa = new URLSearchParams(location.search).get('qa')?.startsWith('arrival-');
   let currentStep = 'number';
   let skipCurrentStep = null;
+
+  // Hide planet beacons during arrival sequence to keep hero name reveal clutter-free
+  solarSystem?.setBeaconsVisible(false);
 
   // Window tap listener to step through arrival sequence
   const onScreenTap = (e) => {
@@ -23,6 +27,7 @@ export function showArrivalCelebrationFlow(soundManager, {
   window.addEventListener('pointerdown', onScreenTap);
 
   const cleanupListeners = () => {
+    solarSystem?.setBeaconsVisible(true);
     window.removeEventListener('pointerdown', onScreenTap);
   };
 
@@ -44,6 +49,11 @@ export function showArrivalCelebrationFlow(soundManager, {
   const startNameReveal = () => {
     currentStep = 'name';
     if (isQa) window.__qaArrivalStage = 'name';
+
+    // Number 16 fades out so it does not overlap with 3D Name
+    if (number && !number.disposed) {
+      number.hide(reducedMotion ? 0 : 0.28);
+    }
 
     nameReveal = createArrivalNameReveal(scene, camera, { reducedMotion });
     worldTextRegistry?.add(nameReveal);

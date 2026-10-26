@@ -1,4 +1,4 @@
-import { PLANET_CONFIG } from '../config/memoriesData.js';
+import { PLANET_CONFIG, MEMORIES_LIST } from '../config/memoriesData.js';
 
 /**
  * Memory Popup Card (Glassmorphism & 3D Tilt):
@@ -44,14 +44,16 @@ export class PolaroidModal {
           </div>
 
           <!-- 3D Polaroid Photo Frame with Parallax Tilt -->
-          <div class="polaroid-photo-frame" id="polaroid-frame">
+          <div class="polaroid-photo-frame" id="polaroid-frame" title="แตะเพื่อดูภาพเต็ม 🔍">
             <div class="polaroid-photo-placeholder" id="photo-placeholder">
               <span class="placeholder-icon">💖</span>
               <span class="placeholder-title" id="placeholder-text">ความทรงจำแสนพิเศษ</span>
             </div>
             <img id="polaroid-img" class="polaroid-img" alt="ความทรงจำ" />
+            <div class="polaroid-collage-grid hidden" id="polaroid-collage"></div>
             <div class="photo-shine-overlay"></div>
             <div class="photo-heart-badge" id="photo-badge">01 ♥</div>
+            <div class="photo-zoom-hint" id="photo-zoom-hint">🔍 แตะดูรูปเต็ม</div>
           </div>
 
           <!-- Content Body -->
@@ -85,7 +87,19 @@ export class PolaroidModal {
                 <span>เก็บภาพความทรงจำ 📸</span>
               </button>
             </div>
+            <div class="memory-first-guide hidden" id="memory-first-guide">
+              อ่านจบแล้วกด "ความทรงจำถัดไป" หรือ ✕ เพื่อกลับ ✨
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Lightbox Fullscreen View -->
+      <div id="memory-lightbox" class="memory-lightbox hidden" role="dialog" aria-modal="true" aria-label="ภาพความทรงจำขนาดเต็ม">
+        <button class="lightbox-close-btn" id="lightbox-close-btn" title="ปิดภาพเต็ม">✕</button>
+        <div class="lightbox-content" id="lightbox-content">
+          <img id="lightbox-img" class="lightbox-img hidden" alt="ภาพความทรงจำขนาดเต็ม" />
+          <div id="lightbox-collage" class="lightbox-collage hidden"></div>
         </div>
       </div>
     `;
@@ -93,6 +107,8 @@ export class PolaroidModal {
     document.body.appendChild(this.container);
 
     this.card = this.container.querySelector('#memory-card');
+    this.lightbox = this.container.querySelector('#memory-lightbox');
+    this.isLightboxOpen = false;
 
     // Event Listeners
     this.container.querySelector('#modal-close-btn').addEventListener('click', () => this.close());
@@ -114,14 +130,34 @@ export class PolaroidModal {
       }
     });
 
+    // Lightbox triggers
+    const photoFrame = this.container.querySelector('#polaroid-frame');
+    photoFrame.addEventListener('click', (e) => {
+      // Don't open if clicked badge
+      if (e.target.closest('#photo-badge')) return;
+      this.openLightbox();
+    });
+
+    this.lightbox.addEventListener('click', (e) => {
+      if (e.target === this.lightbox || e.target.closest('#lightbox-close-btn') || e.target.closest('.lightbox-content')) {
+        this.closeLightbox();
+      }
+    });
+
     this.onKeyDown = (event) => {
-      if (event.key === 'Escape' && this.isOpen) this.close();
+      if (event.key === 'Escape') {
+        if (this.isLightboxOpen) {
+          event.stopPropagation();
+          this.closeLightbox();
+        } else if (this.isOpen) {
+          this.close();
+        }
+      }
     };
     window.addEventListener('keydown', this.onKeyDown);
 
     // 3D Parallax Tilt Effect
     const cardWrap = this.container.querySelector('.modal-card-wrap');
-    const photoFrame = this.container.querySelector('#polaroid-frame');
 
     cardWrap.addEventListener('mousemove', (e) => {
       const rect = this.card.getBoundingClientRect();
@@ -147,9 +183,49 @@ export class PolaroidModal {
     });
   }
 
+  openLightbox() {
+    if (!this.currentMemory) return;
+    this.isLightboxOpen = true;
+    const lbImg = this.lightbox.querySelector('#lightbox-img');
+    const lbCollage = this.lightbox.querySelector('#lightbox-collage');
+
+    if (this.currentMemory.collage && Array.isArray(this.currentMemory.collage)) {
+      lbImg.classList.add('hidden');
+      lbCollage.innerHTML = '';
+      this.currentMemory.collage.forEach((cid) => {
+        const item = document.createElement('img');
+        item.className = 'lightbox-c-item';
+        item.src = `${import.meta.env.BASE_URL}images/memory-${cid}.jpg`;
+        item.alt = `ความทรงจำที่ ${cid}`;
+        const targetMem = MEMORIES_LIST.find((m) => m.id === cid);
+        item.style.objectPosition = targetMem?.imagePosition || (cid >= 3 ? '50% 55%' : '50% 22%');
+        lbCollage.appendChild(item);
+      });
+      lbCollage.classList.remove('hidden');
+    } else if (this.currentMemory.image) {
+      lbCollage.classList.add('hidden');
+      lbImg.src = this.currentMemory.image;
+      lbImg.classList.remove('hidden');
+    }
+
+    this.lightbox.classList.remove('hidden');
+    void this.lightbox.offsetWidth;
+    this.lightbox.classList.add('visible');
+  }
+
+  closeLightbox() {
+    if (!this.isLightboxOpen) return;
+    this.isLightboxOpen = false;
+    this.lightbox.classList.remove('visible');
+    setTimeout(() => {
+      if (!this.isLightboxOpen) this.lightbox.classList.add('hidden');
+    }, 240);
+  }
+
   show(memory, origin = null) {
     clearInterval(this.typeTimer);
     this.typeTimer = null;
+    this.closeLightbox();
     this.currentMemory = memory;
     this.isOpen = true;
     this.openOrigin = origin;
@@ -164,16 +240,36 @@ export class PolaroidModal {
     this.container.querySelector('#memory-desc').textContent = memory.description;
     this.container.querySelector('#memory-quote-text').textContent = memory.quote;
 
-    // Image & Fallback
+    // Image & Fallback & Collage
     const imgEl = this.container.querySelector('#polaroid-img');
+    const collageEl = this.container.querySelector('#polaroid-collage');
     const placeholder = this.container.querySelector('#photo-placeholder');
     const placeholderText = this.container.querySelector('#placeholder-text');
 
     placeholderText.textContent = memory.title;
     placeholder.style.background = `linear-gradient(135deg, ${memory.color || '#ff9a9e'}44, rgba(20,18,36,0.9))`;
 
-    if (memory.image) {
+    if (memory.collage && Array.isArray(memory.collage)) {
+      // 2x2 collage
+      imgEl.style.display = 'none';
+      placeholder.style.display = 'none';
+      collageEl.innerHTML = '';
+      memory.collage.forEach((cid) => {
+        const cImg = document.createElement('img');
+        cImg.className = 'collage-item';
+        cImg.src = `${import.meta.env.BASE_URL}images/memory-${cid}.jpg`;
+        cImg.alt = `ความทรงจำที่ ${cid}`;
+        const targetMem = MEMORIES_LIST.find((m) => m.id === cid);
+        cImg.style.objectPosition = targetMem?.imagePosition || (cid >= 3 ? '50% 55%' : '50% 22%');
+        collageEl.appendChild(cImg);
+      });
+      collageEl.classList.remove('hidden');
+      collageEl.style.display = 'grid';
+    } else if (memory.image) {
+      collageEl.classList.add('hidden');
+      collageEl.style.display = 'none';
       imgEl.src = memory.image;
+      imgEl.style.objectPosition = memory.imagePosition || '50% 25%';
       imgEl.style.display = 'block';
       placeholder.style.display = 'none';
 
@@ -186,8 +282,24 @@ export class PolaroidModal {
         placeholder.style.display = 'none';
       };
     } else {
+      collageEl.classList.add('hidden');
+      collageEl.style.display = 'none';
       imgEl.style.display = 'none';
       placeholder.style.display = 'flex';
+    }
+
+    // Guide on first memory
+    const firstGuide = this.container.querySelector('#memory-first-guide');
+    try {
+      const guideSeen = sessionStorage.getItem('firstMemoryGuideSeen');
+      if (!guideSeen && memory.id === 1) {
+        firstGuide.classList.remove('hidden');
+        sessionStorage.setItem('firstMemoryGuideSeen', 'true');
+      } else {
+        firstGuide.classList.add('hidden');
+      }
+    } catch {
+      firstGuide.classList.add('hidden');
     }
 
     // Finale box on memory 5
@@ -245,6 +357,7 @@ export class PolaroidModal {
   close(triggerBack = true) {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.closeLightbox();
     clearInterval(this.typeTimer);
     this.typeTimer = null;
     this.container.classList.remove('visible');

@@ -62,7 +62,7 @@ export function createArrivalNumber(scene, { quality = 'medium' } = {}) {
     ])
   ];
 
-  const tubeRadius = quality === 'low' ? 0.60 : 0.66;
+  const tubeRadius = quality === 'low' ? 0.92 : 1.05;
   for (const curve of curves) {
     const geometry = new THREE.TubeGeometry(curve, quality === 'low' ? 40 : 72, tubeRadius, 14, false);
     group.add(new THREE.Mesh(geometry, material));
@@ -78,12 +78,12 @@ export function createArrivalNumber(scene, { quality = 'medium' } = {}) {
     depthWrite: false
   });
   const glowSprite = new THREE.Sprite(glowMat);
-  glowSprite.scale.set(32, 24, 1);
+  glowSprite.scale.set(48, 36, 1);
   glowSprite.position.set(0, 0, -2);
   group.add(glowSprite);
 
   group.position.set(0, 18, -8);
-  group.scale.setScalar(0.72);
+  group.scale.setScalar(1.15);
   scene.add(group);
 
   let mode = 'idle';

@@ -441,6 +441,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   let finaleHeartLineScale = 1;
   let currentHeartScale = 1.0;
   let targetHeartScale = 1.0;
+  let beaconsVisible = true;
   const heartOriginPos = new THREE.Vector3(0, 0, 0);
   const currentHeartPos = new THREE.Vector3(0, 0, 0);
   const targetHeartPos = new THREE.Vector3(0, 0, 0);
@@ -826,17 +827,27 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const visited = status === 'visited';
       beaconContext.clearRect(0, 0, beaconCanvas.width, beaconCanvas.height);
       beaconContext.beginPath();
-      beaconContext.roundRect(10, 10, 492, 108, 54);
-      beaconContext.fillStyle = visited ? 'rgba(39, 25, 59, .72)' : next ? 'rgba(22, 13, 42, .78)' : 'rgba(13, 10, 27, .45)';
+      beaconContext.roundRect(8, 8, 496, 112, 56);
+      beaconContext.fillStyle = visited
+        ? 'rgba(39, 25, 59, .85)'
+        : next
+          ? 'rgba(38, 16, 66, .94)'
+          : 'rgba(24, 14, 40, .82)';
       beaconContext.fill();
-      beaconContext.lineWidth = next ? 6 : 3;
-      beaconContext.strokeStyle = visited ? 'rgba(255, 188, 226, .85)' : next ? 'rgba(255, 226, 164, .95)' : 'rgba(219, 198, 255, .38)';
+      beaconContext.lineWidth = next ? 7 : 3;
+      beaconContext.strokeStyle = visited
+        ? 'rgba(255, 188, 226, .90)'
+        : next
+          ? 'rgba(255, 226, 164, 1.0)'
+          : 'rgba(192, 132, 252, .58)';
       beaconContext.stroke();
-      beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff0c8' : '#c8bfd7';
+
+      beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff6d4' : '#e6daf4';
       beaconContext.textAlign = 'center';
       beaconContext.textBaseline = 'middle';
-      beaconContext.font = '700 44px Prompt, sans-serif';
-      beaconContext.fillText(`${visited ? '✓' : String(pConfig.id).padStart(2, '0')}  ·  ${beaconName}`, 256, 65, 460);
+      beaconContext.font = next ? '700 48px Prompt, sans-serif' : '600 44px Prompt, sans-serif';
+      const prefix = visited ? '✓' : next ? '👉' : String(pConfig.id).padStart(2, '0');
+      beaconContext.fillText(`${prefix}  ·  ${beaconName}`, 256, 64, 460);
       beaconTexture.needsUpdate = true;
     };
     drawBeacon('locked');
@@ -1389,12 +1400,17 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       // 2. Planets Orbital Motion & Self-Spin
       const nextPlanet = planetsList.find((planet) => !planet.mesh.userData.visited);
       planetsList.forEach(p => {
-        p.beaconSprite.visible = !finaleMode && currentStage !== 'cake';
+        p.beaconSprite.visible = beaconsVisible && !finaleMode && currentStage !== 'cake';
         const status = p.mesh.userData.visited ? 'visited' : p === nextPlanet ? 'next' : 'locked';
         p.drawBeacon?.(status);
         p.beaconSprite.material.opacity = status === 'visited' ? 0.86
-          : status === 'next' ? (effectsEnabled && !reducedMotion ? 0.68 + Math.sin(realTime * 2.2) * 0.2 : 0.82)
-            : 0.18;
+          : status === 'next' ? (effectsEnabled && !reducedMotion ? 0.88 + Math.sin(realTime * 2.5) * 0.12 : 0.95)
+            : 0.65;
+        p.beaconSprite.scale.set(
+          p.config.radius * (status === 'next' ? 6.0 : 5.0),
+          p.config.radius * (status === 'next' ? 1.5 : 1.25),
+          1
+        );
 
         const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
         const r = p.config.orbitRadius;
@@ -1511,6 +1527,13 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           tooltipEl.classList.add('hidden');
         }
       }
+    },
+
+    setBeaconsVisible(visible) {
+      beaconsVisible = Boolean(visible);
+      planetsList.forEach(p => {
+        if (p.beaconSprite) p.beaconSprite.visible = beaconsVisible && !finaleMode && currentStage !== 'cake';
+      });
     },
 
     markVisited(id) {
