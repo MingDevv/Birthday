@@ -502,7 +502,7 @@ npm run visual:qa -- --phase=handoff
 ### 3. สถานะการ Deploy บน Production (Vercel)
 
 - **Production URL**: https://birthday-pi-wheat.vercel.app
-- **Production Asset Bundle**: `dist/assets/index-C6pUcSFJ.js` และ `dist/assets/index-CDWl2Kn4.css`
+- **Production Asset Bundle**: `dist/assets/index-BDXOW2_z.js` และ `dist/assets/index-LHeOkXiM.css`
 - **Build Status**: `npm run build` ผ่านสมบูรณ์ (Zero errors, built in ~800ms)
 
 ### 4. แก้ไขเพิ่มเติมหลังตรวจบัค
@@ -511,3 +511,5 @@ npm run visual:qa -- --phase=handoff
 - ระหว่างทัวร์แนะนำบนมือถือ ล้างลูกศรชี้ดาวที่ค้างจากหน้าก่อน และซ่อนตัวชี้ทุกชนิดจนกว่าทัวร์จะจบ เพื่อไม่ให้ทับการ์ดคำแนะนำ
 - เพิ่ม assertion ใน `scripts/visual-qa.mjs` สำหรับจำนวนอนุภาคและตัวชี้ที่ต้องไม่แสดงระหว่างทัวร์
 - ตรวจ `npm run build` และ Visual QA 14 กรณีซ้ำแล้วผ่าน; ภาพอ้างอิงล่าสุดอยู่ใน `qa/round8-star-gate/reduced-motion-reveal.png` และ `qa/round8-star-gate/sharpness-focus-mobile.png`
+- แก้ race ตอนปิด UI ที่กำลังออกด้วย transition: การ `dispose()` แบบทันทีจะจบการลบได้แม้ entry เริ่มปิดไปแล้ว และการลบ entry เก่าจะไม่ลบ registry entry ใหม่ที่ใช้ id เดียวกัน
+- ตรวจซ้ำด้วย `npm run visual:qa -- --phase=round3-audit --only=flow-stress` และ `npm run visual:qa -- --phase=round8-star-gate`; ทั้งคู่ผ่าน รวมการวนเค้กห้ารอบและตรวจ UI layer ใน `FINALE_CAKE`

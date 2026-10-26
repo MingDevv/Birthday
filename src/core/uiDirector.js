@@ -19,7 +19,7 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
   };
 
   function removeEntry(entry, { immediate = false, callClose = true } = {}) {
-    if (!entry || entry.closing) return;
+    if (!entry || entry.removed || (entry.closing && !immediate)) return;
     entry.closing = true;
     clearTimeout(entry.timer);
     clearTimeout(entry.removeTimer);
@@ -29,7 +29,7 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
       entry.removed = true;
       entry.el.removeEventListener('transitionend', entry.transitionEnd);
       entry.el.remove();
-      registry.delete(entry.id);
+      if (registry.get(entry.id) === entry) registry.delete(entry.id);
       entry.el.dispatchEvent(new CustomEvent('ui-director-removed'));
       if (callClose) entry.onClose?.();
     };
