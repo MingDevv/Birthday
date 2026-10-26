@@ -1,5 +1,6 @@
 import { createArrivalNumber } from '../scene/arrivalNumber.js';
 import { createArrivalNameReveal } from '../scene/name3DText.js';
+import { ledger } from './guideLedger.js';
 
 export function showArrivalCelebrationFlow(soundManager, {
   uiDirector,
@@ -172,11 +173,12 @@ export function showArrivalCelebrationFlow(soundManager, {
 }
 
 export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) {
+  if (ledger.seen('explore-first')) return null;
   const guideEl = document.createElement('div');
   guideEl.id = 'guide-open-card';
   guideEl.className = 'guide-open-card-pill';
   guideEl.setAttribute('role', 'status');
-  guideEl.innerHTML = '<span class="guide-icon">💌</span><span class="guide-text">ลองเปิดการ์ดดูสิ</span><span class="guide-arrow">👉✨</span>';
+  guideEl.innerHTML = '<span class="guide-icon">🌸</span><span class="guide-text">แตะดาวศุกร์ดวงแรกเลย</span><span class="guide-arrow">👉✨</span>';
 
   const handle = uiDirector.show({
     id: 'arrival-guide',
@@ -196,6 +198,7 @@ export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) 
   const cleanup = () => {
     if (dismissed) return;
     dismissed = true;
+    ledger.retire('explore-first');
     window.removeEventListener('memory-modal-opened', onCardOpen);
     handle.hide();
   };
