@@ -238,6 +238,65 @@ export class SoundManager {
     this.playStarBurstSound();
   }
 
+  // Sparkle Burst sound for celebratory bursts
+  playSparkleBurstSound() {
+    if (this.isMuted) return;
+    this.playStarBurstSound();
+  }
+
+  // Hyperspace Riser: builds ascending pitch & filtered tension before breakthrough
+  playWarpRiser(duration = 2.4) {
+    if (this.isMuted) return;
+    this.initAudioContext();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + duration);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, now);
+    filter.frequency.exponentialRampToValueAtTime(3200, now + duration);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + duration * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    this.connectOutput(gain);
+
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  // Gate Breakthrough Boom: deep resonant sub-bass drop when crossing portal
+  playGateBoom() {
+    if (this.isMuted) return;
+    this.initAudioContext();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(38, now + 1.2);
+
+    gain.gain.setValueAtTime(0.32, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+
+    osc.connect(gain);
+    this.connectOutput(gain);
+
+    osc.start(now);
+    osc.stop(now + 1.25);
+  }
+
   // Grand Celebration Chime
   playChimeSound() {
     if (this.isMuted) return;

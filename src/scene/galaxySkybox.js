@@ -316,19 +316,20 @@ export function createGalaxySkybox(scene, quality = {}) {
   // ===========================================================================
   // 3. Cosmic Shooting Star & Meteor Shower System (Perseid Starlight Pool)
   // ===========================================================================
-  const METEOR_POOL_SIZE = 14;
+  const METEOR_POOL_SIZE = 36;
   const TRAIL_SEGMENTS = 28;
   const meteorPool = [];
+  const meteorQueue = [];
   const meteorGroup = new THREE.Group();
   meteorGroup.name = 'galaxySkyboxMeteorShower';
   galaxyGroup.add(meteorGroup);
 
   const meteorColors = [
-    new THREE.Color(0xc084fc), // Cosmic Lavender (Khao Hom's signature purple)
+    new THREE.Color(0xc084fc), // Cosmic Lavender (Khao Hom signature)
     new THREE.Color(0xf472b6), // Starlight Rose
-    new THREE.Color(0x38bdf8), // Electric Sapphire Blue
-    new THREE.Color(0xfef08a), // Champagne Gold
-    new THREE.Color(0xd8b4fe)  // Diamond Lilac
+    new THREE.Color(0xd8b4fe), // Diamond Lilac
+    new THREE.Color(0xffffff), // Pure Brilliant White
+    new THREE.Color(0xfde68a)  // Soft Rose-Gold / Champagne (<= 1 in 5)
   ];
 
   const whiteColor = new THREE.Color(0xffffff);
@@ -385,10 +386,15 @@ export function createGalaxySkybox(scene, quality = {}) {
     });
   }
 
-  function spawnMeteor({ type = 'ambient', radiantDir = null, customColor = null, speedMult = 1.0, delay = 0 } = {}) {
+  function spawnMeteor({ type = 'ambient', radiantDir = null, customColor = null, speedMult = 1.0, delay = 0, camera = null } = {}) {
     // Find an inactive meteor slot
     const slot = meteorPool.find(m => !m.active);
-    if (!slot) return;
+    if (!slot) {
+      if (meteorQueue.length < 20) {
+        meteorQueue.push({ type, radiantDir, customColor, speedMult, delay, camera });
+      }
+      return;
+    }
 
     slot.active = true;
     slot.progress = -delay; // Allows staggered cluster entry
@@ -398,26 +404,49 @@ export function createGalaxySkybox(scene, quality = {}) {
     const col = customColor || meteorColors[Math.floor(Math.random() * meteorColors.length)];
     slot.color.copy(col);
 
-    // Spawn location: Deep Celestial Sphere (R = 260 to 420) — FAR outside solar system (R <= 92)
-    const r = 260 + Math.random() * 160;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = 0.25 + Math.random() * 0.45; // Upper celestial dome
+    if (camera) {
+      // Phase E2: Strictly inside camera viewport frame (upper half, falling across)
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+      const camUp = camera.up.clone().normalize();
+      const camRight = new THREE.Vector3().crossVectors(camDir, camUp).normalize();
+      const dist = 135 + Math.random() * 85;
+      const side = Math.random() < 0.5 ? 1 : -1;
 
-    const startX = Math.cos(theta) * Math.sin(phi) * r;
-    const startY = Math.cos(phi) * r * 0.75 + 50;
-    const startZ = Math.sin(theta) * Math.sin(phi) * r;
-    slot.start.set(startX, startY, startZ);
+      const startPos = camera.position.clone()
+        .addScaledVector(camDir, dist)
+        .addScaledVector(camRight, (Math.random() - 0.5) * dist * 0.95)
+        .addScaledVector(camUp, (0.22 + Math.random() * 0.45) * dist);
+      slot.start.copy(startPos);
 
-    if (radiantDir) {
-      // Parallel cluster trajectory
-      const travelDist = 160 + Math.random() * 80;
-      slot.end.copy(slot.start).addScaledVector(radiantDir, travelDist);
+      const travelDist = 120 + Math.random() * 70;
+      const endPos = slot.start.clone()
+        .addScaledVector(camUp, -travelDist * (0.65 + Math.random() * 0.25))
+        .addScaledVector(camRight, travelDist * side * (0.35 + Math.random() * 0.35))
+        .addScaledVector(camDir, travelDist * 0.05);
+      slot.end.copy(endPos);
     } else {
-      // Natural diagonal downward trajectory
-      const dx = (Math.random() - 0.5) * 160;
-      const dy = -110 - Math.random() * 70;
-      const dz = (Math.random() - 0.5) * 160;
-      slot.end.set(startX + dx, startY + dy, startZ + dz);
+      // Spawn location: Deep Celestial Sphere (R = 260 to 420) — FAR outside solar system (R <= 92)
+      const r = 260 + Math.random() * 160;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = 0.25 + Math.random() * 0.45; // Upper celestial dome
+
+      const startX = Math.cos(theta) * Math.sin(phi) * r;
+      const startY = Math.cos(phi) * r * 0.75 + 50;
+      const startZ = Math.sin(theta) * Math.sin(phi) * r;
+      slot.start.set(startX, startY, startZ);
+
+      if (radiantDir) {
+        // Parallel cluster trajectory
+        const travelDist = 160 + Math.random() * 80;
+        slot.end.copy(slot.start).addScaledVector(radiantDir, travelDist);
+      } else {
+        // Natural diagonal downward trajectory
+        const dx = (Math.random() - 0.5) * 160;
+        const dy = -110 - Math.random() * 70;
+        const dz = (Math.random() - 0.5) * 160;
+        slot.end.set(startX + dx, startY + dy, startZ + dz);
+      }
     }
 
     if (type === 'fireball') {
@@ -495,6 +524,28 @@ export function createGalaxySkybox(scene, quality = {}) {
   let ambientTimer = 1.0;
   let clusterTimer = 15.0;
   let fireballTimer = 35.0;
+  let ambientBoost = 1.0;
+  let ambientBoostTimer = 0;
+
+  function setAmbientBoost(multiplier, durationSeconds = 25) {
+    ambientBoost = Math.max(1.0, multiplier);
+    ambientBoostTimer = durationSeconds;
+  }
+
+  function triggerCelebrationShower({ waves = 3, perWave = 12, interval = 1.6, camera = null } = {}) {
+    for (let w = 0; w < waves; w++) {
+      window.setTimeout(() => {
+        for (let i = 0; i < perWave; i++) {
+          spawnMeteor({
+            type: 'cluster',
+            camera,
+            delay: (i * 0.08) + (Math.random() * 0.05),
+            speedMult: 1.35
+          });
+        }
+      }, w * Math.round(interval * 1000));
+    }
+  }
 
   return {
     group: galaxyGroup,
@@ -521,17 +572,24 @@ export function createGalaxySkybox(scene, quality = {}) {
       }
     },
     triggerGrandShower,
+    triggerCelebrationShower,
+    setAmbientBoost,
 
     update(delta, time) {
       starShaderMat.uniforms.uTime.value = time;
       flareShaderMat.uniforms.uTime.value = time;
 
+      if (ambientBoostTimer > 0) {
+        ambientBoostTimer -= delta;
+        if (ambientBoostTimer <= 0) ambientBoost = 1.0;
+      }
+
       // Slow majestic sky rotation
       galaxyGroup.rotation.y = 0;
 
       if (!isArrivalMode) {
-        // 1. Ambient Meteor timer (every 1.2 - 2.4s)
-        ambientTimer -= delta;
+        // 1. Ambient Meteor timer (boosted frequency during celebration & early epilogue)
+        ambientTimer -= delta * ambientBoost;
         if (ambientTimer <= 0) {
           spawnMeteor({ type: 'ambient' });
           ambientTimer = 1.2 + Math.random() * 1.2;
@@ -569,6 +627,10 @@ export function createGalaxySkybox(scene, quality = {}) {
           slot.active = false;
           slot.mat.opacity = 0;
           slot.headMat.opacity = 0;
+          if (meteorQueue.length > 0) {
+            const nextMeteor = meteorQueue.shift();
+            spawnMeteor(nextMeteor);
+          }
           continue;
         }
 

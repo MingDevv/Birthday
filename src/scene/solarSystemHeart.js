@@ -432,6 +432,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   const planetsList = [];
   const orbitalParticleSystems = [];
   const orbitPathMaterials = new Map();
+  let hoveredPlanetId = null;
   const memoryLineRecords = [];
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let finalHeartLine = null;
@@ -691,16 +692,16 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     };
 
     // A fine tube gives the orbit a stable, antialiased width on WebGL devices
-    // where LineBasicMaterial linewidth is ignored.
+    // where LineBasicMaterial linewidth is ignored (Plan Round 9: 0.24, Saturn 0.32).
     const curvePoints = Array.from({ length: 192 }, (_, i) => orbitPoint((i / 192) * Math.PI * 2));
     const orbitCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
-    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.105 : 0.075, 5, true);
+    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.32 : 0.24, 6, true);
 
     const pathMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.4),
+      color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.35),
       transparent: true,
-      opacity: 0.13,
-      blending: THREE.NormalBlending,
+      opacity: 0.20,
+      blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false
     });
@@ -771,6 +772,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     planetMesh.userData.visited = false;
     planetNode.add(planetMesh);
 
+    let atmosphere = null;
     if (pConfig.type === 'earth' || pConfig.type === 'venus') {
       const atmosphereMaterial = new THREE.ShaderMaterial({
         uniforms: {
@@ -783,10 +785,25 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         depthWrite: false,
         blending: THREE.AdditiveBlending
       });
-      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.055, 48, 48), atmosphereMaterial);
+      atmosphere = new THREE.Mesh(new THREE.SphereGeometry(pConfig.radius * 1.055, 48, 48), atmosphereMaterial);
       atmosphere.name = `${pConfig.type}AtmosphereFresnel`;
       planetNode.add(atmosphere);
     }
+
+    // Delicate rotating soft pink indicator ring for the Next Planet (Plan Round 9)
+    const nextRingGeo = new THREE.RingGeometry(pConfig.radius * 1.55, pConfig.radius * 1.78, 48);
+    const nextRingMat = new THREE.MeshBasicMaterial({
+      color: 0xf472b6,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const nextRingMesh = new THREE.Mesh(nextRingGeo, nextRingMat);
+    nextRingMesh.rotation.x = Math.PI / 2;
+    nextRingMesh.visible = false;
+    planetNode.add(nextRingMesh);
 
     const labelCanvas = document.createElement('canvas');
     labelCanvas.width = 640;
@@ -822,34 +839,55 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     planetNode.add(beaconSprite);
     const beaconName = pConfig.name.split(' ')[0];
     let beaconStatus = null;
-    const drawBeacon = (status) => {
-      if (beaconStatus === status) return;
+    let beaconHovered = null;
+
+    const drawBeacon = (status, isHovered = false) => {
+      if (beaconStatus === status && beaconHovered === isHovered) return;
       beaconStatus = status;
+      beaconHovered = isHovered;
       const next = status === 'next';
       const visited = status === 'visited';
       beaconContext.clearRect(0, 0, beaconCanvas.width, beaconCanvas.height);
-      beaconContext.beginPath();
-      beaconContext.roundRect(8, 8, 496, 112, 56);
-      beaconContext.fillStyle = visited
-        ? 'rgba(39, 25, 59, .85)'
-        : next
-          ? 'rgba(38, 16, 66, .94)'
-          : 'rgba(24, 14, 40, .82)';
-      beaconContext.fill();
-      beaconContext.lineWidth = next ? 7 : 3;
-      beaconContext.strokeStyle = visited
-        ? 'rgba(255, 188, 226, .90)'
-        : next
-          ? 'rgba(255, 226, 164, 1.0)'
-          : 'rgba(192, 132, 252, .58)';
-      beaconContext.stroke();
 
-      beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff6d4' : '#e6daf4';
-      beaconContext.textAlign = 'center';
-      beaconContext.textBaseline = 'middle';
-      beaconContext.font = next ? '700 48px Prompt, sans-serif' : '600 44px Prompt, sans-serif';
-      const prefix = visited ? '✓' : next ? '👉' : String(pConfig.id).padStart(2, '0');
-      beaconContext.fillText(`${prefix}  ·  ${beaconName}`, 256, 64, 460);
+      if (visited && !isHovered) {
+        // Compact circular badge with checkmark (Plan Round 9: never crowd the scene)
+        beaconContext.beginPath();
+        beaconContext.arc(256, 64, 44, 0, Math.PI * 2);
+        beaconContext.fillStyle = 'rgba(38, 20, 56, 0.88)';
+        beaconContext.fill();
+        beaconContext.lineWidth = 4;
+        beaconContext.strokeStyle = 'rgba(244, 114, 182, 0.92)';
+        beaconContext.stroke();
+        beaconContext.fillStyle = '#fbcfe8';
+        beaconContext.textAlign = 'center';
+        beaconContext.textBaseline = 'middle';
+        beaconContext.font = '700 52px Prompt, sans-serif';
+        beaconContext.fillText('✓', 256, 64);
+      } else {
+        // Banner for next planet or hovered planet (short, single-line)
+        beaconContext.beginPath();
+        beaconContext.roundRect(16, 12, 480, 104, 52);
+        beaconContext.fillStyle = visited
+          ? 'rgba(39, 25, 59, .90)'
+          : next
+            ? 'rgba(44, 18, 72, .95)'
+            : 'rgba(24, 14, 40, .85)';
+        beaconContext.fill();
+        beaconContext.lineWidth = next ? 6 : 3;
+        beaconContext.strokeStyle = visited
+          ? 'rgba(255, 188, 226, .90)'
+          : next
+            ? 'rgba(244, 114, 182, 1.0)'
+            : 'rgba(192, 132, 252, .65)';
+        beaconContext.stroke();
+
+        beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff0f8' : '#e6daf4';
+        beaconContext.textAlign = 'center';
+        beaconContext.textBaseline = 'middle';
+        beaconContext.font = next ? '700 48px Prompt, sans-serif' : '600 44px Prompt, sans-serif';
+        const prefix = visited ? '✓' : next ? '👉' : String(pConfig.id).padStart(2, '0');
+        beaconContext.fillText(`${prefix} · ${beaconName}`, 256, 64, 440);
+      }
       beaconTexture.needsUpdate = true;
     };
     drawBeacon('locked');
@@ -961,8 +999,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       planetNode.add(ringShadow);
     }
 
-    // 6. Interactive Hitbox
-    const hitGeo = new THREE.SphereGeometry(pConfig.radius * 1.45, 16, 16);
+    // 6. Interactive Hitbox (Plan Round 9: Generous radius ensuring >= 44x44px tap target on mobile)
+    const hitGeo = new THREE.SphereGeometry(pConfig.radius * 2.2, 16, 16);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitMesh = new THREE.Mesh(hitGeo, hitMat);
     hitMesh.userData = {
@@ -1022,6 +1060,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       memory: memData,
       group: planetNode,
       mesh: planetMesh,
+      atmosphere,
+      nextRingMesh,
       cloudLayer,
       moonNode: moonNode,
       saturnRing: saturnRingMesh,
@@ -1611,19 +1651,71 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       finaleBlend = THREE.MathUtils.damp(finaleBlend, targetBlend, reducedMotion ? 8 : 1.8, delta);
 
       // 2. Planets Orbital Motion & Self-Spin
+      const isPortrait = activeCamera && activeCamera.aspect < 1.0;
+      const visualScale = isPortrait ? 1.5 : 1.3;
       const nextPlanet = planetsList.find((planet) => !planet.mesh.userData.visited);
+
       planetsList.forEach(p => {
-        p.beaconSprite.visible = beaconsVisible && !finaleMode && currentStage !== 'cake';
+        // Visual display scaling (Plan Round 9: x1.3 desktop, x1.5 portrait mobile)
+        p.mesh.scale.setScalar(visualScale);
+        if (p.atmosphere) p.atmosphere.scale.setScalar(visualScale);
+        if (p.saturnRing) p.saturnRing.scale.setScalar(visualScale);
+
         const status = p.mesh.userData.visited ? 'visited' : p === nextPlanet ? 'next' : 'locked';
-        p.drawBeacon?.(status);
-        p.beaconSprite.material.opacity = status === 'visited' ? 0.86
-          : status === 'next' ? (effectsEnabled && !reducedMotion ? 0.88 + Math.sin(realTime * 2.5) * 0.12 : 0.95)
-            : 0.65;
-        p.beaconSprite.scale.set(
-          p.config.radius * (status === 'next' ? 6.0 : 5.0),
-          p.config.radius * (status === 'next' ? 1.5 : 1.25),
-          1
-        );
+        const isHovered = (p.id === hoveredPlanetId);
+        const isNext = (p === nextPlanet);
+        const isVisited = p.mesh.userData.visited;
+
+        // Show beacon only for next planet, visited planet badge, or hovered (Plan Round 9)
+        const shouldShowBeacon = beaconsVisible && !finaleMode && currentStage !== 'cake' && (isNext || isVisited || isHovered);
+        p.beaconSprite.visible = shouldShowBeacon;
+        p.drawBeacon?.(status, isHovered);
+
+        if (isVisited && !isHovered) {
+          p.beaconSprite.scale.set(p.config.radius * 1.35, p.config.radius * 1.35, 1);
+          p.beaconSprite.position.set(0, p.config.radius * (visualScale * 1.25), 0);
+          p.beaconSprite.material.opacity = 0.85;
+        } else {
+          p.beaconSprite.scale.set(
+            p.config.radius * (isNext ? 4.8 : 4.0),
+            p.config.radius * (isNext ? 1.3 : 1.1),
+            1
+          );
+          p.beaconSprite.position.set(0, p.config.radius * (visualScale * 1.6), 0);
+          p.beaconSprite.material.opacity = isNext ? (effectsEnabled && !reducedMotion ? 0.90 + Math.sin(realTime * 2.5) * 0.10 : 0.95) : 0.80;
+        }
+
+        // Rotating soft pink ring for Next Planet (Plan Round 9)
+        if (p.nextRingMesh) {
+          if (isNext && beaconsVisible && !finaleMode && currentStage !== 'cake') {
+            p.nextRingMesh.visible = true;
+            p.nextRingMesh.rotation.z += delta * 0.85;
+            p.nextRingMesh.material.opacity = (effectsEnabled && !reducedMotion) ? 0.62 + Math.sin(realTime * 3.0) * 0.16 : 0.72;
+          } else {
+            p.nextRingMesh.visible = false;
+          }
+        }
+
+        // Dynamic orbit path opacity
+        const orbitMat = orbitPathMaterials.get(p.id);
+        if (orbitMat) {
+          if (currentStage === 'cake' || currentStage.startsWith('finale')) {
+            orbitMat.opacity = THREE.MathUtils.damp(orbitMat.opacity, 0.08, 4, delta);
+          } else if (isHovered || isNext) {
+            const pulse = (effectsEnabled && !reducedMotion) ? Math.sin(realTime * 2.8) * 0.08 : 0;
+            orbitMat.opacity = 0.55 + pulse;
+          } else if (isVisited) {
+            orbitMat.opacity = 0.34;
+          } else {
+            orbitMat.opacity = 0.20;
+          }
+        }
+
+        // Orbital particle system visibility (spark running on visited and next orbits)
+        const ops = orbitalParticleSystems[p.id - 1];
+        if (ops && ops.points) {
+          ops.points.visible = isVisited || isNext;
+        }
 
         const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
         const r = p.config.orbitRadius;
@@ -1713,17 +1805,17 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
     setHover(hitMesh, isHovered, clientX, clientY) {
       if (inTransitMode || !hitMesh || !hitMesh.userData) {
+        hoveredPlanetId = null;
         if (tooltipEl) tooltipEl.classList.add('hidden');
         return;
       }
 
+      hoveredPlanetId = isHovered ? hitMesh.userData.planetId : null;
       const { planetMesh, planetConfig } = hitMesh.userData;
       if (planetMesh) {
         const baseIntensity = planetMesh.userData.visited ? 0.12 : planetMesh.userData.baseEmissiveIntensity;
         planetMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.16 : baseIntensity;
       }
-      const orbitMaterial = orbitPathMaterials.get(planetConfig.id);
-      if (orbitMaterial) orbitMaterial.opacity = isHovered ? 0.42 : (planetMesh?.userData.visited ? 0.28 : 0.13);
       const selectedPlanet = planetsList.find((planet) => planet.id === planetConfig.id);
       if (selectedPlanet?.labelSprite) selectedPlanet.labelSprite.material.opacity = isHovered ? 1 : 0;
 

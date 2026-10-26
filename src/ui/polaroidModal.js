@@ -1,4 +1,5 @@
 import { PLANET_CONFIG, MEMORIES_LIST } from '../config/memoriesData.js';
+import { ledger } from './guideLedger.js';
 
 /**
  * Memory Popup Card (Glassmorphism & 3D Tilt):
@@ -290,15 +291,9 @@ export class PolaroidModal {
 
     // Guide on first memory
     const firstGuide = this.container.querySelector('#memory-first-guide');
-    try {
-      const guideSeen = sessionStorage.getItem('firstMemoryGuideSeen');
-      if (!guideSeen && memory.id === 1) {
-        firstGuide.classList.remove('hidden');
-        sessionStorage.setItem('firstMemoryGuideSeen', 'true');
-      } else {
-        firstGuide.classList.add('hidden');
-      }
-    } catch {
+    if (!ledger.seen('memory-first') && memory.id === 1) {
+      firstGuide.classList.remove('hidden');
+    } else {
       firstGuide.classList.add('hidden');
     }
 
@@ -357,6 +352,7 @@ export class PolaroidModal {
   close(triggerBack = true) {
     if (!this.isOpen) return;
     this.isOpen = false;
+    ledger.retire('memory-first');
     this.closeLightbox();
     clearInterval(this.typeTimer);
     this.typeTimer = null;

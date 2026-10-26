@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GUIDE_COPY, formatCopy } from '../config/guideCopy.js';
 import { startFirstRunTour } from './guideTour.js';
 import { createGuideHelpSheet } from './guideHelpSheet.js';
+import { ledger } from './guideLedger.js';
 
 /**
  * =========================================================================
@@ -32,12 +33,8 @@ export function createGuideDirector({
   const isGuideReset = query.get('guide') === 'reset';
   const isFastQa = query.get('qaTime') === 'fast';
 
-  if (isGuideReset && typeof sessionStorage !== 'undefined') {
-    try {
-      sessionStorage.removeItem('tourSeen');
-      sessionStorage.removeItem('firstMemoryGuideSeen');
-      sessionStorage.removeItem('exploreFirstSeen');
-    } catch {}
+  if (isGuideReset) {
+    ledger.reset();
   }
 
   // Active guide tracking
@@ -382,74 +379,87 @@ export function createGuideDirector({
   function onStateChange(nextState) {
     clearAllGuides();
     clearIdleTimers();
-    idleNudgeCount = 0;
+    document.querySelector('#btn-toggle-galaxy')?.classList.remove('galaxy-pulse');
 
     if (isGuideOff) return;
 
     if (nextState === 'FLIGHT') {
-      try {
-        const flightSeen = sessionStorage.getItem('flightSkipSeen');
-        if (!flightSeen) {
-          sessionStorage.setItem('flightSkipSeen', 'true');
-          showBubble(copy.flight.skip, { ttl: 3500, zone: 'bottom-left', states: ['FLIGHT'] });
-        }
-      } catch {}
+      // Single action: Skip flight button on HUD (no duplicate bubbles/toasts)
     } else if (nextState === 'EXPLORE') {
       const nextId = progress.getNextId();
       const nextPlanet = solarSystem?.planetsList?.find((p) => p.id === nextId);
       const planetName = nextPlanet?.config?.name?.split(' ')[0] || 'ดาวศุกร์';
       hud?.updateNextPlanet(nextId, planetName);
 
-      // Check first-time explore prompt
-      try {
-        const exploreSeen = sessionStorage.getItem('exploreFirstSeen');
-        if (!exploreSeen && progress.size === 0) {
-          sessionStorage.setItem('exploreFirstSeen', 'true');
-          showBubble(copy.explore.first, {
-            ttl: 8000,
-            zone: 'bottom-left',
-            states: ['EXPLORE'],
-            onClose: () => {
-              startTour();
-            }
-          });
-          if (nextId) pointAtPlanet(nextId, planetName);
-          return;
-        }
-      } catch {}
+      // Check first-time explore prompt (points directly to Venus)
+      if (!ledger.seen('explore-first') && progress.size === 0) {
+        const promptText = formatCopy(copy.explore.first, { name: planetName });
+        showBubble(promptText, {
+          ttl: 8000,
+          zone: 'bottom-left',
+          states: ['EXPLORE'],
+          onClose: () => {
+            ledger.retire('explore-first');
+            startTour();
+          }
+        });
+        if (nextId) pointAtPlanet(nextId, planetName);
+        return;
+      }
 
       startTour();
       resetIdleTimers();
     } else if (nextState === 'FINALE_ALIGN' || nextState === 'FINALE_HEART') {
-      showBubble(copy.finale.wait, { ttl: 4500, zone: 'bottom-left', states: ['FINALE_ALIGN', 'FINALE_HEART'] });
+      if (!ledger.seen('finale-wait')) {
+        ledger.retire('finale-wait');
+        showToast(copy.finale.wait, { ttl: 4500, states: ['FINALE_ALIGN', 'FINALE_HEART'] });
+      }
     } else if (nextState === 'FINALE_CAKE') {
-      // Spotlight & coach for blowing candles (floating centered above cake action buttons)
-      showBubble(copy.cake.coach, { ttl: 9000, zone: 'bottom-left', className: 'guide-bubble-cake', states: ['FINALE_CAKE'] });
-      setTimeout(() => {
-        if (flow.state === 'FINALE_CAKE') {
-          showBubble(copy.cake.idle, { ttl: 6000, zone: 'bottom-left', className: 'guide-bubble-cake', states: ['FINALE_CAKE'] });
-        }
-      }, 10000);
+      if (!ledger.seen('cake-coach')) {
+        showBubble(copy.cake.coach, {
+          ttl: 9000,
+          zone: 'bottom-left',
+          className: 'guide-bubble-cake',
+          states: ['FINALE_CAKE'],
+          onClose: () => {
+            ledger.retire('cake-coach');
+          }
+        });
+      }
     } else if (nextState === 'FINALE_LETTER') {
-      showBubble(copy.letter.close, { ttl: 5000, zone: 'bottom-left', states: ['FINALE_LETTER'] });
+      if (!ledger.seen('letter-close')) {
+        ledger.retire('letter-close');
+        showBubble(copy.letter.close, { ttl: 5000, zone: 'bottom-left', states: ['FINALE_LETTER'] });
+      }
     } else if (nextState === 'EPILOGUE') {
+      if (ledger.seen('galaxy-hint')) return;
+      // Phase E4: Layered guide - don't obscure fireworks & meteors
+      // 0-5s: peace to enjoy epilogue
+      // ~5s: subtle CSS pulse on #btn-toggle-galaxy
+      // ~9s: single toast + subtle spotlight if still unclicked
       epilogueGalaxyTimer = setTimeout(() => {
-        if (flow.state === 'EPILOGUE') {
-          showEpilogueGalaxyGuide();
-        }
-      }, reducedMotion ? 200 : 750);
+        if (flow.state !== 'EPILOGUE' || ledger.seen('galaxy-hint')) return;
+        const btn = document.querySelector('#btn-toggle-galaxy');
+        btn?.classList.add('galaxy-pulse');
+
+        epilogueGalaxyTimer = setTimeout(() => {
+          if (flow.state === 'EPILOGUE' && !ledger.seen('galaxy-hint')) {
+            showEpilogueGalaxyGuide();
+          }
+        }, reducedMotion ? 1000 : 4000);
+      }, reducedMotion ? 800 : 5000);
     }
   }
 
   function showEpilogueGalaxyGuide() {
-    if (isGuideOff) return;
+    if (isGuideOff || ledger.seen('galaxy-hint')) return;
     clearAllGuides();
 
     const targetEl = document.querySelector('#btn-toggle-galaxy');
     if (!targetEl || targetEl.offsetParent === null) {
       epilogueGalaxyTimer = setTimeout(() => {
-        if (flow.state === 'EPILOGUE') showEpilogueGalaxyGuide();
-      }, 300);
+        if (flow.state === 'EPILOGUE' && !ledger.seen('galaxy-hint')) showEpilogueGalaxyGuide();
+      }, 500);
       return;
     }
 
@@ -487,6 +497,8 @@ export function createGuideDirector({
     card.style.top = `${Math.round(top)}px`;
 
     const dismiss = () => {
+      ledger.retire('galaxy-hint');
+      targetEl.classList.remove('galaxy-pulse');
       clearAllGuides();
     };
 
@@ -521,9 +533,14 @@ export function createGuideDirector({
     });
   }
 
+  // Bind direct click on galaxy button so it retires immediately even if clicked before prompt
+  document.querySelector('#btn-toggle-galaxy')?.addEventListener('click', () => {
+    ledger.retire('galaxy-hint');
+    document.querySelector('#btn-toggle-galaxy')?.classList.remove('galaxy-pulse');
+  });
+
   // Progress Update Reaction
   progress.onChange(({ visited, nextId, isComplete }) => {
-    idleNudgeCount = 0;
     if (nextId) {
       const nextPlanet = solarSystem?.planetsList?.find((p) => p.id === nextId);
       const planetName = nextPlanet?.config?.name?.split(' ')[0] || '';

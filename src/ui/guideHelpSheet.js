@@ -32,7 +32,7 @@ export function createGuideHelpSheet({
       {
         icon: '🪐',
         name: '5 ดาวเคราะห์ความทรงจำ',
-        desc: 'แตะดาวที่เรืองแสงเพื่อเปิดอ่านการ์ดความทรงจำ',
+        desc: 'แตะดาวที่เรืองแสง เพื่อดูความทรงจำของดวงนั้น',
         actionLabel: 'ไปดาวถัดไป ➔',
         onAction: () => onGoNextPlanet?.()
       },

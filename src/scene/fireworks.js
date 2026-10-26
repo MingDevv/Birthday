@@ -479,11 +479,31 @@ export function createFireworksSystem(scene, soundManager, uiDirector = null) {
     }
   }
 
+  function triggerCelebrationVolley({ count = 7, interval = 0.38 } = {}) {
+    const palette = [0xa855f7, 0xf472b6, 0xfda4af, 0xffffff, 0xc084fc, 0xf472b6, 0xffffff];
+    for (let i = 0; i < count; i++) {
+      window.setTimeout(() => {
+        const side = (i % 2 === 0 ? 1 : -1);
+        const offsetX = side * (10 + (i * 3.5));
+        const startX = side * (6 + (i * 2.5));
+        const startPos = new THREE.Vector3(startX, -14, -8 + (Math.random() - 0.5) * 8);
+        const targetPos = new THREE.Vector3(offsetX, 16 + (i % 3) * 5, -14 + (Math.random() - 0.5) * 10);
+        const col = palette[i % palette.length];
+        launchBurstRocket(startPos, targetPos, col, () => {
+          detonateStarBurst(targetPos);
+          if (soundManager) soundManager.playSparkleBurstSound?.();
+        });
+      }, i * Math.round(interval * 1000));
+    }
+  }
+
   scene.add(fireworksGroup);
 
   return {
     group: fireworksGroup,
     triggerMakeAWish,
+    triggerCelebrationVolley,
+    showFloatingWishBanner,
     triggerStarBurst: (center = new THREE.Vector3(0, 8, 0)) => detonateStarBurst(center),
     update
   };

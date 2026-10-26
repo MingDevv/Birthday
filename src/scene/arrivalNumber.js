@@ -9,7 +9,7 @@ function createNumberGlowTexture() {
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createRadialGradient(128, 128, 6, 128, 128, 128);
-  grad.addColorStop(0, 'rgba(255, 230, 160, 0.45)');  // warm gold center
+  grad.addColorStop(0, 'rgba(244, 114, 182, 0.45)');  // soft rose-pink center
   grad.addColorStop(0.35, 'rgba(244, 114, 182, 0.25)'); // pink mid
   grad.addColorStop(0.7, 'rgba(192, 132, 252, 0.1)');  // lavender
   grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');

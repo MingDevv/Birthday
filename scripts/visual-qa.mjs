@@ -111,7 +111,191 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round8-')) {
+  if (phase.startsWith('round9-')) {
+    console.log(`Running Round 9 (Phases A-H) Master QA Suite for phase: ${phase}...`);
+
+    const assertNoSolarSystemLeaks = (audit, context) => {
+      const forbiddenPatterns = ['heart', 'planet', 'orbit', 'beacon', 'moon', 'saturnring', 'rose'];
+      const leaked = audit.filter(item => {
+        const name = (item.name || '').toLowerCase();
+        const parent = (item.parentName || '').toLowerCase();
+        return forbiddenPatterns.some(pat => name.includes(pat) || parent.includes(pat));
+      });
+      if (leaked.length > 0) {
+        errors.push(`${context}: Leaked solar system objects during transit: ${leaked.map(l => l.name).join(', ')}`);
+      } else {
+        console.log(`[PASS] ${context}: Zero solar system objects visible in scene.`);
+      }
+    };
+
+    // 1. Warp Suite: 3 stages x (Desktop 1280x720, Portrait 390x844, Landscape 844x390)
+    console.log('\n=== [SUITE 1] Warp Flythrough & Star Gate ===');
+    const warpViewports = [
+      { name: 'desktop', width: 1280, height: 720 },
+      { name: 'portrait', width: 390, height: 844 },
+      { name: 'landscape', width: 844, height: 390 }
+    ];
+
+    for (const vp of warpViewports) {
+      for (const sceneName of ['flight-start', 'flight-mid', 'flight-end']) {
+        const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
+        page.on('pageerror', (err) => errors.push(`${sceneName}-${vp.name}: ${err.message}`));
+        await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=${sceneName}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await waitForAssets(page);
+        await delay(900);
+
+        const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+        assertNoSolarSystemLeaks(audit, `${sceneName}-${vp.name}`);
+
+        await page.screenshot({ path: path.join(outputDir, `${sceneName}-${vp.name}.png`) });
+        await page.close();
+      }
+    }
+
+    // 2. Galaxy View Suite: Bulge Elimination & 3D Name Fit
+    console.log('\n=== [SUITE 2] Galaxy View: No Gold Haze & 3D Name Fit ===');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`galaxy-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=galaxy-name`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      const bulgeFound = audit.some(item => (item.name || '').toLowerCase().includes('bulge'));
+      if (bulgeFound) {
+        errors.push('galaxy-desktop: Bulge points found in scene! Must be completely removed.');
+      } else {
+        console.log('[PASS] galaxy-desktop: Bulge points 100% eliminated from scene.');
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'galaxy-view-desktop.png') });
+      await page.close();
+    }
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`galaxy-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=galaxy-name`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'galaxy-view-portrait.png') });
+      await page.close();
+    }
+
+    // 3. Orbits & Planet Beacons: No Overlap & Single Active Next Banner
+    console.log('\n=== [SUITE 3] Orbits & Single Banner / No Clutter ===');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`orbits-explore: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1500);
+
+      const exploreData = await page.evaluate(() => {
+        const planets = window.__solarSystem?.planetsList || [];
+        const visibleBeacons = planets.filter(p => p.beaconSprite?.visible);
+        return {
+          totalPlanets: planets.length,
+          visibleBeaconsCount: visibleBeacons.length,
+          visibleBeaconNames: visibleBeacons.map(p => p.config?.name)
+        };
+      });
+
+      console.log(`Explore beacons count: ${exploreData.visibleBeaconsCount} (${exploreData.visibleBeaconNames.join(', ')})`);
+      if (exploreData.visibleBeaconsCount > 2) {
+        errors.push(`orbits-explore: Too many visible beacons (${exploreData.visibleBeaconsCount}). Must show ONLY next planet or hovered.`);
+      } else {
+        console.log('[PASS] orbits-explore: Only next planet beacon active, zero banner clutter.');
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'orbits-explore-desktop.png') });
+      await page.close();
+    }
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`orbits-explore-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1500);
+
+      await page.screenshot({ path: path.join(outputDir, 'orbits-explore-portrait.png') });
+      await page.close();
+    }
+
+    // 4. Cake & Celebration Suite
+    console.log('\n=== [SUITE 4] Cosmic Cake & Celebration ===');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`cake-front: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'cake-lit-desktop.png') });
+      await page.close();
+    }
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`cake-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-front`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'cake-lit-portrait.png') });
+      await page.close();
+    }
+
+    // 5. Epilogue Galaxy Pulse Button & Actions
+    console.log('\n=== [SUITE 5] Epilogue & Layered Galaxy Guide ===');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`epilogue: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=epilogue-actions`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-actions-desktop.png') });
+      await page.close();
+    }
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`epilogue-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=epilogue-actions`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-actions-portrait.png') });
+      await page.close();
+    }
+
+    // 6. Guide Ledger: Single Occurrence & Replay Idempotency
+    console.log('\n=== [SUITE 6] Guide Ledger Single Appearance Check ===');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`guide-ledger: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      const ledgerCheck = await page.evaluate(async () => {
+        const { ledger } = await import('/src/ui/guideLedger.js');
+        const initialSeen = ledger.seen('explore-first');
+        ledger.retire('explore-first');
+        const afterRetire = ledger.seen('explore-first');
+        return { initialSeen, afterRetire };
+      });
+
+      if (!ledgerCheck.afterRetire) {
+        errors.push('guide-ledger: ledger.retire did not persist seen state!');
+      } else {
+        console.log('[PASS] guide-ledger: Single appearance persisted in ledger.');
+      }
+      await page.close();
+    }
+
+    console.log('\n--- Round 9 Master Suite Execution Finished ---');
+  } else if (phase.startsWith('round8-')) {
     console.log(`Running Round 8 (Phases A-E) Star Gate QA Suite for phase: ${phase}...`);
 
     // Helper to check for solar system leaks in scene audit

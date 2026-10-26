@@ -86,6 +86,25 @@ function createCandleSpiralTexture() {
   return texture;
 }
 
+/**
+ * Creates soft ethereal lavender smoke texture for extinguished candles.
+ */
+function createLavenderSmokeTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(216, 180, 254, 0.85)');
+  grad.addColorStop(0.35, 'rgba(192, 132, 252, 0.40)');
+  grad.addColorStop(0.7, 'rgba(168, 85, 247, 0.15)');
+  grad.addColorStop(1.0, 'rgba(168, 85, 247, 0.0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
 export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = true } = {}) {
   const group = new THREE.Group();
   group.name = 'cosmicBirthdayCake';
@@ -323,6 +342,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
 
   const candles = [];
   const flames = [];
+  const smokeTexture = createLavenderSmokeTexture();
+  texturesToDispose.push(smokeTexture);
+  const smokePuffs = [];
 
   candlePositions.forEach((cp, index) => {
     const candleGeo = new THREE.CylinderGeometry(cp.radius * 0.95, cp.radius, cp.height, 16);
@@ -356,7 +378,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     flame.position.set(cp.x, flameBaseY, cp.z);
     flame.scale.set(1.8, 2.9, 1);
     flame.userData = {
+      baseX: cp.x,
       baseY: flameBaseY,
+      baseZ: cp.z,
       phase: (index / 16) * Math.PI * 2,
       flickerSpeed: 9 + ((index * 3) % 7) * 0.8,
       index
@@ -364,6 +388,24 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     flame.name = `cakeFlame_${index + 1}`;
     group.add(flame);
     flames.push(flame);
+
+    // Ethereal Lavender Smoke Puff
+    const smokeMat = new THREE.SpriteMaterial({
+      map: smokeTexture,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    materialsToDispose.push(smokeMat);
+    const smoke = new THREE.Sprite(smokeMat);
+    smoke.position.set(cp.x, flameBaseY, cp.z);
+    smoke.scale.set(1.4, 1.4, 1);
+    smoke.visible = false;
+    smoke.userData = { baseX: cp.x, baseY: flameBaseY, baseZ: cp.z, age: 0, active: false };
+    smoke.name = `cakeSmoke_${index + 1}`;
+    group.add(smoke);
+    smokePuffs.push(smoke);
   });
 
   // =========================================================================
@@ -382,6 +424,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let revealProgress = 0;
   let revealed = false;
   let blown = false;
+  let blowingOut = false;
+  let blowTimeouts = [];
+  let breathStrength = 0;
   let lastLitCandleCount = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isQaStatic = /qa=cake-(front|lit|top)/.test(window.location.search);
@@ -477,24 +522,63 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       group.add(cakeMessage);
     },
 
+    setBreathStrength(val) {
+      breathStrength = Math.max(0, Math.min(1.0, val));
+    },
+
+    cancelBlowOut() {
+      blowTimeouts.forEach(id => clearTimeout(id));
+      blowTimeouts = [];
+      blowingOut = false;
+      breathStrength = 0;
+    },
+
     blowOut(onComplete, onCandleOut) {
       if (!revealed || blown) return false;
       blown = true;
+      blowingOut = true;
+      blowTimeouts.forEach(id => clearTimeout(id));
+      blowTimeouts = [];
+
       if (reducedMotion) {
         flames.forEach((flame) => { flame.visible = false; });
         cakePointLight.intensity = 0;
-        onComplete?.();
+        const rmId = window.setTimeout(() => {
+          blowingOut = false;
+          onComplete?.();
+        }, 600);
+        blowTimeouts.push(rmId);
       } else {
+        // Phase D2: 0.0s - 0.6s: Flame flutter & wind response
+        // 0.6s onwards: sequential extinguishing at 150ms per candle (16 * 150 = 2400ms ≈ 2.4s)
+        const START_DELAY = 600;
+        const INTERVAL = 150;
         flames.forEach((flame, index) => {
-          window.setTimeout(() => {
+          const timeoutId = window.setTimeout(() => {
             flame.visible = false;
+            // Trigger lavender smoke puff
+            const smoke = smokePuffs[index];
+            if (smoke) {
+              smoke.visible = true;
+              smoke.userData.active = true;
+              smoke.userData.age = 0;
+              smoke.material.opacity = 0.65;
+              smoke.position.set(flame.userData.baseX, flame.userData.baseY, flame.userData.baseZ);
+            }
             onCandleOut?.(index);
             cakePointLight.intensity = THREE.MathUtils.lerp(1.15, 0.05, (index + 1) / flames.length);
+
             if (index === flames.length - 1) {
               cakePointLight.intensity = 0;
-              onComplete?.();
+              blowingOut = false;
+              // 0.5s pause in serene darkness before celebration
+              const finalTimeout = window.setTimeout(() => {
+                onComplete?.();
+              }, 500);
+              blowTimeouts.push(finalTimeout);
             }
-          }, index * 80);
+          }, START_DELAY + index * INTERVAL);
+          blowTimeouts.push(timeoutId);
         });
       }
       return true;
@@ -521,16 +605,35 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
         lastLitCandleCount = litCandleCount;
       }
 
-      // Flame flicker & floating stars animation
-      if (!blown) {
+      // Flame flicker, breath wind tilt & floating stars animation
+      if (!blown || blowingOut) {
         flames.forEach((flame, index) => {
+          if (!flame.visible && blown) return;
           flame.visible = reducedMotion || isQaStatic || index < Math.ceil(revealProgress * flames.length);
-          const flicker = 1.0 + Math.sin(time * flame.userData.flickerSpeed + flame.userData.phase) * 0.08;
+          const windTilt = breathStrength * 0.35 + (blowingOut ? 0.38 : 0);
+          const flicker = 1.0 + Math.sin(time * (flame.userData.flickerSpeed + (breathStrength + (blowingOut ? 1 : 0)) * 14) + flame.userData.phase) * (0.08 + breathStrength * 0.15);
           const wobble = Math.cos(time * 6 + flame.userData.phase) * 0.04;
-          flame.scale.set(1.8 * flicker, 2.9 * flicker, 1);
-          flame.position.y = flame.userData.baseY + wobble;
+          flame.scale.set(1.8 * flicker, Math.max(1.2, (2.9 - windTilt * 0.8) * flicker), 1);
+          flame.position.x = flame.userData.baseX + windTilt * 1.2;
+          flame.position.y = flame.userData.baseY + wobble - windTilt * 0.4;
         });
       }
+
+      // Update lavender smoke puffs
+      smokePuffs.forEach((smoke) => {
+        if (!smoke.userData.active) return;
+        smoke.userData.age += delta;
+        const progress = smoke.userData.age / 1.4;
+        if (progress >= 1.0) {
+          smoke.userData.active = false;
+          smoke.visible = false;
+          smoke.material.opacity = 0;
+        } else {
+          smoke.position.y = smoke.userData.baseY + progress * 4.2;
+          smoke.scale.set(1.4 + progress * 2.2, 1.4 + progress * 2.2, 1);
+          smoke.material.opacity = Math.max(0, (1.0 - progress) * 0.65);
+        }
+      });
 
       // Orbit floating stars around cake
       floatingStars.forEach((star) => {
@@ -549,16 +652,33 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       group.scale.setScalar(1);
       revealed = false;
       blown = false;
+      blowingOut = false;
+      breathStrength = 0;
+      blowTimeouts.forEach(id => clearTimeout(id));
+      blowTimeouts = [];
       revealProgress = 0;
       cakeMessageReveal = 0;
       lastLitCandleCount = 0;
       group.userData.onCandleLit = null;
-      flames.forEach((flame) => { flame.visible = true; });
+      flames.forEach((flame) => {
+        flame.visible = true;
+        flame.position.x = flame.userData.baseX;
+        flame.position.y = flame.userData.baseY;
+      });
+      smokePuffs.forEach((smoke) => {
+        smoke.visible = false;
+        smoke.userData.active = false;
+        smoke.material.opacity = 0;
+      });
       cakePointLight.intensity = quality.tier === 'low' ? 0.35 : 1.15;
       disposeCakeMessage();
     },
 
     dispose() {
+      blowTimeouts.forEach(id => clearTimeout(id));
+      blowTimeouts = [];
+      blowingOut = false;
+      breathStrength = 0;
       disposeCakeMessage();
       materialsToDispose.forEach((m) => m.dispose());
       geometriesToDispose.forEach((g) => g.dispose());

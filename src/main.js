@@ -363,13 +363,31 @@ function enterEpilogue() {
   orbitClock.scale = 1;
   controls.autoRotate = true;
   returnToCenterOrbit();
-  flow.after(showEpilogueActions, prefersReducedMotion ? 0 : 350, 'EPILOGUE');
+
+  // Phase E5: Epilogue stays alive with boosted meteors and subtle occasional fireworks
+  galaxy?.setAmbientBoost?.(3.0, 25.0);
+  let epilogueFireworkCount = 0;
+  const epilogueFireworkTimer = setInterval(() => {
+    if (flow.state !== 'EPILOGUE' || epilogueFireworkCount >= 3) {
+      clearInterval(epilogueFireworkTimer);
+      return;
+    }
+    epilogueFireworkCount++;
+    const x = (Math.random() - 0.5) * 45;
+    const y = 22 + Math.random() * 14;
+    const z = -20 + (Math.random() - 0.5) * 20;
+    fireworks.triggerStarBurst(new THREE.Vector3(x, y, z));
+  }, 7500);
+
+  // Show epilogue actions after celebration settles (~3.2s)
+  flow.after(showEpilogueActions, prefersReducedMotion ? 0 : 3200, 'EPILOGUE');
 }
 
 function dismissFinaleAfterCake() {
   uiDirector.hide('cake-actions');
   cakeActions = null;
   stopCakeMic();
+
   const finishCakeExit = () => {
     cosmicCake.hide();
     solarSystem.setStage('epilogue');
@@ -384,7 +402,7 @@ function dismissFinaleAfterCake() {
     const text = document.createElement('p');
     letter.append(text);
     let index = 0;
-    const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 6500, element: letter, states: ['FINALE_LETTER'] });
+    const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 8000, element: letter, states: ['FINALE_LETTER'] });
     const timer = window.setInterval(() => {
       text.textContent = [...message].slice(0, ++index).join('');
       if (index >= [...message].length) window.clearInterval(timer);
@@ -392,22 +410,102 @@ function dismissFinaleAfterCake() {
     letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
     handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
   };
+
+  // Phase E3: Cake slowly sinks over 1.6s
   gsap.to(cosmicCake.group.position, {
     y: -30,
-    duration: prefersReducedMotion ? 0.18 : 0.7,
-    ease: 'power2.in',
+    duration: prefersReducedMotion ? 0.2 : 1.6,
+    ease: 'power2.inOut',
     onComplete: finishCakeExit
+  });
+
+  // Camera glides smoothly back to epilogue heart view in parallel
+  const portrait = window.innerHeight > window.innerWidth;
+  const epilogueCamPos = portrait ? new THREE.Vector3(0, 45, 245) : new THREE.Vector3(0, 30, 175);
+  gsap.to(camera.position, {
+    x: epilogueCamPos.x,
+    y: epilogueCamPos.y,
+    z: epilogueCamPos.z,
+    duration: prefersReducedMotion ? 0.3 : 2.4,
+    ease: 'power3.inOut'
+  });
+  gsap.to(controls.target, {
+    x: 0,
+    y: 0,
+    z: -6,
+    duration: prefersReducedMotion ? 0.3 : 2.4,
+    ease: 'power3.inOut'
   });
 }
 
 function celebrateCake() {
   stopCakeMic();
-  fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
-  dismissFinaleAfterCake();
+
+  if (prefersReducedMotion || queryFlags.fxOff) {
+    fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
+    dismissFinaleAfterCake();
+    return;
+  }
+
+  // Phase E3: "Khao Hom's Birthday Wish" Beat Sheet (~7-8s journey)
+  // 0.5s: Hero Star Burst above cake + chime
+  window.setTimeout(() => {
+    fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
+    soundManager.playSparkleBurstSound?.();
+  }, 500);
+
+  // 0.9s - 3.4s: Fireworks volley (7 arched bursts alternating L/R)
+  window.setTimeout(() => {
+    fireworks.triggerCelebrationVolley({ count: 7, interval: 0.36 });
+  }, 900);
+
+  // 1.0s - 7.0s: 3 waves of camera-directed shooting star meteor showers
+  window.setTimeout(() => {
+    const meteorCount = currentQuality.tier === 'high' ? 14 : currentQuality.tier === 'medium' ? 10 : 6;
+    galaxy?.triggerCelebrationShower?.({
+      waves: 3,
+      perWave: meteorCount,
+      interval: 1.6,
+      camera
+    });
+  }, 1000);
+
+  // 3.0s: Floating romantic birthday wish banner
+  window.setTimeout(() => {
+    fireworks.showFloatingWishBanner();
+  }, 3000);
+
+  // 5.0s: Cake gracefully sinks out & camera recedes to epilogue pose
+  window.setTimeout(() => {
+    dismissFinaleAfterCake();
+  }, 5000);
 }
 
 function finishCake() {
-  if (!cosmicCake.blown) cosmicCake.blowOut(celebrateCake, () => soundManager.playCandleBell());
+  if (cosmicCake.blown) return;
+  stopCakeMic();
+  uiDirector.hide('cake-actions');
+  cakeActions = null;
+
+  // Camera pushes in gently during extinguishing (~5 units)
+  const currentCam = camera.position.clone();
+  const dir = controls.target.clone().sub(currentCam).normalize();
+  gsap.to(camera.position, {
+    x: currentCam.x + dir.x * 5,
+    y: currentCam.y + dir.y * 5,
+    z: currentCam.z + dir.z * 5,
+    duration: prefersReducedMotion ? 0.2 : 2.8,
+    ease: 'power1.out'
+  });
+
+  const pentatonicScale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+  cosmicCake.blowOut(
+    celebrateCake,
+    (candleIdx) => {
+      const note = pentatonicScale[candleIdx % pentatonicScale.length];
+      soundManager.playMusicBoxTone(note, 0.45, 0.05);
+    }
+  );
 }
 
 function showCakeActions() {
@@ -461,15 +559,36 @@ function showCakeActions() {
       analyser.fftSize = 1024;
       cakeMicContext.createMediaStreamSource(cakeMicStream).connect(analyser);
       const samples = new Uint8Array(analyser.fftSize);
-      let strongFrames = 0;
-      const inspectBreath = () => {
+      let accumulatedTime = 0;
+      let lastTime = performance.now();
+      const REQUIRED_DURATION = 0.7; // Must blow continuously for >= 0.7s
+
+      const inspectBreath = (now) => {
         if (document.hidden || flow.state !== 'FINALE_CAKE') { stopCakeMic(); return; }
+        const dt = Math.min(0.1, (now - lastTime) / 1000);
+        lastTime = now;
+
         analyser.getByteTimeDomainData(samples);
         let energy = 0;
-        for (const sample of samples) { const normalized = (sample - 128) / 128; energy += normalized * normalized; }
-        if (Math.sqrt(energy / samples.length) > 0.11) strongFrames += 1;
-        else strongFrames = Math.max(0, strongFrames - 1);
-        if (strongFrames >= 4) { finishCake(); return; }
+        for (const sample of samples) {
+          const normalized = (sample - 128) / 128;
+          energy += normalized * normalized;
+        }
+        const rms = Math.sqrt(energy / samples.length);
+
+        if (rms > 0.10) {
+          accumulatedTime += dt;
+          cosmicCake.setBreathStrength(Math.min(1.0, accumulatedTime / REQUIRED_DURATION));
+        } else {
+          accumulatedTime = Math.max(0, accumulatedTime - dt * 1.5); // Decay gently if breath pauses
+          cosmicCake.setBreathStrength(Math.min(1.0, accumulatedTime / REQUIRED_DURATION));
+        }
+
+        if (accumulatedTime >= REQUIRED_DURATION) {
+          cosmicCake.setBreathStrength(1.0);
+          finishCake();
+          return;
+        }
         cakeMicFrame = requestAnimationFrame(inspectBreath);
       };
       cakeMicFrame = requestAnimationFrame(inspectBreath);
@@ -608,7 +727,7 @@ function setupBirthdayCountdown() {
   tick();
 }
 const name3DText = createGiant3DNameText(scene);
-const starGate = createStarGate(scene);
+const starGate = createStarGate(scene, currentQuality);
 let isWarpActive = false;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const frameGovernor = createFrameGovernor({
@@ -700,6 +819,7 @@ function startCinematicApproach(onComplete) {
   solarSystem.setTransitMode(true);
   flow.go('FLIGHT');
   controls.autoRotate = false;
+  controls.enabled = false;
   isWarpActive = true;
   starGate.triggerGateOpen();
   if (!prefersReducedMotion && !queryFlags.fxOff) {
@@ -712,13 +832,7 @@ function startCinematicApproach(onComplete) {
   skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง ⏩</span>';
   const skipHandle = uiDirector.show({ id: 'skip-flight', zone: 'bottom-center', layer: 'action', exclusive: true, element: skipBtn, states: ['FLIGHT'] });
 
-  // Phase D: Non-intrusive flight toast
-  const flightToast = document.createElement('div');
-  flightToast.className = 'flight-toast-hud';
-  flightToast.textContent = 'กำลังเดินทาง… แตะข้ามได้ทุกเมื่อ 🚀';
-  uiDirector.show({ id: 'flight-toast', zone: 'bottom-center', layer: 'hud', exclusive: false, ttl: 4000, element: flightToast, states: ['FLIGHT'] });
-
-  soundManager.playWhooshSound();
+  soundManager.playWarpRiser(2.4);
 
   const finishFlight = () => {
     if (flightFinished) return;
@@ -735,6 +849,7 @@ function startCinematicApproach(onComplete) {
     camera.updateProjectionMatrix();
     camera.position.copy(defaultCameraPos);
     controls.target.copy(defaultCameraTarget);
+    controls.enabled = true;
     bloomPass.strength = 0.20;
     isCinematicFlying = false;
     controls.autoRotate = true;
@@ -781,82 +896,128 @@ function startCinematicApproach(onComplete) {
     return;
   }
 
-  // Phase B: 7.8s "Star Gate Arrival" Storyboard (within 7-9s target, natural speed)
-  // Stage 1 (0.0s - 1.8s): Gate Expansion & Hyperspace Acceleration
+  // ---------------------------------------------------------------------------
+  // Phase C: 8.0s "Through the Gate" Warp Storyboard (Plan Round 9)
+  // ---------------------------------------------------------------------------
+  // Stage 1 (0.0s - 1.0s): Charge & Gate Expansion (camera at (0, 0, 75) facing (0, 0, 0))
+  camera.position.set(0, 0, 75);
+  controls.target.set(0, 0, -50);
+  camera.fov = 55;
+  camera.rotation.z = 0;
+  camera.updateProjectionMatrix();
+
   approachTimeline.to(camera, {
-    fov: 76,
-    duration: 1.8,
-    ease: 'power2.in',
+    fov: 58,
+    duration: 1.0,
+    ease: 'power1.in',
     onUpdate: () => camera.updateProjectionMatrix()
   }, 0);
 
+  // Stage 2 (1.0s - 2.4s): Hyperspace Thrust - Accelerate straight into Gate Center along -Z
+  approachTimeline.call(() => {
+    soundManager.playWhooshSound();
+  }, [], 1.0);
+
   approachTimeline.to(camera.position, {
-    x: 42,
-    y: 58,
-    z: 140,
-    duration: 2.0,
-    ease: 'power2.inOut'
-  }, 0);
+    x: 0,
+    y: 0,
+    z: 6,
+    duration: 1.4,
+    ease: 'power2.in'
+  }, 1.0);
 
-  approachTimeline.to(camera.rotation, {
-    z: -0.10,
-    duration: 1.8,
-    ease: 'power2.inOut'
-  }, 0);
+  approachTimeline.to(camera, {
+    fov: 92,
+    duration: 1.4,
+    ease: 'power2.in',
+    onUpdate: () => camera.updateProjectionMatrix()
+  }, 1.0);
 
-  // Stage 2 (1.8s - 5.2s): Warp Corridor Cruising through deep space
+  // Stage 3 (2.4s - 2.7s): Breakthrough - Fly right through the ring! 120ms pink-white flash & boom
+  approachTimeline.call(() => {
+    soundManager.playGateBoom();
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(25); } catch {}
+    }
+    if (cinematicPass?.uniforms?.uGrade) {
+      gsap.to(cinematicPass.uniforms.uGrade.value, { r: 1.35, g: 1.15, b: 1.45, duration: 0.06, yoyo: true, repeat: 1, ease: 'power2.out' });
+    }
+    if (cinematicPass?.uniforms?.uCA) {
+      gsap.to(cinematicPass.uniforms.uCA, { value: 0.008, duration: 0.08, yoyo: true, repeat: 1, ease: 'power1.out' });
+    }
+    gsap.to(bloomPass, { strength: 0.48, duration: 0.08, yoyo: true, repeat: 1, ease: 'power2.out' });
+  }, [], 2.4);
+
+  // Stage 4 (2.4s - 6.0s): Star Tunnel Cruise - Fly through ribbon corridor & milestone rings
   approachTimeline.to(camera.position, {
-    x: -24,
-    y: 32,
-    z: 95,
-    duration: 3.4,
-    ease: 'sine.inOut'
-  }, 1.8);
-
-  approachTimeline.to(camera.rotation, {
-    z: 0.06,
-    duration: 3.4,
-    ease: 'sine.inOut'
-  }, 1.8);
+    x: 0,
+    y: 0,
+    z: -160,
+    duration: 3.6,
+    ease: 'none'
+  }, 2.4);
 
   approachTimeline.to(controls.target, {
-    x: defaultCameraTarget.x,
-    y: defaultCameraTarget.y,
-    z: defaultCameraTarget.z,
-    duration: 3.4,
-    ease: 'power2.inOut'
-  }, 1.8);
+    x: 0,
+    y: 0,
+    z: -350,
+    duration: 3.6,
+    ease: 'none'
+  }, 2.4);
 
-  // Stage 3 (5.2s - 7.8s): Smooth Deceleration & Gate Exit to Destination
+  // Subtle natural roll during tunnel cruise
+  approachTimeline.to(camera.rotation, {
+    z: 0.035,
+    duration: 1.2,
+    ease: 'sine.inOut'
+  }, 2.4);
+  approachTimeline.to(camera.rotation, {
+    z: -0.035,
+    duration: 1.4,
+    ease: 'sine.inOut'
+  }, 3.6);
+  approachTimeline.to(camera.rotation, {
+    z: 0,
+    duration: 1.0,
+    ease: 'sine.out'
+  }, 5.0);
+
+  // Stage 5 (6.0s - 8.0s): Exit Tunnel & Smooth Deceleration to Hero Constellation
   approachTimeline.to({ opacity: 1 }, {
     opacity: 0,
-    duration: 2.0,
+    duration: 1.8,
     ease: 'power2.out',
     onUpdate: function() {
       starGate.setOpacity(this.targets()[0].opacity);
     }
-  }, 5.0);
-
-  approachTimeline.to(camera.rotation, {
-    z: 0,
-    duration: 2.4,
-    ease: 'power2.out'
-  }, 5.2);
+  }, 6.0);
 
   approachTimeline.to(camera, {
     fov: heroPose.fov,
-    duration: 2.6,
+    duration: 2.0,
     ease: 'power3.out',
     onUpdate: () => camera.updateProjectionMatrix()
-  }, 5.2);
+  }, 6.0);
 
   approachTimeline.to(camera.position, {
     x: defaultCameraPos.x,
     y: defaultCameraPos.y,
     z: defaultCameraPos.z,
-    duration: 2.6,
+    duration: 2.0,
     ease: 'power3.out'
-  }, 5.2);
+  }, 6.0);
+
+  approachTimeline.to(controls.target, {
+    x: defaultCameraTarget.x,
+    y: defaultCameraTarget.y,
+    z: defaultCameraTarget.z,
+    duration: 2.0,
+    ease: 'power3.out'
+  }, 6.0);
+
+  approachTimeline.call(() => {
+    soundManager.playSparkleBurstSound?.();
+  }, [], 7.6);
 }
 
 // -----------------------------------------------------------------------------
@@ -1267,9 +1428,11 @@ if (queryFlags.qaScene === 'intro-clean') {
   solarSystem.setTransitMode(true);
   starGate.setIntroMode(false);
   starGate.setWarpActive(true);
-  camera.fov = 76;
-  camera.position.set(42, 58, 140);
-  camera.rotation.z = -0.10;
+  starGate.triggerGateOpen();
+  camera.fov = 65;
+  camera.position.set(0, 0, 48);
+  controls.target.set(0, 0, -50);
+  camera.rotation.z = 0;
   camera.updateProjectionMatrix();
 } else if (queryFlags.qaScene === 'flight-mid') {
   hud.hide();
@@ -1277,9 +1440,10 @@ if (queryFlags.qaScene === 'intro-clean') {
   solarSystem.setTransitMode(true);
   starGate.setIntroMode(false);
   starGate.setWarpActive(true);
-  camera.fov = 76;
-  camera.position.set(-24, 32, 95);
-  camera.rotation.z = 0.06;
+  camera.fov = 92;
+  camera.position.set(0, 0, -85);
+  controls.target.set(0, 0, -350);
+  camera.rotation.z = 0.035;
   camera.updateProjectionMatrix();
 } else if (queryFlags.qaScene === 'flight-end') {
   hud.hide();
@@ -1289,6 +1453,7 @@ if (queryFlags.qaScene === 'intro-clean') {
   starGate.setWarpActive(true);
   camera.fov = heroPose.fov;
   camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
   camera.rotation.z = 0;
   camera.updateProjectionMatrix();
 } else if (queryFlags.qaScene === 'sharpness-focus') {
@@ -1310,19 +1475,9 @@ if (queryFlags.qaScene === 'intro-clean') {
   isGalaxyView = true;
   spiralGalaxy.setGalaxyView(true);
   name3DText.show();
-  camera.fov = 36;
-  camera.position.set(0, 32, 60);
-  controls.target.set(0, 32, -150);
-  controls.minDistance = 10;
-  controls.maxDistance = 500;
-  camera.updateProjectionMatrix();
-  controls.update();
-} else if (queryFlags.qaScene === 'bulge-closeup') {
-  hud.hide();
-  name3DText.hide();
-  camera.fov = 32;
-  camera.position.set(0, -35, 120);
-  controls.target.set(0, -35, -95);
+  camera.fov = 44;
+  camera.position.set(0, 105, 230);
+  controls.target.set(0, 30, -80);
   controls.minDistance = 10;
   controls.maxDistance = 500;
   camera.updateProjectionMatrix();

@@ -150,9 +150,9 @@ function createTextTexture(isExtrusion = false) {
     ctx.strokeStyle = '#e11d48';
     ctx.strokeText(TEXT, x, y);
 
-    // Fine gold rim
+    // Fine rose gold rim
     ctx.lineWidth = 10;
-    ctx.strokeStyle = '#fde68a';
+    ctx.strokeStyle = '#fda4af';
     ctx.strokeText(TEXT, x, y);
 
     // Front Warm Cream to Rose Gold Gradient
@@ -445,8 +445,13 @@ export function createGiant3DNameText(scene) {
       });
     },
 
-    update(_delta, time) {
+    update(_delta, time, camera) {
       if (!group.visible) return;
+      if (camera) {
+        const isPortrait = camera.aspect < 1.0;
+        const targetScale = isPortrait ? Math.min(1.20, Math.max(0.42, camera.aspect * 1.05)) : 1.25;
+        group.scale.setScalar(targetScale);
+      }
       group.position.y = basePos.y + Math.sin(time * 0.7) * 2.5;
 
       const positions = emberGeo.attributes.position.array;

@@ -1,4 +1,5 @@
 import { GUIDE_COPY } from '../config/guideCopy.js';
+import { ledger } from './guideLedger.js';
 
 /**
  * =========================================================================
@@ -12,6 +13,7 @@ export function startFirstRunTour({
   reducedMotion = false,
   onComplete
 } = {}) {
+  if (ledger.seen('tour')) return null;
   const stepsConfig = [
     {
       targetId: '#tracker-hearts',
@@ -73,6 +75,7 @@ export function startFirstRunTour({
 
   function finishTour() {
     document.body.classList.remove('guide-tour-active');
+    ledger.retire('tour');
     try {
       sessionStorage.setItem('tourSeen', 'true');
     } catch {}
