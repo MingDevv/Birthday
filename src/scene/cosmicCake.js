@@ -547,12 +547,11 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
           blowingOut = false;
           onComplete?.();
         }, 600);
-        blowTimeouts.push(rmId);
       } else {
         // Phase D2: 0.0s - 0.6s: Flame flutter & wind response
-        // 0.6s onwards: sequential extinguishing at 150ms per candle (16 * 150 = 2400ms ≈ 2.4s)
+        // 0.6s onwards: sequential extinguishing at 220ms per candle (15 intervals * 220ms = 3300ms + 600ms prelude + 500ms pause = 4.4s)
         const START_DELAY = 600;
-        const INTERVAL = 150;
+        const INTERVAL = 220;
         flames.forEach((flame, index) => {
           const timeoutId = window.setTimeout(() => {
             flame.visible = false;
@@ -672,6 +671,23 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       });
       cakePointLight.intensity = quality.tier === 'low' ? 0.35 : 1.15;
       disposeCakeMessage();
+    },
+
+    reset() {
+      this.hide();
+      group.visible = true;
+      revealed = true;
+      revealProgress = 1;
+      group.position.set(0, -3, -5);
+      group.scale.setScalar(1);
+      blown = false;
+      blowingOut = false;
+      flames.forEach((flame) => {
+        flame.visible = true;
+        flame.position.x = flame.userData.baseX;
+        flame.position.y = flame.userData.baseY;
+      });
+      cakePointLight.intensity = quality.tier === 'low' ? 0.35 : 1.15;
     },
 
     dispose() {

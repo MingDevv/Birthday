@@ -532,9 +532,16 @@ export function createGalaxySkybox(scene, quality = {}) {
     ambientBoostTimer = durationSeconds;
   }
 
+  const celebrationTimeouts = [];
+  function cancelCelebrationShower() {
+    celebrationTimeouts.forEach(id => clearTimeout(id));
+    celebrationTimeouts.length = 0;
+  }
+
   function triggerCelebrationShower({ waves = 3, perWave = 12, interval = 1.6, camera = null } = {}) {
+    cancelCelebrationShower();
     for (let w = 0; w < waves; w++) {
-      window.setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         for (let i = 0; i < perWave; i++) {
           spawnMeteor({
             type: 'cluster',
@@ -544,12 +551,14 @@ export function createGalaxySkybox(scene, quality = {}) {
           });
         }
       }, w * Math.round(interval * 1000));
+      celebrationTimeouts.push(timeoutId);
     }
   }
 
   return {
     group: galaxyGroup,
     starField,
+    cancelCelebrationShower,
     pickMeteor(raycaster) {
       const activeHeads = meteorPool.filter((slot) => slot.active && slot.progress >= 0 && slot.progress < 1).map((slot) => slot.head);
       const hit = raycaster.intersectObjects(activeHeads, false)[0];

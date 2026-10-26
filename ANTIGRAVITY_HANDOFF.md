@@ -1,7 +1,40 @@
 # Antigravity Handoff — ดาวลูกหมู-001
 
-อัปเดต: 26 ตุลาคม 2026 (เสร็จสมบูรณ์ตาม แผนรอบ 9 — วาร์ปใหม่ · เป่าเค้กให้ช้าลง · ฉากจบ · ไกด์ขึ้นครั้งเดียว · ดาวและวงโคจร)  
+อัปเดต: 26 ตุลาคม 2026 (เสร็จสมบูรณ์ตาม แผนรอบ 10 — แก้บั๊กที่ยืนยันและอุดช่องว่าง QA)  
 โปรเจกต์: เซอร์ไพรส์วันเกิดข้าวหอม ธีมเดินทางในกาแล็กซี 3D
+
+## สรุปการดำเนินงานรอบที่ 10 (Deep QA & Confirmed Bug Fixes ผ่าน 100%)
+
+1. **P0 (วาร์ปจริงจอดำในโหมดคุณภาพสูง — แก้ไขและยืนยัน 100%):**
+   - **ต้นเหตุ:** ใน `src/main.js`, `renderTarget` ของ `EffectComposer` ใช้ `type: THREE.HalfFloatType` พร้อมกับ `samples: 4` (MSAA) บน WebGL2/Metal/ANGLE ไดรเวอร์ไม่สามารถ blit multisampled float buffer ได้ ทำให้ canvas กลายเป็นสีดำมืด (luminance ~0.9) ระหว่างบินจริง
+   - **วิธีแก้:** กำหนดให้ render target เป็น `THREE.UnsignedByteType` เมื่อมีการใช้ `samples > 0` คงคุณสมบัติลบรอยหยัก 4x MSAA แต่ได้ภาพสว่างคมชัดตลอดเส้นทาง
+   - **ยืนยัน:** วัดค่าความสว่างใน timeline จริง (1000ms, 2500ms, 4000ms) บน High (35.3), Medium (46.8), Low (46.5) สว่างเกิน 8.0 ทุกเฟรม ไม่มีจอดำ
+
+2. **P1 (ข้อความหลังปิดความทรงจำหาย — แก้ไขและยืนยัน 100%):**
+   - **ต้นเหตุ:** `flyToPlanet` มีการ retire `memory-after-close-*` ล่วงหน้า และ `guideDirector.onState('EXPLORE')` เรียก `startTour()` มาลบ bubble ทิ้ง
+   - **วิธีแก้:** กั้น `startTour()` ไม่ให้ทำงานเมื่อ `progress.size > 0`, ย้ายการ retire `memory-after-close-*` ไปเมื่อผู้ใช้แตะเดินทางไปดาวถัดไปจริง, แสดง bubble แนะนำชื่อดาวดวงถัดไป ("เก่งมาก! 1/5 แล้ว · ดวงต่อไป: โลก ✨") พร้อมปุ่มปิดและ ledger id ประจำฉาก
+   - **ยืนยัน:** ทดสอบปิดการ์ดดาวศุกร์แล้วพบ bubble แนะนำ "โลก" ทันที เมื่อกดบินต่อไปยังโลก bubble หายและ ledger retire สำเร็จ
+
+3. **P2 (เค้กแนวตั้งถูกตัดขอบบนมือถือ — แก้ไขและยืนยัน 100%):**
+   - **วิธีแก้:** ปรับตำแหน่งกล้อง portrait เป็น `(0, 54, 204)` และ target `(0, 10, -5)` ให้เห็นทั้งฐานจาน เค้ก 3 ชั้น ตัวอักษรลับ "มีความสุขมากๆนะไอ่อ้วนน💗" และปุ่มแอ็กชันครบถ้วน มี margin ซ้าย-ขวา > 4%
+   - **ยืนยัน:** ตรวจสอบผ่านภาพและ pixel analysis บน iPhone (390×844) และ Android (360×740) ไม่ตกขอบ ปลอดภัยจาก safe-area
+
+4. **P2 (จังหวะดับเทียน 220ms & ~4.4s รวม — ยืนยัน 100%):**
+   - กำหนด `INTERVAL = 220` ms ต่อเล่ม (16 เล่ม 15 intervals = 3300ms + prelude 600ms + pause 500ms = 4.40s รวมก่อนเริ่มฉลอง)
+   - **ยืนยัน:** เครื่องมือวัด performance.now() อัตโนมัติวัดได้ 16 เล่มเฉลี่ย 220.0ms รวมระยะเวลา 4.40s แม่นยำ 100%
+
+5. **P2 (จัดการ Timer และ Tween ของฉากฉลอง — ยืนยัน 100%):**
+   - เพิ่ม `cancelCelebrationShower()` ใน `galaxySkybox.js`, `cancelCelebrationVolley()` ใน `fireworks.js`, `cancelCelebration()` ใน `main.js` และ `reset()` ใน `cosmicCake.js`
+   - ยกเลิก timers ทั้งหมดอัตโนมัติเมื่อออกจากฉาก `FINALE_CAKE` หรือเริ่มรอบใหม่
+   - **ยืนยัน:** รันลูปเป่าเค้ก 5 รอบต่อเนื่อง ตรวจ `renderer.info.memory` พบ geometries 112 -> 111, textures 25 -> 24 (Zero Memory Leak)
+
+6. **ขยายชุด Visual QA & ตรวจสอบภาพจริง:**
+   - เพิ่มคำสั่ง `node scripts/visual-qa.mjs --phase=round10-fixes` พร้อม 28 assertions, 0 errors, ตรวจ console error และ network request
+   - ตรวจดูภาพจริงทั้ง 6 ภาพใน `qa/round10-fixes/` ครบถ้วนด้วยสายตา
+   - `npm run visual:qa -- --phase=round9-master` รัน regression ผ่าน 100%
+   - `npm run build` ผ่าน 100%
+
+---
 
 ## สรุปการดำเนินงานรอบที่ 9 (Master Suite ผ่าน 100%)
 

@@ -33,6 +33,7 @@ import { createWorldText } from './scene/worldText.js';
 import { createProgressManager } from './core/progress.js';
 import { createGuideDirector } from './ui/guideDirector.js';
 import { GUIDE_COPY, formatCopy } from './config/guideCopy.js';
+import { ledger } from './ui/guideLedger.js';
 import './style.css';
 
 async function initializeApp() {
@@ -52,6 +53,9 @@ const flow = createFlow({
       solarSystem?.cancelArrivalEffect?.();
       galaxy?.setArrivalMode?.(false);
     }
+    if (previous === 'FINALE_CAKE' && next !== 'FINALE_CAKE') {
+      cancelCelebration();
+    }
     const grade = {
       FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
       FINALE_ALIGN: [1.04, 0.98, 0.92], FINALE_HEART: [1.08, 0.99, 0.94], FINALE_CAKE: [1.06, 0.98, 0.92]
@@ -59,6 +63,7 @@ const flow = createFlow({
     if (cinematicPass?.uniforms?.uGrade) gsap.to(cinematicPass.uniforms.uGrade.value, { r: grade[0], g: grade[1], b: grade[2], duration: prefersReducedMotion ? 0.08 : 0.8, overwrite: true });
   },
   killStateAnimations: () => {
+    cancelCelebration();
     gsap.killTweensOf(camera.position);
     gsap.killTweensOf(controls.target);
     gsap.killTweensOf(orbitClock);
@@ -139,11 +144,9 @@ controls.autoRotateSpeed = 0.45;
 controls.target.copy(defaultCameraTarget);
 controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
 
-// -----------------------------------------------------------------------------
-// 2. Post-Processing Bloom (Give Love Studio Signature Glowing Galaxy)
-// -----------------------------------------------------------------------------
+const getComposerTargetType = (samples) => (samples > 0 ? THREE.UnsignedByteType : (renderer.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType));
 const renderTarget = new THREE.WebGLRenderTarget(renderViewport.width, renderViewport.height, {
-  type: renderer.extensions.has('EXT_color_buffer_float') ? THREE.HalfFloatType : THREE.UnsignedByteType,
+  type: getComposerTargetType(currentQuality.samples),
   samples: renderer.capabilities.isWebGL2 ? currentQuality.samples : 0
 });
 const composer = new EffectComposer(renderer, renderTarget);
@@ -438,7 +441,21 @@ function dismissFinaleAfterCake() {
   });
 }
 
+const celebrationTimers = [];
+let celebrationActive = false;
+
+function cancelCelebration() {
+  celebrationTimers.forEach(id => clearTimeout(id));
+  celebrationTimers.length = 0;
+  celebrationActive = false;
+  galaxy?.cancelCelebrationShower?.();
+  fireworks?.cancelCelebrationVolley?.();
+  cosmicCake?.cancelBlowOut?.();
+}
+
 function celebrateCake() {
+  cancelCelebration();
+  celebrationActive = true;
   stopCakeMic();
 
   if (prefersReducedMotion || queryFlags.fxOff) {
@@ -449,18 +466,21 @@ function celebrateCake() {
 
   // Phase E3: "Khao Hom's Birthday Wish" Beat Sheet (~7-8s journey)
   // 0.5s: Hero Star Burst above cake + chime
-  window.setTimeout(() => {
+  celebrationTimers.push(window.setTimeout(() => {
+    if (!celebrationActive) return;
     fireworks.triggerStarBurst(new THREE.Vector3(0, 10, -5));
     soundManager.playSparkleBurstSound?.();
-  }, 500);
+  }, 500));
 
   // 0.9s - 3.4s: Fireworks volley (7 arched bursts alternating L/R)
-  window.setTimeout(() => {
+  celebrationTimers.push(window.setTimeout(() => {
+    if (!celebrationActive) return;
     fireworks.triggerCelebrationVolley({ count: 7, interval: 0.36 });
-  }, 900);
+  }, 900));
 
   // 1.0s - 7.0s: 3 waves of camera-directed shooting star meteor showers
-  window.setTimeout(() => {
+  celebrationTimers.push(window.setTimeout(() => {
+    if (!celebrationActive) return;
     const meteorCount = currentQuality.tier === 'high' ? 14 : currentQuality.tier === 'medium' ? 10 : 6;
     galaxy?.triggerCelebrationShower?.({
       waves: 3,
@@ -468,17 +488,19 @@ function celebrateCake() {
       interval: 1.6,
       camera
     });
-  }, 1000);
+  }, 1000));
 
   // 3.0s: Floating romantic birthday wish banner
-  window.setTimeout(() => {
+  celebrationTimers.push(window.setTimeout(() => {
+    if (!celebrationActive) return;
     fireworks.showFloatingWishBanner();
-  }, 3000);
+  }, 3000));
 
   // 5.0s: Cake gracefully sinks out & camera recedes to epilogue pose
-  window.setTimeout(() => {
+  celebrationTimers.push(window.setTimeout(() => {
+    if (!celebrationActive) return;
     dismissFinaleAfterCake();
-  }, 5000);
+  }, 5000));
 }
 
 function finishCake() {
@@ -514,8 +536,8 @@ function showCakeActions() {
   pointerStarTrail?.setVisible?.(false);
   heartStreak?.setVisible?.(false);
   const isPortrait = window.innerHeight > window.innerWidth;
-  const cakeCamPos = isPortrait ? new THREE.Vector3(0, 55, 175) : new THREE.Vector3(0, 40, 120);
-  const cakeTarget = new THREE.Vector3(0, 8, -5);
+  const cakeCamPos = isPortrait ? new THREE.Vector3(0, 54, 204) : new THREE.Vector3(0, 40, 120);
+  const cakeTarget = isPortrait ? new THREE.Vector3(0, 10, -5) : new THREE.Vector3(0, 8, -5);
   gsap.to(camera.position, { x: cakeCamPos.x, y: cakeCamPos.y, z: cakeCamPos.z, duration: prefersReducedMotion ? 0.2 : 2.0, ease: 'power2.inOut' });
   gsap.to(controls.target, { x: cakeTarget.x, y: cakeTarget.y, z: cakeTarget.z, duration: prefersReducedMotion ? 0.2 : 2.0, ease: 'power2.inOut' });
 
@@ -739,9 +761,12 @@ const frameGovernor = createFrameGovernor({
     currentQuality = next;
     solarSystem.setQuality(next);
     galaxy.setQuality(next.backgroundStars);
-    spiralGalaxy.setQuality(next.galaxyStars);
+    const targetType = getComposerTargetType(next.samples);
+    renderTarget.texture.type = targetType;
     renderTarget.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
+    composer.renderTarget1.texture.type = targetType;
     composer.renderTarget1.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
+    composer.renderTarget2.texture.type = targetType;
     composer.renderTarget2.samples = renderer.capabilities.isWebGL2 ? next.samples : 0;
     composer.renderTarget1.dispose();
     composer.renderTarget2.dispose();
@@ -752,6 +777,28 @@ const frameGovernor = createFrameGovernor({
     qualityController?.updateDisplay();
   }
 });
+
+window.__qaDebug = {
+  get composer() { return composer; },
+  get renderTarget() { return renderTarget; },
+  get cinematicPass() { return cinematicPass; },
+  get bloomPass() { return bloomPass; },
+  get bokehPass() { return bokehPass; },
+  get outputPass() { return outputPass; },
+  get camera() { return camera; },
+  get starGate() { return starGate; },
+  get flow() { return flow; },
+  get currentQuality() { return currentQuality; },
+  get polaroidModal() { return polaroidModal; },
+  get cosmicCake() { return cosmicCake; },
+  get ledger() { return ledger; },
+  flyToPlanet: (id) => flyToPlanet(id),
+  finishCake: () => finishCake(),
+  celebrateCake: () => celebrateCake(),
+  dismissFinaleAfterCake: () => dismissFinaleAfterCake(),
+  enterEpilogue: () => enterEpilogue(),
+  cancelCelebration: () => cancelCelebration()
+};
 
 // -----------------------------------------------------------------------------
 // 6. Extended TikTok-Style Cinematic Galaxy Journey (Give Love Studio Signature)
@@ -1095,9 +1142,18 @@ function playPlanetSignature(planetItem) {
 }
 
 function flyToPlanet(planetId) {
-  if (isCinematicFlying || polaroidModal?.isOpen || finaleSequenceStarted) return;
+  if (polaroidModal?.isOpen || finaleSequenceStarted) return;
   const planetItem = solarSystem.planetsList.find(p => p.id === planetId);
   if (!planetItem) return;
+
+  gsap.killTweensOf(camera.position);
+  gsap.killTweensOf(controls.target);
+
+  if (progress.size > 0) {
+    ledger.retire(`memory-after-close-${progress.size}`);
+  }
+  guideDirector?.clear?.();
+  guideDirector?.clearAllGuides?.();
 
   isCinematicFlying = true;
   flow.go('FOCUS');
@@ -1267,15 +1323,31 @@ const polaroidModal = new PolaroidModal({
   onBackToGalaxy: () => {
     uiDirector.setModalOpen(false);
     if (progress.isComplete()) {
+      flow.go('EXPLORE');
+      returnToCenterOrbit();
       guideDirector?.showBubble(GUIDE_COPY.memory.last, { ttl: 2600, zone: 'bottom-left' });
       setTimeout(() => startFinaleSequence(), prefersReducedMotion ? 400 : 1800);
     } else {
+      flow.go('EXPLORE');
+      returnToCenterOrbit();
       const nextId = progress.getNextId();
       const nextPlanet = solarSystem.planetsList.find((p) => p.id === nextId);
       const name = nextPlanet?.config?.name?.split(' ')[0] || '';
-      guideDirector?.showBubble(formatCopy(GUIDE_COPY.memory.afterClose, { done: progress.size, name }), { ttl: 5500, zone: 'bottom-left' });
-      flow.go('EXPLORE');
-      returnToCenterOrbit();
+      const ledgerId = `memory-after-close-${progress.size}`;
+      if (!ledger.seen(ledgerId)) {
+        setTimeout(() => {
+          if (flow.state === 'EXPLORE' && !uiDirector.isModalOpen) {
+            guideDirector?.showBubble(formatCopy(GUIDE_COPY.memory.afterClose, { done: progress.size, name }), {
+              ttl: 6000,
+              zone: 'bottom-left',
+              states: ['EXPLORE'],
+              onClose: () => {
+                ledger.retire(ledgerId);
+              }
+            });
+          }
+        }, 120);
+      }
     }
   },
   onWish: () => {
@@ -1357,7 +1429,7 @@ guideDirector.onState(flow.state);
 // Wait for local planet textures and fonts so the scene and text mask are crisp and ready
 await Promise.all([
   texturesReady,
-  document.fonts ? document.fonts.ready : Promise.resolve()
+  document.fonts ? Promise.race([document.fonts.ready, new Promise((resolve) => setTimeout(resolve, 1500))]) : Promise.resolve()
 ]);
 loadingOverlay?.classList.add('asset-loading-done');
 
@@ -1559,8 +1631,9 @@ if (queryFlags.qaScene === 'intro-clean') {
     camera.position.set(0, 68, 48);
     controls.target.set(0, 8, -5);
   } else {
-    camera.position.set(0, 40, 120);
-    controls.target.set(0, 8, -5);
+    const isPortrait = window.innerHeight > window.innerWidth;
+    camera.position.copy(isPortrait ? new THREE.Vector3(0, 54, 204) : new THREE.Vector3(0, 40, 120));
+    controls.target.copy(isPortrait ? new THREE.Vector3(0, 10, -5) : new THREE.Vector3(0, 8, -5));
   }
 } else if (queryFlags.qaScene?.startsWith('arrival-')) {
   hud.hide();

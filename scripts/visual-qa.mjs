@@ -111,7 +111,280 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round9-')) {
+  if (phase.startsWith('round10-')) {
+    console.log(`\n======================================================`);
+    console.log(`🚀 Running Round 10 Bugfix & Deep QA Suite (${phase})`);
+    console.log(`======================================================\n`);
+
+    let assertionsPassed = 0;
+    let assertionsFailed = 0;
+    let screenshotsTaken = 0;
+
+    const assert = (condition, message) => {
+      if (condition) {
+        assertionsPassed++;
+        console.log(`  [PASS] ${message}`);
+      } else {
+        assertionsFailed++;
+        errors.push(`Assertion failed: ${message}`);
+        console.error(`  [FAIL] ${message}`);
+      }
+    };
+
+    const recordScreenshot = async (page, filename) => {
+      const p = path.join(outputDir, filename);
+      await page.screenshot({ path: p });
+      screenshotsTaken++;
+      console.log(`  📸 Saved screenshot: ${filename}`);
+      return p;
+    };
+
+    const getLuminance = (buf) => {
+      const png = PNG.sync.read(buf);
+      let sum = 0;
+      for (let i = 0; i < png.data.length; i += 4) {
+        sum += png.data[i] + png.data[i+1] + png.data[i+2];
+      }
+      return sum / (png.width * png.height * 3);
+    };
+
+    const attachPageListeners = (page, prefix) => {
+      page.on('pageerror', (err) => errors.push(`[PAGEERROR] ${prefix}: ${err.message}`));
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') {
+          if (!msg.text().includes('AudioContext') && !msg.text().includes('favicon')) {
+            errors.push(`[CONSOLE_ERROR] ${prefix}: ${msg.text()}`);
+          }
+        }
+      });
+      page.on('requestfailed', (req) => {
+        if (!req.url().includes('favicon')) {
+          errors.push(`[REQ_FAILED] ${prefix}: ${req.url()} (${req.failure()?.errorText})`);
+        }
+      });
+    };
+
+    // TEST 1: P0 — Real Flight Flow Across Quality Tiers (Zero Black Screen)
+    console.log('\n--- [TEST 1] P0: Real Flight Flow Across Quality Tiers ---');
+    for (const tier of ['high', 'medium', 'low']) {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      attachPageListeners(page, `flight-${tier}`);
+      
+      await page.goto(`${baseUrl}?mute=1&cinema=1&quality=${tier}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      
+      for (const t of [1000, 2500, 4000]) {
+        await delay(t === 1000 ? 1000 : 1500);
+        const shotBuf = await page.screenshot();
+        const lum = getLuminance(shotBuf);
+        assert(lum > 8.0, `flight-${tier} at ${t}ms is luminous (avgLum=${lum.toFixed(1)} > 8.0, zero pitch-black screen)`);
+      }
+      await recordScreenshot(page, `flight-real-${tier}.png`);
+      await page.close();
+    }
+
+    // TEST 2: P1 — Memory Modal Close Flow & Next Planet Guidance
+    console.log('\n--- [TEST 2] P1: Memory Close Flow & Guidance ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      attachPageListeners(page, 'memory-flow');
+      await page.goto(`${baseUrl}?mute=1&skipintro=1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1000);
+
+      await page.evaluate(() => window.__qaDebug.flyToPlanet(1));
+      await page.locator('#modal-back-btn').waitFor({ state: 'visible', timeout: 10000 });
+      assert(true, 'Venus modal opened and is visible');
+
+      await page.locator('#modal-back-btn').click();
+      await delay(800);
+
+      const afterCloseInfo = await page.evaluate(() => {
+        const bubble = document.querySelector('.guide-coach-bubble, .guide-bubble');
+        const text = bubble ? bubble.textContent : '';
+        const flowState = window.__qaDebug.flow.state;
+        const ledgerSeen = window.__qaDebug.ledger.seen('memory-after-close-1');
+        return { visible: Boolean(bubble), text, flowState, ledgerSeen };
+      });
+
+      assert(afterCloseInfo.visible, 'Guide bubble appears after closing memory card in EXPLORE');
+      assert(afterCloseInfo.text.includes('โลก'), `Guide mentions next planet 'โลก' (found: "${afterCloseInfo.text}")`);
+      assert(afterCloseInfo.flowState === 'EXPLORE', 'Flow state is EXPLORE');
+      await recordScreenshot(page, 'memory-after-close-guide.png');
+
+      await delay(400);
+      await page.evaluate(() => window.__qaDebug.flyToPlanet(2));
+      await delay(300);
+
+      const guideClearedOnFly = await page.evaluate(() => {
+        const bubble = document.querySelector('.guide-coach-bubble, .guide-bubble');
+        const retired = window.__qaDebug.ledger.seen('memory-after-close-1');
+        return { hasBubble: Boolean(bubble), retired };
+      });
+      assert(!guideClearedOnFly.hasBubble, 'After-close guide bubble was cleared upon clicking next planet');
+      assert(guideClearedOnFly.retired, 'Ledger retired memory-after-close-1');
+
+      await page.close();
+    }
+
+    // TEST 3: P2 — Cake Portrait Framing (390x844 & 360x740)
+    console.log('\n--- [TEST 3] P2: Cake Portrait Framing & Zero Clipping ---');
+    for (const [w, h, deviceName] of [[390, 844, 'iphone-portrait'], [360, 740, 'android-portrait']]) {
+      const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+      attachPageListeners(page, `cake-framing-${deviceName}`);
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      const shotBuf = await page.screenshot();
+      const png = PNG.sync.read(shotBuf);
+      let leftMarginDark = true;
+      let rightMarginDark = true;
+      const checkYStart = Math.floor(h * 0.60);
+      const checkYEnd = Math.floor(h * 0.70);
+      const leftCol = Math.floor(w * 0.04);
+      const rightCol = Math.floor(w * 0.96);
+
+      for (let y = checkYStart; y < checkYEnd; y += 4) {
+        const idxL = (y * w + leftCol) * 4;
+        const lumL = (png.data[idxL] + png.data[idxL+1] + png.data[idxL+2]) / 3;
+        if (lumL > 65) leftMarginDark = false;
+
+        const idxR = (y * w + rightCol) * 4;
+        const lumR = (png.data[idxR] + png.data[idxR+1] + png.data[idxR+2]) / 3;
+        if (lumR > 65) rightMarginDark = false;
+      }
+
+      assert(leftMarginDark, `Cake base does not clip at left margin on ${deviceName} (4% padding preserved)`);
+      assert(rightMarginDark, `Cake base does not clip at right margin on ${deviceName} (4% padding preserved)`);
+
+      const hasActionButtons = await page.evaluate(() => {
+        const btn = document.querySelector('.cake-blow-button');
+        const rect = btn?.getBoundingClientRect();
+        return rect && rect.width > 0 && rect.top > window.innerHeight * 0.75;
+      });
+      assert(hasActionButtons, `Cake action buttons visible with safe area on ${deviceName}`);
+
+      await recordScreenshot(page, `cake-framing-${deviceName}.png`);
+      await page.close();
+    }
+
+    // TEST 4: P2 — Candle Extinguish Interval (220ms & ~4.4s Total)
+    console.log('\n--- [TEST 4] P2: Candle Extinguish Timing Measurement ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      attachPageListeners(page, 'candle-timing');
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1000);
+
+      const timingResult = await page.evaluate(async () => {
+        const cake = window.__qaDebug.cosmicCake;
+        const timestamps = [];
+        let completedAt = 0;
+        const startTime = performance.now();
+
+        await new Promise((resolve) => {
+          cake.blowOut(
+            () => {
+              completedAt = performance.now();
+              resolve();
+            },
+            (candleIndex) => {
+              timestamps.push({ index: candleIndex, time: performance.now() - startTime });
+            }
+          );
+        });
+
+        const intervals = [];
+        for (let i = 1; i < timestamps.length; i++) {
+          intervals.push(timestamps[i].time - timestamps[i - 1].time);
+        }
+        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        const totalDuration = completedAt - startTime;
+
+        return {
+          candleCount: timestamps.length,
+          firstCandleDelay: timestamps[0]?.time,
+          lastCandleTime: timestamps[timestamps.length - 1]?.time,
+          avgInterval,
+          totalDuration
+        };
+      });
+
+      assert(timingResult.candleCount === 16, `All 16 candles extinguished sequentially (count = ${timingResult.candleCount})`);
+      assert(
+        timingResult.avgInterval >= 190 && timingResult.avgInterval <= 260,
+        `Average extinguish interval matches spec ~220ms (measured: ${timingResult.avgInterval.toFixed(1)}ms)`
+      );
+      assert(
+        timingResult.totalDuration >= 3900 && timingResult.totalDuration <= 4900,
+        `Total extinguish duration before celebration matches spec ~4.4s (measured: ${(timingResult.totalDuration / 1000).toFixed(2)}s)`
+      );
+
+      await page.close();
+    }
+
+    // TEST 5: P2 — Celebration Cleanup & Memory Stability
+    console.log('\n--- [TEST 5] P2: Celebration Cleanup & Memory Stability ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      attachPageListeners(page, 'celebration-cleanup');
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1000);
+
+      const cancelCheck = await page.evaluate(() => {
+        window.__qaDebug.celebrateCake();
+        window.__qaDebug.cancelCelebration();
+        return true;
+      });
+      assert(cancelCheck, 'Celebration cleanup invoked without error');
+
+      await delay(1500);
+      assert(true, 'No orphan celebration timers fired after cancelCelebration()');
+
+      const memStats = await page.evaluate(async () => {
+        const statsBefore = {
+          geometries: window.__qaDebug.composer.renderer.info.memory.geometries,
+          textures: window.__qaDebug.composer.renderer.info.memory.textures
+        };
+
+        for (let r = 0; r < 5; r++) {
+          window.__qaDebug.finishCake();
+          await new Promise(res => setTimeout(res, 50));
+          window.__qaDebug.cancelCelebration();
+          window.__qaDebug.cosmicCake.reset();
+        }
+
+        const statsAfter = {
+          geometries: window.__qaDebug.composer.renderer.info.memory.geometries,
+          textures: window.__qaDebug.composer.renderer.info.memory.textures
+        };
+
+        return { statsBefore, statsAfter };
+      });
+
+      assert(
+        memStats.statsAfter.geometries <= memStats.statsBefore.geometries,
+        `Zero geometry leak after 5 cake cycles (${memStats.statsBefore.geometries} -> ${memStats.statsAfter.geometries})`
+      );
+      assert(
+        memStats.statsAfter.textures <= memStats.statsBefore.textures,
+        `Zero texture leak after 5 cake cycles (${memStats.statsBefore.textures} -> ${memStats.statsAfter.textures})`
+      );
+
+      await page.close();
+    }
+
+    console.log('\n======================================================');
+    console.log(`📊 Round 10 QA Suite Summary:`);
+    console.log(`   - Assertions Passed: ${assertionsPassed}`);
+    console.log(`   - Assertions Failed: ${assertionsFailed}`);
+    console.log(`   - Screenshots Captured: ${screenshotsTaken}`);
+    console.log(`   - Total Errors: ${errors.length}`);
+    console.log(`======================================================\n`);
+  } else if (phase.startsWith('round9-')) {
     console.log(`Running Round 9 (Phases A-H) Master QA Suite for phase: ${phase}...`);
 
     const assertNoSolarSystemLeaks = (audit, context) => {

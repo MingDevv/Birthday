@@ -283,6 +283,7 @@ export function createGuideDirector({
   // First-run Tour trigger
   function startTour() {
     if (isGuideOff) return;
+    if (progress.size > 0) return;
     try {
       const tourSeen = sessionStorage.getItem('tourSeen');
       if (tourSeen === 'true') return;
@@ -407,7 +408,9 @@ export function createGuideDirector({
         return;
       }
 
-      startTour();
+      if (progress.size === 0) {
+        startTour();
+      }
       resetIdleTimers();
     } else if (nextState === 'FINALE_ALIGN' || nextState === 'FINALE_HEART') {
       if (!ledger.seen('finale-wait')) {
@@ -572,6 +575,7 @@ export function createGuideDirector({
     showBubble,
     showToast,
     clear: clearAllGuides,
+    clearAllGuides,
     openHelp: () => helpSheet.open(),
     closeHelp: () => helpSheet.close(),
     startTour,
