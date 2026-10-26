@@ -239,7 +239,7 @@ const soundManager = new SoundManager();
 soundManager.isMuted = queryFlags.mute;
 const galaxy = createGalaxySkybox(scene, currentQuality);
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
-const solarSystem = createSolarSystemHeart(scene, currentQuality, { effectsEnabled: !queryFlags.fxOff });
+const solarSystem = createSolarSystemHeart(scene, currentQuality, { effectsEnabled: !queryFlags.fxOff, camera });
 const cosmicCake = createCosmicCake(scene, currentQuality, { enabled: !queryFlags.fxOff });
 solarSystem.setCakeRef(cosmicCake);
 const pointerStarTrail = queryFlags.fxOff || window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -280,7 +280,7 @@ function setupTiltMode() {
   button.className = 'tilt-mode-button';
   button.textContent = 'เปิดโหมดเอียงเครื่อง';
   button.setAttribute('aria-pressed', 'false');
-  uiDirector.show({ id: 'tilt-mode', zone: 'bottom-left', layer: 'action', exclusive: false, element: button, states: ['EXPLORE', 'EPILOGUE'], onClose: () => {
+  uiDirector.show({ id: 'tilt-mode', zone: 'bottom-right', layer: 'action', exclusive: false, element: button, states: ['EXPLORE', 'EPILOGUE'], onClose: () => {
     window.removeEventListener('deviceorientation', onOrientation);
     tiltState.enabled = false;
     tiltState.targetX = 0;
@@ -552,7 +552,7 @@ function setupCinemaRecorder() {
 }
 
 function setupMobileToolsMenu() {
-  if (!window.matchMedia('(max-width: 520px)').matches) return;
+  if (uiDirector.entries.some((entry) => entry.id === 'mobile-tools-toggle')) return;
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'mobile-tools-toggle';
@@ -953,10 +953,20 @@ function startCinematicApproach(onComplete) {
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
       flow.go('EXPLORE');
-      showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, solarSystem, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
+      showArrivalCelebrationFlow(soundManager, {
+        uiDirector,
+        flow,
+        scene,
+        camera,
+        solarSystem,
+        worldTextRegistry: activeWorldTexts,
+        reducedMotion: prefersReducedMotion,
+        quality: currentQuality,
+        startAtName: true
+      });
     };
     if (queryFlags.fxOff) finishArrival();
-    else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival });
+    else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival, camera });
   };
 
   skipBtn.addEventListener('click', finishFlight);
@@ -1484,9 +1494,10 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.update();
 } else if (queryFlags.qaScene === 'arrival-constellation') {
   hud.hide();
+  guideDirector?.clear();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
-  solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, qaPreview: true });
+  solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, qaPreview: true, camera });
 } else if (queryFlags.qaScene === 'finale-align') {
   hud.hide();
   camera.position.set(0, 30, 175);
@@ -1740,6 +1751,7 @@ document.addEventListener('visibilitychange', () => {
 function animate() {
   requestAnimationFrame(animate);
   if (queryFlags.qaScene) {
+    window.__qaScene = scene;
     window.__qaIsFlying = isCinematicFlying;
     window.__qaCosmicCake = cosmicCake;
     window.__qaSceneAudit = () => {
@@ -1864,7 +1876,7 @@ function animate() {
   galaxy.update(delta, time);
   spiralGalaxy.update(delta, time, camera);
   const musicBass = soundManager.getMusicBassEnergy();
-  solarSystem.update(delta, orbitClock.time, time, musicBass);
+  solarSystem.update(delta, orbitClock.time, time, musicBass, camera);
   if (qaFocusPlanet) {
     solarSystem.group.updateMatrixWorld(true);
     const focus = qaFocusPlanet.group.getWorldPosition(new THREE.Vector3());

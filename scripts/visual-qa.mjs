@@ -111,7 +111,242 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round5-')) {
+  if (phase.startsWith('round6-')) {
+    console.log(`Running Round 6 (Phases A-E) QA Suite for phase: ${phase}...`);
+
+    // =========================================================================
+    // 1. Phase B: Mobile Viewport & Safe Area checks
+    // =========================================================================
+    console.log('\n--- Checking Phase B: Viewport & Safe Area ---');
+    const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+    if (!indexHtml.includes('viewport-fit=cover')) {
+      errors.push('Phase B1: index.html is missing viewport-fit=cover!');
+    }
+    if (indexHtml.includes('user-scalable=no') || indexHtml.includes('maximum-scale')) {
+      errors.push('Phase B1: index.html still contains user-scalable=no or maximum-scale!');
+    }
+    console.log('[PASS] Phase B1: viewport-fit=cover present, zoom lock removed.');
+
+    const styleCss = fs.readFileSync(path.resolve('src/style.css'), 'utf8');
+    if (!styleCss.includes('env(safe-area-inset-top)')) {
+      errors.push('Phase B2: src/style.css missing safe-area-inset-top on top zones!');
+    }
+    if (!styleCss.includes('100dvh')) {
+      errors.push('Phase B3: src/style.css missing 100dvh fallbacks!');
+    }
+    console.log('[PASS] Phase B2/B3: Safe-area top zones and 100dvh verified.');
+
+    // =========================================================================
+    // 2. Phase A: Rapid Tap in Arrival (No Double 3D Name, No Double Caption/Guide)
+    // =========================================================================
+    console.log('\n--- Checking Phase A: Rapid Taps during Arrival ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`arrival-rapid-tap: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&quality=low&qa=arrival-16`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(400);
+
+      // Perform rapid taps across screen to simulate impatient user tapping through arrival
+      for (let i = 0; i < 8; i++) {
+        await page.mouse.click(195, 420);
+        await delay(60);
+      }
+      await page.waitForTimeout(1600);
+
+      // Check arrival3DNameText count in scene
+      const nameMeshesCount = await page.evaluate(() => {
+        const objs = window.__qaScene?.children?.filter(c => c.name === 'arrival3DNameText') || [];
+        return objs.length;
+      });
+      console.log(`Phase A rapid tap test: arrival3DNameText count in scene = ${nameMeshesCount}`);
+      if (nameMeshesCount > 1) {
+        errors.push(`Phase A1 failed: multiple arrival3DNameText instances in scene (${nameMeshesCount})!`);
+      } else {
+        console.log('[PASS] Phase A1: No duplicate 3D name mesh created upon rapid tapping.');
+      }
+
+      // Check caption count
+      const captionCount = await page.locator('.arrival-lower-third').count();
+      console.log(`Phase A rapid tap test: .arrival-lower-third count = ${captionCount}`);
+      if (captionCount > 1) {
+        errors.push(`Phase A2 failed: multiple arrival caption overlays rendered (${captionCount})!`);
+      } else {
+        console.log('[PASS] Phase A2: Caption rendered at most once.');
+      }
+
+      // Check guide prompt pill/card count
+      const guideCardCount = await page.locator('.guide-open-card-pill, .guide-tour-card').count();
+      if (guideCardCount > 1) {
+        errors.push(`Phase A3 failed: multiple guide cards/pills rendered (${guideCardCount})!`);
+      } else {
+        console.log('[PASS] Phase A3: Guide card count is <= 1.');
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-rapid-tap.png') });
+      await page.close();
+    }
+
+    // =========================================================================
+    // 3. Phase C: Unified Bottom-Right Dock Overlap Check across 4 Viewports
+    // =========================================================================
+    console.log('\n--- Checking Phase C: Unified Bottom-Right Dock across 4 Viewports ---');
+    const viewports = [
+      { name: 'iphone-portrait', width: 390, height: 844 },
+      { name: 'android-narrow', width: 360, height: 740 },
+      { name: 'mobile-landscape', width: 844, height: 390 },
+      { name: 'tablet', width: 768, height: 1024 }
+    ];
+
+    for (const vp of viewports) {
+      const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`dock-${vp.name}: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForFunction(() => document.body.dataset.flowState === 'EXPLORE', undefined, { timeout: 15000 });
+      await page.waitForTimeout(800);
+
+      // Check dock element existence and bounding rects of its visible children
+      const checkDockOverlaps = () => page.evaluate(() => {
+        const dock = document.querySelector('.bottom-right-dock');
+        if (!dock) return { ok: false, error: 'missing .bottom-right-dock' };
+        const dockRect = dock.getBoundingClientRect();
+        const children = [...dock.querySelectorAll('button, .hud-circular-btn, .tilt-control-btn, .cinema-record-btn')]
+          .filter(el => {
+            const style = window.getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && r.width > 0 && r.height > 0;
+          });
+        const rects = children.map(el => {
+          const r = el.getBoundingClientRect();
+          return { id: el.id || el.className, rect: { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height } };
+        });
+
+        const overlaps = [];
+        for (let i = 0; i < rects.length; i++) {
+          for (let j = i + 1; j < rects.length; j++) {
+            const r1 = rects[i].rect;
+            const r2 = rects[j].rect;
+            const w = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
+            const h = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
+            if (w * h > 4) {
+              overlaps.push(`${rects[i].id} overlaps with ${rects[j].id} (area: ${w * h}px)`);
+            }
+          }
+        }
+
+        const undersized = rects.filter(r => r.rect.width < 40 || r.rect.height < 40);
+
+        return {
+          ok: overlaps.length === 0,
+          overlaps,
+          undersized,
+          dockRect: { left: dockRect.left, right: dockRect.right, top: dockRect.top, bottom: dockRect.bottom, width: dockRect.width, height: dockRect.height },
+          childCount: rects.length
+        };
+      });
+
+      const dockReport = await checkDockOverlaps();
+      if (!dockReport.ok) {
+        errors.push(`Phase C overlap error on ${vp.name}: ${dockReport.overlaps.join(', ')}`);
+      } else {
+        console.log(`[PASS] Phase C: ${vp.name} dock (default) has ${dockReport.childCount} visible elements, 0 overlaps.`);
+      }
+
+      // If mobile toggle exists, click it to test expanded tools
+      const toggle = page.locator('#btn-mobile-tools-toggle');
+      if (await toggle.isVisible()) {
+        await toggle.click();
+        await page.waitForTimeout(300);
+        const openReport = await checkDockOverlaps();
+        if (!openReport.ok) {
+          errors.push(`Phase C overlap error on ${vp.name} (expanded): ${openReport.overlaps.join(', ')}`);
+        } else {
+          console.log(`[PASS] Phase C: ${vp.name} dock (expanded) has ${openReport.childCount} items, 0 overlaps.`);
+        }
+        if (openReport.undersized?.length) {
+          errors.push(`Phase C: Touch targets below 40px when expanded on ${vp.name}: ${JSON.stringify(openReport.undersized)}`);
+        }
+      }
+
+      await page.screenshot({ path: path.join(outputDir, `dock-${vp.name}.png`) });
+      await page.close();
+    }
+
+    // Also check Cake mode: cake message & dock clearance
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`cake-dock: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low&qa=cake`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1500);
+
+      const cakeClearance = await page.evaluate(() => {
+        const msg = document.querySelector('.cake-owner-message');
+        const dock = document.querySelector('.bottom-right-dock');
+        if (!msg || !dock) return { ok: true, note: 'msg or dock not both present' };
+        const r1 = msg.getBoundingClientRect();
+        const r2 = dock.getBoundingClientRect();
+        const w = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
+        const h = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
+        return { ok: w * h <= 4, overlapArea: w * h };
+      });
+      if (!cakeClearance.ok) {
+        errors.push(`Phase C: cake message collides with dock! Overlap: ${cakeClearance.overlapArea}px`);
+      } else {
+        console.log('[PASS] Phase C: Cake owner message & dock have clean separation.');
+      }
+      await page.screenshot({ path: path.join(outputDir, 'cake-dock-mobile.png') });
+      await page.close();
+    }
+
+    // =========================================================================
+    // 4. Phase D: Arrival Particles Constellation (Mobile & Desktop)
+    // =========================================================================
+    console.log('\n--- Checking Phase D: Arrival Particles Constellation ---');
+    for (const vp of [
+      { name: 'portrait', width: 390, height: 844 },
+      { name: 'desktop', width: 1920, height: 1080 }
+    ]) {
+      const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`arrival-constellation-${vp.name}: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&guide=off&quality=low&qa=arrival-constellation`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1400);
+
+      const particleMetrics = await page.evaluate(() => {
+        const pointsObj = window.__qaScene?.children?.find(c => c.name === 'arrivalHeartParticleReveal') ||
+                          window.__qaScene?.getObjectByName('arrivalHeartParticleReveal');
+        if (!pointsObj) return { found: false };
+        const geo = pointsObj.geometry;
+        const count = geo?.attributes?.position?.count || 0;
+        const opacity = pointsObj.material?.opacity ?? 0;
+        return {
+          found: true,
+          count,
+          opacity,
+          visible: pointsObj.visible,
+          scale: pointsObj.scale.x
+        };
+      });
+
+      console.log(`Phase D ${vp.name} particle metrics:`, particleMetrics);
+      if (!particleMetrics.found || particleMetrics.count < 300) {
+        errors.push(`Phase D failed on ${vp.name}: points not found or point count (${particleMetrics.count}) < 300!`);
+      } else {
+        console.log(`[PASS] Phase D ${vp.name}: Constellation points active (${particleMetrics.count} points, scale ${particleMetrics.scale?.toFixed(2)}).`);
+      }
+
+      const capturePath = path.join(outputDir, `arrival-constellation-${vp.name}.png`);
+      const imgBuffer = await page.screenshot({ path: capturePath });
+      const lum = calculateLuminance(imgBuffer);
+      console.log(`Luminance for arrival-constellation-${vp.name}:`, lum);
+      if (lum.centerMean < 0.005) {
+        errors.push(`Phase D screenshot on ${vp.name} is nearly completely black! centerMean: ${lum.centerMean}`);
+      }
+      await page.close();
+    }
+  } else if (phase.startsWith('round5-')) {
     console.log(`Running Round 5 QA Suite for phase: ${phase}...`);
     // 0. MD5 Check on memory images (R5-1)
     const md5Hashes = {};

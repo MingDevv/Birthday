@@ -420,11 +420,12 @@ function createSparkleTexture() {
   return texture;
 }
 
-export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effectsEnabled = true } = {}) {
+export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effectsEnabled = true, camera = null } = {}) {
   const rootGroup = new THREE.Group();
   rootGroup.name = 'solarSystemHeartMaster';
   scene.add(rootGroup);
 
+  let activeCamera = camera;
   const glowTex = createGlowTexture(64);
   const sparkleTex = createSparkleTexture();
   const interactiveMeshes = [];
@@ -1233,130 +1234,292 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       enchantedRose.group.visible = true;
     },
 
-    startArrivalShape({ reducedMotion = false, onComplete, qaPreview = false } = {}) {
+    setStageDimmed(dimmed) {
+      if (heartGroup) {
+        heartGroup.traverse((child) => {
+          if (child.material) {
+            if (child.userData.origOpacity === undefined) {
+              child.userData.origOpacity = child.material.opacity ?? 1.0;
+            }
+            child.material.transparent = true;
+            child.material.opacity = dimmed ? child.userData.origOpacity * 0.15 : child.userData.origOpacity;
+          }
+        });
+      }
+      for (const p of planetsList) {
+        if (p.mesh?.material) {
+          if (p.mesh.userData.origOpacity === undefined) {
+            p.mesh.userData.origOpacity = p.mesh.material.opacity ?? 1.0;
+          }
+          p.mesh.material.transparent = true;
+          p.mesh.material.opacity = dimmed ? p.mesh.userData.origOpacity * 0.15 : p.mesh.userData.origOpacity;
+        }
+      }
+    },
+
+    startArrivalShape({ reducedMotion = false, onComplete, qaPreview = false, camera = activeCamera } = {}) {
       if (arrivalEffect) {
         arrivalEffect.onComplete = onComplete;
         return;
       }
+      if (camera) activeCamera = camera;
+      const cam = activeCamera;
+
+      // 1. Stage Clearing: Dim orbits, planets, center heart and hide beacons during particle arrival
+      this.setBeaconsVisible(false);
+      this.setOrbitsOpacity(0.08);
+      this.setStageDimmed(true);
+
+      // 2. High-Resolution Canvas (512x512) for Heart and "ข้าวหอม"
       const shapeCanvas = document.createElement('canvas');
-      shapeCanvas.width = 256;
-      shapeCanvas.height = 256;
+      shapeCanvas.width = 512;
+      shapeCanvas.height = 512;
       const context = shapeCanvas.getContext('2d', { willReadFrequently: true });
+
+      // Draw romantic Heart Shape centered at (256, 256)
       context.fillStyle = '#fff';
       context.beginPath();
-      context.moveTo(128, 224);
-      context.bezierCurveTo(96, 194, 20, 144, 20, 86);
-      context.bezierCurveTo(20, 32, 84, 16, 128, 68);
-      context.bezierCurveTo(172, 16, 236, 32, 236, 86);
-      context.bezierCurveTo(236, 144, 160, 194, 128, 224);
+      context.moveTo(256, 420);
+      context.bezierCurveTo(192, 350, 48, 260, 48, 155);
+      context.bezierCurveTo(48, 60, 156, 36, 256, 136);
+      context.bezierCurveTo(356, 36, 464, 60, 464, 155);
+      context.bezierCurveTo(464, 260, 320, 350, 256, 420);
       context.fill();
-      const sampleMask = () => {
-        const pixels = context.getImageData(0, 0, 256, 256).data;
+
+      // Sample mask with boundary/edge weighting for crisp contours
+      const sampleMask = (dilate = false) => {
+        const imgData = context.getImageData(0, 0, 512, 512);
+        const pixels = imgData.data;
         const candidates = [];
-        for (let y = 0; y < 256; y += 2) {
-          for (let x = 0; x < 256; x += 2) {
-            if (pixels[(y * 256 + x) * 4 + 3] > 0) candidates.push([x, y]);
+        const edges = [];
+        for (let y = 4; y < 508; y += 2) {
+          for (let x = 4; x < 508; x += 2) {
+            const idx = (y * 512 + x) * 4 + 3;
+            if (pixels[idx] > 30) {
+              candidates.push([x, y]);
+              const isEdge = pixels[idx - 4] <= 30 || pixels[idx + 4] <= 30 ||
+                             pixels[idx - 512 * 4] <= 30 || pixels[idx + 512 * 4] <= 30;
+              if (isEdge) edges.push([x, y]);
+            } else if (dilate) {
+              if (pixels[idx - 4] > 80 || pixels[idx + 4] > 80 ||
+                  pixels[idx - 512 * 4] > 80 || pixels[idx + 512 * 4] > 80) {
+                candidates.push([x, y]);
+                edges.push([x, y]);
+              }
+            }
           }
         }
-        return candidates;
+        return { candidates, edges: edges.length ? edges : candidates };
       };
-      const heartCandidates = sampleMask();
-      context.clearRect(0, 0, 256, 256);
-      context.font = '900 156px Prompt, Kanit, sans-serif';
+
+      const heartData = sampleMask(false);
+      const heartPool = [...heartData.candidates, ...heartData.edges];
+
+      // Draw "ข้าวหอม" with Thai typography
+      context.clearRect(0, 0, 512, 512);
+      context.font = '900 114px "Prompt", "Kanit", "Noto Sans Thai", sans-serif';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
-      context.fillText('ขห', 128, 128);
-      const letterCandidates = sampleMask();
-      const count = reducedMotion ? 100 : quality.tier === 'low' ? 200 : quality.tier === 'medium' ? 320 : 500;
+      context.fillText('ข้าวหอม', 256, 256);
+
+      const letterData = sampleMask(true);
+      const letterPool = [...letterData.candidates, ...letterData.edges, ...letterData.edges];
+
+      // Point counts: mobile ~900, desktop ~2000, low tier ~500, reduced-motion ~300
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 520;
+      const count = reducedMotion
+        ? 300
+        : quality.tier === 'low'
+          ? 500
+          : isMobile
+            ? 900
+            : 2000;
+
       const starts = new Float32Array(count * 3);
       const heartTargets = new Float32Array(count * 3);
       const letterTargets = new Float32Array(count * 3);
       const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const randoms = new Float32Array(count);
+
+      const cPink = new THREE.Color(0xf9a8d4);
+      const cLavender = new THREE.Color(0xc084fc);
+      const cWhite = new THREE.Color(0xffffff);
+
       for (let i = 0; i < count; i += 1) {
-        const heartPoint = heartCandidates[Math.floor(Math.random() * heartCandidates.length)];
-        const letterPoint = letterCandidates[Math.floor(Math.random() * letterCandidates.length)];
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 100 + Math.random() * 110;
-        const start = [Math.cos(angle) * radius, (Math.random() - 0.5) * 130, Math.sin(angle) * radius - 10];
+        const hp = heartPool[Math.floor(Math.random() * heartPool.length)];
+        const lp = letterPool[Math.floor(Math.random() * letterPool.length)];
+
+        // Sphere explosion start distribution
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const r = 120 + Math.random() * 110;
+        const sinPhi = Math.sin(phi);
+        const start = [
+          r * sinPhi * Math.cos(theta),
+          r * sinPhi * Math.sin(theta),
+          r * Math.cos(phi)
+        ];
         starts.set(start, i * 3);
         positions.set(start, i * 3);
-        heartTargets.set([(heartPoint[0] - 128) * 0.66, (128 - heartPoint[1]) * 0.62, -10 + (Math.random() - 0.5) * 2], i * 3);
-        letterTargets.set([(letterPoint[0] - 128) * 0.66, (128 - letterPoint[1]) * 0.62, -10 + (Math.random() - 0.5) * 2], i * 3);
+
+        const zJitter = (Math.random() - 0.5) * 4.0;
+        heartTargets.set([(hp[0] - 256) * 0.52, (256 - hp[1]) * 0.52, zJitter], i * 3);
+        letterTargets.set([(lp[0] - 256) * 0.55, (256 - lp[1]) * 0.55, zJitter], i * 3);
+
+        const tColor = THREE.MathUtils.clamp((lp[0] / 512), 0, 1);
+        const col = new THREE.Color();
+        if (Math.random() < 0.12) {
+          col.copy(cWhite);
+        } else if (tColor < 0.5) {
+          col.lerpColors(cPink, cLavender, tColor * 2.0);
+        } else {
+          col.lerpColors(cLavender, cWhite, (tColor - 0.5) * 2.0);
+        }
+        col.toArray(colors, i * 3);
+        randoms[i] = Math.random();
       }
-      if (qaPreview) positions.set(letterTargets);
+
+      if (qaPreview) {
+        positions.set(letterTargets);
+      }
+
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const pointPx = Math.max(3.2, Math.min(window.devicePixelRatio || 1, 2) * 3.2);
       const material = new THREE.PointsMaterial({
-        map: sparkleTex, color: 0xffe8f6, size: 2.1, transparent: true, opacity: 0,
-        blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false
+        map: sparkleTex,
+        vertexColors: true,
+        size: pointPx,
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: qaPreview ? 1.0 : 0.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false
       });
+
       const points = new THREE.Points(geometry, material);
       points.name = 'arrivalHeartParticleReveal';
+      points.position.copy(heartGroup.position);
+      if (cam) points.quaternion.copy(cam.quaternion);
+
+      const updateBillboardScale = () => {
+        if (!cam) return;
+        points.position.copy(heartGroup.position);
+        points.quaternion.copy(cam.quaternion);
+        const dist = cam.position.distanceTo(points.position);
+        const fovRad = THREE.MathUtils.degToRad(cam.fov);
+        const vHeight = 2 * dist * Math.tan(fovRad / 2);
+        const vWidth = vHeight * cam.aspect;
+        const isPortrait = cam.aspect < 1.0;
+        const targetWidth = isPortrait ? vWidth * 0.76 : vWidth * 0.46;
+        const s = targetWidth / 260;
+        points.scale.set(s, s, s);
+      };
+      updateBillboardScale();
       rootGroup.add(points);
+
       arrivalEffect = {
-        geometry, material, points, starts, heartTargets, letterTargets,
-        elapsed: qaPreview ? (reducedMotion ? 0.23 : 1.9) : 0,
-        travel: reducedMotion ? 0.15 : 1.45,
-        letterTravel: reducedMotion ? 0.08 : 0.45,
-        hold: qaPreview ? 10 : reducedMotion ? 0.2 : 1.2,
-        onComplete,
-        collapse: reducedMotion ? 0.08 : 0.32,
-        fade: reducedMotion ? 0.16 : 0.45
+        geometry,
+        material,
+        points,
+        starts,
+        heartTargets,
+        letterTargets,
+        randoms,
+        updateBillboardScale,
+        elapsed: qaPreview ? 2.6 : 0,
+        travel: reducedMotion ? 0.15 : 1.4,
+        letterTravel: reducedMotion ? 0.08 : 0.8,
+        hold: qaPreview ? 30 : (reducedMotion ? 0.3 : 2.0),
+        burst: reducedMotion ? 0.08 : 0.6,
+        fade: reducedMotion ? 0.12 : 0.35,
+        onComplete: () => {
+          this.setOrbitsOpacity(0.28);
+          this.setBeaconsVisible(true);
+          this.setStageDimmed(false);
+          onComplete?.();
+        }
       };
     },
 
-    update(delta, orbitTime, realTime = orbitTime, musicBass = 0) {
+    update(delta, orbitTime, realTime = orbitTime, musicBass = 0, camera = activeCamera) {
+      if (camera) activeCamera = camera;
       if (enchantedRose.group.visible) enchantedRose.update(delta, realTime);
       if (arrivalEffect) {
         const effect = arrivalEffect;
         effect.elapsed += delta;
+        effect.updateBillboardScale();
         const positions = effect.geometry.attributes.position.array;
         const letterStart = effect.travel;
         const holdStart = letterStart + effect.letterTravel;
-        const collapseStart = holdStart + effect.hold;
-        const fadeStart = collapseStart + effect.collapse;
-        let phaseProgress;
-        let from;
-        let to;
+        const burstStart = holdStart + effect.hold;
+        const finishTime = burstStart + effect.burst;
+
+        const count = effect.starts.length / 3;
+
         if (effect.elapsed < letterStart) {
-          phaseProgress = effect.elapsed / effect.travel;
-          from = effect.starts;
-          to = effect.heartTargets;
-        } else if (effect.elapsed < holdStart) {
-          phaseProgress = (effect.elapsed - letterStart) / effect.letterTravel;
-          from = effect.heartTargets;
-          to = effect.letterTargets;
-        } else if (effect.elapsed < collapseStart) {
-          phaseProgress = 1;
-          from = effect.letterTargets;
-          to = effect.letterTargets;
-        } else if (effect.elapsed < fadeStart) {
-          phaseProgress = (effect.elapsed - collapseStart) / effect.collapse;
-          from = effect.letterTargets;
-          to = null;
-        } else {
-          phaseProgress = 1;
-          from = effect.letterTargets;
-          to = null;
-        }
-        const eased = phaseProgress * phaseProgress * (3 - 2 * phaseProgress);
-        for (let i = 0; i < effect.starts.length; i += 3) {
-          for (let axis = 0; axis < 3; axis += 1) {
-            positions[i + axis] = to
-              ? THREE.MathUtils.lerp(from[i + axis], to[i + axis], eased)
-              : THREE.MathUtils.lerp(from[i + axis], axis === 2 ? 0 : 0, eased);
+          const p = THREE.MathUtils.clamp(effect.elapsed / effect.travel, 0, 1);
+          const ease = p * p * (3 - 2 * p);
+          for (let i = 0; i < count; i += 1) {
+            const i3 = i * 3;
+            const angle = (1 - ease) * 1.8;
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+            const sx = effect.starts[i3];
+            const sy = effect.starts[i3 + 1];
+            const sz = effect.starts[i3 + 2];
+            const rotX = sx * cosA - sy * sinA;
+            const rotY = sx * sinA + sy * cosA;
+            positions[i3] = THREE.MathUtils.lerp(rotX, effect.heartTargets[i3], ease);
+            positions[i3 + 1] = THREE.MathUtils.lerp(rotY, effect.heartTargets[i3 + 1], ease);
+            positions[i3 + 2] = THREE.MathUtils.lerp(sz, effect.heartTargets[i3 + 2], ease);
           }
-        }
-        effect.geometry.attributes.position.needsUpdate = true;
-        effect.material.opacity = effect.elapsed < holdStart
-          ? Math.min(1, effect.elapsed / Math.max(0.01, effect.travel) * 1.5)
-          : 1 - THREE.MathUtils.clamp((effect.elapsed - fadeStart) / effect.fade, 0, 1);
-        if (effect.elapsed >= fadeStart + effect.fade) {
+          effect.material.opacity = Math.min(1.0, p * 1.6);
+        } else if (effect.elapsed < holdStart) {
+          const p = THREE.MathUtils.clamp((effect.elapsed - letterStart) / effect.letterTravel, 0, 1);
+          const ease = p * p * (3 - 2 * p);
+          for (let i = 0; i < count; i += 1) {
+            const i3 = i * 3;
+            positions[i3] = THREE.MathUtils.lerp(effect.heartTargets[i3], effect.letterTargets[i3], ease);
+            positions[i3 + 1] = THREE.MathUtils.lerp(effect.heartTargets[i3 + 1], effect.letterTargets[i3 + 1], ease);
+            positions[i3 + 2] = THREE.MathUtils.lerp(effect.heartTargets[i3 + 2], effect.letterTargets[i3 + 2], ease);
+          }
+          effect.material.opacity = 1.0;
+        } else if (effect.elapsed < burstStart) {
+          for (let i = 0; i < count; i += 1) {
+            const i3 = i * 3;
+            const twinkle = Math.sin(realTime * 5.0 + effect.randoms[i] * 6.28) * 0.4;
+            positions[i3] = effect.letterTargets[i3];
+            positions[i3 + 1] = effect.letterTargets[i3 + 1];
+            positions[i3 + 2] = effect.letterTargets[i3 + 2] + twinkle;
+          }
+          effect.material.opacity = 1.0;
+        } else if (effect.elapsed < finishTime) {
+          const p = THREE.MathUtils.clamp((effect.elapsed - burstStart) / effect.burst, 0, 1);
+          const ease = p * p;
+          for (let i = 0; i < count; i += 1) {
+            const i3 = i * 3;
+            positions[i3] = THREE.MathUtils.lerp(effect.letterTargets[i3], 0, ease);
+            positions[i3 + 1] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 1], 0, ease);
+            positions[i3 + 2] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 2], 0, ease);
+          }
+          effect.material.opacity = THREE.MathUtils.clamp(1.0 - p * 1.5, 0, 1);
+        } else {
           rootGroup.remove(effect.points);
           effect.geometry.dispose();
           effect.material.dispose();
+          const doneFn = effect.onComplete;
           arrivalEffect = null;
-          effect.onComplete?.();
+          doneFn?.();
+        }
+        if (arrivalEffect) {
+          effect.geometry.attributes.position.needsUpdate = true;
         }
       }
       if (currentStage === 'cake') {
@@ -1534,6 +1697,16 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       planetsList.forEach(p => {
         if (p.beaconSprite) p.beaconSprite.visible = beaconsVisible && !finaleMode && currentStage !== 'cake';
       });
+    },
+
+    setCamera(cam) {
+      if (cam) activeCamera = cam;
+    },
+
+    setOrbitsOpacity(opacity) {
+      for (const material of orbitPathMaterials.values()) {
+        material.opacity = opacity;
+      }
     },
 
     markVisited(id) {

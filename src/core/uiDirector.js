@@ -55,7 +55,18 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
     if (states) el.dataset.uiStates = states.join(',');
     el.classList.add('ui-director-item', `ui-zone-${zone}`, `ui-layer-${layer}`);
     el.style.zIndex = LAYER_Z[layer];
-    root.append(el);
+    if (zone === 'bottom-right') {
+      let dock = root.querySelector('.bottom-right-dock');
+      if (!dock) {
+        dock = document.createElement('div');
+        dock.className = 'bottom-right-dock';
+        dock.id = 'bottom-right-dock';
+        root.append(dock);
+      }
+      dock.append(el);
+    } else {
+      root.append(el);
+    }
     const entry = { id, zone, layer, el, onClose, states: states ? new Set(states) : null, timer: null, removeTimer: null, remaining: ttl, shownAt: performance.now(), paused: false, closing: false, removed: false };
     if (ttl !== null) entry.timer = setTimeout(() => removeEntry(entry), ttl);
     registry.set(id, entry);
@@ -95,7 +106,7 @@ export function createUIDirector({ root = document.body, reducedMotion = false }
     setModalOpen(open) {
       modalOpen = open;
       for (const entry of registry.values()) if (entry.layer !== 'modal') setInert(entry, open);
-      for (const element of root.querySelectorAll('.hud-container, .mobile-tools-toggle, .ui-epilogue-actions')) {
+      for (const element of root.querySelectorAll('.hud-container, .mobile-tools-toggle, .bottom-right-dock, .ui-epilogue-actions')) {
         if (element.closest('[data-ui-layer]')?.dataset.uiLayerType === 'modal') continue;
         if (open) {
           if (!modalBackgrounds.some((item) => item.element === element)) modalBackgrounds.push({ element, inert: element.inert, ariaHidden: element.getAttribute('aria-hidden') });

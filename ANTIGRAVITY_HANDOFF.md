@@ -373,3 +373,44 @@ npm run visual:qa -- --phase=handoff
 - **Production Asset Bundle**: `assets/index-DvdZumnE.js` และ `assets/index-0mMAda7-.css`
 - **HTTP Response Verification**: 200 OK (ตอบสนองสมบูรณ์ทุก Asset)
 - **วันเวลาที่ Deploy**: 26 ตุลาคม 2026 เวลา 13:45 น. (GMT+7)
+
+---
+
+## แผนรอบ 6: แก้บัคฉาก Arrival · รวม Dock ปุ่มมือถือ · ยกระดับฉากละอองดาว "ข้าวหอม" (Phases A–E)
+
+อัปเดต: 26 ตุลาคม 2026
+สถานะ: **เสร็จสมบูรณ์ตามข้อกำหนดทุกข้อ, ผ่านการตรวจ Automated Visual QA (Round 6) รหัสผ่าน 100%, และพร้อม Deploy ขึ้น Production บน Vercel**
+
+---
+
+### 1. รายละเอียดการแก้ไขในแต่ละเฟส (Phases A–E)
+
+| เฟส | ปัญหาเดิมและขอบเขตงาน | แนวทางแก้ไขและผลลัพธ์ | ไฟล์ที่แก้ไข |
+| :---: | :--- | :--- | :--- |
+| **A** | **บัคซ้อนกันในฉาก Arrival**<br>• ชื่อ "ข้าวหอม" 3D ถูกสร้างซ้ำสองชั้นเมื่อแตะข้ามขั้น<br>• แคปชั่น/การ์ดไกด์เด้งซ้ำสองรอบจากการค้างของ timer / delayedCall | 1. เพิ่ม Guard ใน `startNameReveal`: ตรวจสอบสถานะก่อนสร้างชื่อ 3D และยกเลิก `flowTimer` ทันทีเมื่อแตะข้ามขั้น<br>2. เพิ่ม Guard ใน `startCaption` และเก็บ instance ของ `gsap.delayedCall` ใน `name3DText.js` เพื่อสั่ง `.kill()` ทันทีเมื่อเรียก `hide()` หรือ `dispose()`<br>3. ปรับปรุง `cleanupListeners()` ให้ถอด `pointerdown` listener ออกในทุกเส้นทาง (แตะข้าม, จบเวลา, เปลี่ยน state, เปิด modal) ไม่เหลือ listener ค้าง | `src/ui/arrivalPopups.js`<br>`src/scene/name3DText.js` |
+| **B** | **Viewport & Safe Area บนมือถือ**<br>• ไม่มี `viewport-fit=cover` ทำให้ `safe-area-inset` มีค่า 0 บน iPhone<br>• มี `user-scalable=no` ขัดขวางการซูมดูรูป<br>• ปุ่มด้านบนชนแถบ Dynamic Island / Notch<br>• ไม่มี fallback `100dvh` | 1. อัปเดต `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">` นำ `user-scalable=no` และ `maximum-scale` ออกตามคำตอบผู้ใช้ เพื่อให้ผู้ใช้สามารถใช้สองนิ้วซูมภาพความทรงจำได้<br>2. ปรับ `.ui-zone-top-left` และ `.ui-zone-top-right` ให้ใช้ `top: max(16px, env(safe-area-inset-top))` และขอบข้าง `max(16px, env(safe-area-inset-*))`<br>3. เพิ่ม `height: 100dvh;` ให้กับ overlay, modal และ backdrop ทั้งหมด | `index.html`<br>`src/style.css` |
+| **C** | **รวมตำแหน่งปุ่มมุมล่าง (Unified Bottom-Right Dock)**<br>• กฎตำแหน่งปุ่มซ้ำ 3 ที่ มี `!important` แย่งค่ากัน<br>• ปุ่ม tilt, cake message, guide pill ใช้ค่า pixel คงที่ชนกันง่าย | 1. ลบกฎ media query ที่ซ้ำซ้อนใน CSS ออกทั้งหมด<br>2. สร้าง `.bottom-right-dock` ด้วย Flexbox `column-reverse` พร้อม `gap: 10px` ผูกกับ safe area อัตโนมัติ<br>3. กำหนด CSS variable `--bottom-ui-h: 70px;` เป็นจุดอ้างอิงความสูงกลางสำหรับข้อความบนเค้กและการ์ดไกด์<br>4. ให้ปุ่ม `...` (`.mobile-tools-toggle`) ควบคุมการแสดงผลของ dock บนจอมือถืออย่างเป็นระเบียบ ไม่ทับซ้อนกัน | `src/style.css`<br>`src/core/uiDirector.js`<br>`src/ui/hudOverlay.js`<br>`src/main.js` |
+| **D** | **ฉากละอองตอนถึงดาว (Arrival Particles Overhaul)**<br>• รูปเดิมแบนบนระนาบ XY โดนมุมกล้อง 72° บีบเหลือ ~31%<br>• จุดน้อย สุ่มเป็นกลุ่ม และคำว่า "ขห" สั้นไม่สื่อความหมาย | 1. **Billboard หันเข้ากล้อง**: จุดละอองคำนวณ Quaternion ตามมุมกล้องทุกเฟรม ขจัดปัญหามุมเอียง 100%<br>2. **สเกลเต็มตา**: ขยายขนาดครอบคลุม ~76% ของความกว้างจอมือถือแนวตั้ง (~46% บนเดสก์ท็อป) และสูง $\ge 25\%$ ของจอ<br>3. **แคนวาส 512x512 + ฟอนต์ไทย**: สุ่มจุดถ่วงน้ำหนักเส้นขอบตัวอักษร "ข้าวหอม" พร้อมสระ/วรรณยุกต์ครบถ้วน<br>4. **สีและประกาย**: ไล่เฉดชมพู `#f9a8d4` $\to$ ม่วงลาเวนเดอร์ `#c084fc` $\to$ ขาวสว่าง พร้อม 12% สตาร์สปาร์กเคิล<br>5. **เคลียร์เวที**: หรี่ระบบสุริยะ หัวใจ และดาวเคราะห์เหลือ 15% และซ่อนบีคอนขณะละอองรวมตัว<br>6. **ส่งต่อตรงสู่ชื่อ 3D**: กลุ่มดาวละอองหลอมเป็น "ข้าวหอม" $\to$ เปล่งประกาย $\to$ พุ่งระเบิดเข้าสู่หัวใจ แล้วเปิดชื่อ 3D "ข้าวหอม" ขนาดยักษ์ทันทีตามที่ผู้ใช้เลือก | `src/scene/solarSystemHeart.js`<br>`src/main.js`<br>`src/ui/arrivalPopups.js` |
+| **E** | **Automated Visual QA & ตรวจสอบคุณภาพ**<br>• เพิ่มชุดทดสอบ Round 6 ในสคริปต์ `scripts/visual-qa.mjs`<br>• ตรวจ Rapid tap, ตรวจ UI overlap 4 ขนาดจอ, ตรวจภาพละออง | รันชุดทดสอบ `npm run visual:qa -- --phase=round6-arrival-mobile` ผ่านฉลุย 100% (Exit code 0, 0 errors, 0 warnings)<br>• Rapid Tap: สร้างชื่อ 3D เพียง 1 ชุด, แคปชั่นไม่ซ้ำ<br>• Dock Overlaps: ผ่านทุกขนาดจอ (390x844, 360x740, 844x390, 768x1024)<br>• Arrival Constellation: สว่าง ชัดเจน ไม่ตกขอบ | `scripts/visual-qa.mjs`<br>`qa/round6-arrival-mobile/` |
+
+---
+
+### 2. ผลการทดสอบ Visual QA อัตโนมัติ (Round 6)
+
+| ไฟล์ภาพ QA | รายละเอียดการทดสอบ | ผลการตรวจ |
+| :--- | :--- | :---: |
+| `arrival-rapid-tap.png` | จำลองการแตะรัว 8 ครั้งในฉาก Arrival: มี `arrival3DNameText` ในฉากเพียง 1 ชุด, แคปชั่นไม่เบิ้ล | **ผ่าน (PASS)** |
+| `dock-iphone-portrait.png` | จอ iPhone (390×844): ปุ่มใน Dock จัดเรียงแนวตั้ง ไม่ซ้อนทับกัน เว้นระยะ safe area สมบูรณ์ | **ผ่าน (PASS)** |
+| `dock-android-narrow.png` | จอ Android กว้างแคบ (360×740): ปุ่มเครื่องมืออยู่ในระยะปลอดภัย ไม่ล้นจอ | **ผ่าน (PASS)** |
+| `dock-mobile-landscape.png`| จอแนวนอน (844×390): Dock ขวาล่างแยกเป็นอิสระ ไม่บดบังระบบสุริยะ | **ผ่าน (PASS)** |
+| `dock-tablet.png` | จอ Tablet (768×1024): แสดงผลเต็มความกว้าง touch target $\ge 44\times 44\text{px}$ ทุกปุ่ม | **ผ่าน (PASS)** |
+| `cake-dock-mobile.png` | ฉากเค้กวันเกิด: ข้อความแนะนำบนเค้กกับ Dock มีระยะห่างชัดเจน ไม่ชนกัน | **ผ่าน (PASS)** |
+| `arrival-constellation-portrait.png` | ฉากละอองดาวแนวตั้งมือถือ: ละอองตัวอักษร "ข้าวหอม" ขนาดใหญ่เด่นกลางจอ อ่านง่าย สวยงาม | **ผ่าน (PASS)** |
+| `arrival-constellation-desktop.png` | ฉากละอองดาว Desktop: ตัวอักษรหันตั้งฉากกับสายตา ระนาบสมดุล ไร้การบิดเบี้ยว | **ผ่าน (PASS)** |
+
+---
+
+### 3. สิ่งที่คงไว้โดยไม่ดัดแปลง (Strict Preservation)
+- ข้อความภาษาไทยดั้งเดิมทั้งหมดของเจ้าของใน `memoriesData.js`, `PLANET_CONFIG`, `secretMessage` ถูกคงไว้ตามเดิม 100%
+- ไม่มีการเพิ่มฉากหรือฟีเจอร์นอกแผน
+- ค่า FPS บนเครื่องจริงขึ้นอยู่กับ GPU ของโทรศัพท์ (ไม่นำค่าของ SwiftShader CPU บนเซิร์ฟเวอร์มาอ้างอิง)

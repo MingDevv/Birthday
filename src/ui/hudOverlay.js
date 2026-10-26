@@ -104,13 +104,15 @@ export class HudOverlay {
         <span id="hud-hint-text">💫 ลากเมาส์สำรวจดวงใจคริสตัลและ 5 ดาวเคราะห์ความทรงจำวันเกิด · คลิกดาวเคราะห์เพื่อเปิดอ่านการ์ดอวยพร · กด 'ท่องกาแล็กซี่ 3D' เพื่อดูมุมกว้าง</span>
       </div>
 
-      <!-- Bottom-Right: Make a Wish Button (ปุ่มขอพรวันเกิด) -->
-      <div class="hud-wish-wrap">
-        <button id="btn-make-wish" class="wish-btn" title="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)" aria-label="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)">
-          <span class="wish-star">🎂</span>
-          <span class="wish-text">อธิษฐานขอพรวันเกิด</span>
-          <span class="wish-star">🌠✨</span>
-        </button>
+      <!-- Bottom-Right Dock: Tools & Make a Wish Button -->
+      <div class="bottom-right-dock" id="bottom-right-dock">
+        <div class="hud-wish-wrap">
+          <button id="btn-make-wish" class="wish-btn" title="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)" aria-label="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)">
+            <span class="wish-star">🎂</span>
+            <span class="wish-text">อธิษฐานขอพรวันเกิด</span>
+            <span class="wish-star">🌠✨</span>
+          </button>
+        </div>
       </div>
     `;
 

@@ -9,45 +9,60 @@ export function showArrivalCelebrationFlow(soundManager, {
   solarSystem,
   worldTextRegistry,
   reducedMotion = false,
-  quality = { tier: 'medium' }
+  quality = { tier: 'medium' },
+  startAtName = false
 } = {}) {
   const isQa = new URLSearchParams(location.search).get('qa')?.startsWith('arrival-');
-  let currentStep = 'number';
+  let currentStep = startAtName ? 'name' : 'number';
   let skipCurrentStep = null;
+  let flowTimer = null;
+  let number = null;
+  let nameReveal = null;
+  let isCleanedUp = false;
 
   // Hide planet beacons during arrival sequence to keep hero name reveal clutter-free
   solarSystem?.setBeaconsVisible(false);
 
-  // Window tap listener to step through arrival sequence
-  const onScreenTap = (e) => {
-    // Ignore interactive UI clicks like HUD or buttons
-    if (e.target.closest('button, .hud-top-actions, .polaroid-modal, .guide-open-card-pill')) return;
-    if (skipCurrentStep) skipCurrentStep();
-  };
-  window.addEventListener('pointerdown', onScreenTap);
-
   const cleanupListeners = () => {
+    if (isCleanedUp) return;
+    isCleanedUp = true;
+    if (flowTimer) {
+      clearTimeout(flowTimer);
+      flowTimer = null;
+    }
     solarSystem?.setBeaconsVisible(true);
     window.removeEventListener('pointerdown', onScreenTap);
   };
 
-  // Step 1: Number "16" appears with chime (t=0.3s)
-  if (soundManager) soundManager.playChimeSound();
-  const number = createArrivalNumber(scene, { quality: quality.tier });
-  worldTextRegistry?.add(number);
+  // Window tap listener to step through arrival sequence safely
+  const onScreenTap = (e) => {
+    // Ignore interactive UI clicks like HUD or buttons
+    if (e.target.closest('button, .hud-top-actions, .polaroid-modal, .guide-open-card-pill, .bottom-right-dock')) return;
+    if (skipCurrentStep) {
+      const skipFn = skipCurrentStep;
+      skipCurrentStep = null;
+      skipFn();
+    }
+  };
+  window.addEventListener('pointerdown', onScreenTap);
 
-  if (isQa) {
-    window.__qaArrivalNumber = number;
-    window.__qaArrivalStage = 'number';
-  }
+  // Auto cleanup on flow state change or modal open
+  const onFlowStateChange = () => {
+    if (flow && flow.state !== 'EXPLORE' && flow.state !== 'ARRIVAL') {
+      cleanupListeners();
+    }
+  };
+  window.addEventListener('memory-modal-opened', cleanupListeners, { once: true });
 
-  number.show(reducedMotion ? 0.05 : 0.55);
-
-  let nameReveal = null;
-
-  // Step 2: Name Reveal "ข้าวหอม" (t=1.6s)
+  // Step 2: Name Reveal "ข้าวหอม"
   const startNameReveal = () => {
+    // A1 Guard: only allow transition into name reveal once
+    if (currentStep !== 'number' && currentStep !== 'init') return;
     currentStep = 'name';
+    if (flowTimer) {
+      clearTimeout(flowTimer);
+      flowTimer = null;
+    }
     if (isQa) window.__qaArrivalStage = 'name';
 
     // Number 16 fades out so it does not overlap with 3D Name
@@ -67,14 +82,19 @@ export function showArrivalCelebrationFlow(soundManager, {
     });
 
     skipCurrentStep = () => {
-      skipCurrentStep = null;
       startCaption();
     };
   };
 
-  // Step 3: Caption with emphasized "ข้าวหอม" (t=4.5s)
+  // Step 3: Caption with emphasized "ข้าวหอม"
   const startCaption = () => {
+    // A2 Guard: only allow transition into caption once
+    if (currentStep === 'caption' || currentStep === 'done') return;
     currentStep = 'caption';
+    if (flowTimer) {
+      clearTimeout(flowTimer);
+      flowTimer = null;
+    }
     if (isQa) window.__qaArrivalStage = 'caption';
 
     if (number && !number.disposed) {
@@ -96,34 +116,57 @@ export function showArrivalCelebrationFlow(soundManager, {
       ttl: reducedMotion ? 2600 : 7200,
       element: caption,
       onClose: () => {
+        currentStep = 'done';
         cleanupListeners();
         showGuideCardPrompt(uiDirector, { reducedMotion });
       }
     });
 
     skipCurrentStep = () => {
-      skipCurrentStep = null;
+      currentStep = 'done';
       cleanupListeners();
       handle.hide();
     };
   };
 
-  // Schedule progression
-  const numberDuration = reducedMotion ? 800 : 1400;
-  if (!isQa) {
-    flow?.after(() => {
-      startNameReveal();
-    }, numberDuration, 'EXPLORE');
-  }
-
-  skipCurrentStep = () => {
-    skipCurrentStep = null;
+  if (startAtName && !isQa) {
+    // Phase D9: Particle sequence already led into name, start name reveal directly!
+    currentStep = 'init';
     startNameReveal();
-  };
+  } else {
+    // Standard / QA step 1: Number "16" appears with chime
+    if (soundManager) soundManager.playChimeSound();
+    number = createArrivalNumber(scene, { quality: quality.tier });
+    worldTextRegistry?.add(number);
+
+    if (isQa) {
+      window.__qaArrivalNumber = number;
+      window.__qaArrivalStage = 'number';
+    }
+
+    number.show(reducedMotion ? 0.05 : 0.55);
+
+    // Schedule progression
+    const numberDuration = reducedMotion ? 800 : 1400;
+    if (!isQa) {
+      flowTimer = flow?.after(() => {
+        flowTimer = null;
+        startNameReveal();
+      }, numberDuration, 'EXPLORE');
+    }
+
+    skipCurrentStep = () => {
+      startNameReveal();
+    };
+  }
 
   if (isQa) {
     window.__qaAdvanceArrivalStep = () => {
-      if (skipCurrentStep) skipCurrentStep();
+      if (skipCurrentStep) {
+        const fn = skipCurrentStep;
+        skipCurrentStep = null;
+        fn();
+      }
     };
   }
 }

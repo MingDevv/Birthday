@@ -510,113 +510,127 @@ export function createArrivalNameReveal(scene, camera, { reducedMotion = false }
     group.scale.setScalar(finalScale);
   }
 
-  return {
-    group,
-    get revealed() { return isRevealed; },
-    get disposed() { return isDisposed; },
+    let holdDelayedCall = null;
 
-    show(onComplete) {
-      if (isRevealed || isDisposed) return;
-      isRevealed = true;
-      group.visible = true;
-      updateTransform();
+    return {
+      group,
+      get revealed() { return isRevealed; },
+      get disposed() { return isDisposed; },
 
-      glowMat.opacity = reducedMotion ? 0.45 : 0;
-      emberMat.opacity = reducedMotion ? 0.9 : 0;
+      show(onComplete) {
+        if (isRevealed || isDisposed) return;
+        isRevealed = true;
+        group.visible = true;
+        updateTransform();
 
-      if (!reducedMotion) {
-        gsap.to(glowMat, { opacity: 0.48, duration: 0.8, ease: 'power2.out' });
-        gsap.to(emberMat, { opacity: 0.95, duration: 1.0, ease: 'power2.out' });
-      }
+        glowMat.opacity = reducedMotion ? 0.45 : 0;
+        emberMat.opacity = reducedMotion ? 0.9 : 0;
 
-      // Staggered character wipe sweep
-      const revealGlyphs = () => {
-        if (meshData.vectorLoaded && vectorGlyphMeshes.length) {
-          vectorGlyphMeshes.forEach((mesh, index) => {
-            mesh.visible = true;
-            if (reducedMotion) {
-              mesh.scale.setScalar(1);
-            } else {
-              mesh.scale.setScalar(0.7);
-              gsap.to(mesh.scale, {
-                x: 1, y: 1, z: 1,
-                duration: 0.45,
-                delay: index * 0.08,
-                ease: 'back.out(1.7)'
-              });
-            }
-          });
+        if (!reducedMotion) {
+          gsap.to(glowMat, { opacity: 0.48, duration: 0.8, ease: 'power2.out' });
+          gsap.to(emberMat, { opacity: 0.95, duration: 1.0, ease: 'power2.out' });
+        }
+
+        // Staggered character wipe sweep
+        const revealGlyphs = () => {
+          if (meshData.vectorLoaded && vectorGlyphMeshes.length) {
+            vectorGlyphMeshes.forEach((mesh, index) => {
+              mesh.visible = true;
+              if (reducedMotion) {
+                mesh.scale.setScalar(1);
+              } else {
+                mesh.scale.setScalar(0.7);
+                gsap.to(mesh.scale, {
+                  x: 1, y: 1, z: 1,
+                  duration: 0.45,
+                  delay: index * 0.08,
+                  ease: 'back.out(1.7)'
+                });
+              }
+            });
+          } else {
+            // Fallback planes fade in
+            gsap.to([planeFrontMat, planeExtrusionMat], {
+              opacity: reducedMotion ? 1 : 1,
+              duration: reducedMotion ? 0.1 : 0.6,
+              ease: 'power2.out'
+            });
+          }
+        };
+
+        if (meshData.vectorLoaded) {
+          revealGlyphs();
         } else {
-          // Fallback planes fade in
-          gsap.to([planeFrontMat, planeExtrusionMat], {
-            opacity: reducedMotion ? 1 : 1,
-            duration: reducedMotion ? 0.1 : 0.6,
-            ease: 'power2.out'
+          loadGlyphGeometries().then(() => {
+            if (!isDisposed && isRevealed) revealGlyphs();
           });
         }
-      };
 
-      if (meshData.vectorLoaded) {
-        revealGlyphs();
-      } else {
-        loadGlyphGeometries().then(() => {
-          if (!isDisposed && isRevealed) revealGlyphs();
-        });
-      }
-
-      // Flash specular highlight sweep
-      if (!reducedMotion) {
-        gsap.to(frontMat, { emissiveIntensity: 0.9, duration: 0.4, yoyo: true, repeat: 1, delay: 0.6 });
-      }
-
-      // Hold for at least 2.4 seconds, then trigger onComplete
-      const holdTime = reducedMotion ? 1600 : 2500;
-      gsap.delayedCall(holdTime / 1000, () => {
-        onComplete?.();
-      });
-    },
-
-    hide(seconds = 0.5) {
-      if (!isRevealed || isDisposed) return;
-      const dur = reducedMotion ? 0.1 : Math.max(0.1, seconds);
-
-      gsap.to(group.scale, {
-        x: group.scale.x * 0.4,
-        y: group.scale.y * 0.4,
-        z: group.scale.z * 0.4,
-        duration: dur,
-        ease: 'power2.in'
-      });
-      gsap.to([glowMat, emberMat, planeFrontMat, planeExtrusionMat], {
-        opacity: 0,
-        duration: dur,
-        ease: 'power2.in',
-        onComplete: () => {
-          this.dispose();
+        // Flash specular highlight sweep
+        if (!reducedMotion) {
+          gsap.to(frontMat, { emissiveIntensity: 0.9, duration: 0.4, yoyo: true, repeat: 1, delay: 0.6 });
         }
-      });
-    },
 
-    update(delta, time) {
-      if (isDisposed || !group.visible) return;
-      updateTransform();
+        // Hold for at least 2.4 seconds, then trigger onComplete
+        const holdTime = reducedMotion ? 1600 : 2500;
+        if (holdDelayedCall) {
+          holdDelayedCall.kill();
+        }
+        holdDelayedCall = gsap.delayedCall(holdTime / 1000, () => {
+          holdDelayedCall = null;
+          onComplete?.();
+        });
+      },
 
-      // Gentle floating embers
-      const positions = emberGeo.attributes.position.array;
-      for (let i = 0; i < emberData.length; i++) {
-        const item = emberData[i];
-        positions[i * 3 + 1] = item.y + Math.sin(time * item.speed + item.phase) * 3.5;
-        positions[i * 3 + 2] = item.z + Math.cos(time * item.speed + item.phase) * 2.5;
+      hide(seconds = 0.5) {
+        if (!isRevealed || isDisposed) return;
+        if (holdDelayedCall) {
+          holdDelayedCall.kill();
+          holdDelayedCall = null;
+        }
+        const dur = reducedMotion ? 0.1 : Math.max(0.1, seconds);
+
+        gsap.to(group.scale, {
+          x: group.scale.x * 0.4,
+          y: group.scale.y * 0.4,
+          z: group.scale.z * 0.4,
+          duration: dur,
+          ease: 'power2.in'
+        });
+        gsap.to([glowMat, emberMat, planeFrontMat, planeExtrusionMat], {
+          opacity: 0,
+          duration: dur,
+          ease: 'power2.in',
+          onComplete: () => {
+            this.dispose();
+          }
+        });
+      },
+
+      update(delta, time) {
+        if (isDisposed || !group.visible) return;
+        updateTransform();
+
+        // Gentle floating embers
+        const positions = emberGeo.attributes.position.array;
+        for (let i = 0; i < emberData.length; i++) {
+          const item = emberData[i];
+          positions[i * 3 + 1] = item.y + Math.sin(time * item.speed + item.phase) * 3.5;
+          positions[i * 3 + 2] = item.z + Math.cos(time * item.speed + item.phase) * 2.5;
+        }
+        emberGeo.attributes.position.needsUpdate = true;
+      },
+
+      dispose() {
+        if (isDisposed) return;
+        isDisposed = true;
+        if (holdDelayedCall) {
+          holdDelayedCall.kill();
+          holdDelayedCall = null;
+        }
+        group.visible = false;
+        meshData.dispose();
+        scene.remove(group);
       }
-      emberGeo.attributes.position.needsUpdate = true;
-    },
-
-    dispose() {
-      if (isDisposed) return;
-      isDisposed = true;
-      group.visible = false;
-      meshData.dispose();
-      scene.remove(group);
-    }
-  };
+    };
 }
