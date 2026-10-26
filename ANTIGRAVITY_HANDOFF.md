@@ -504,3 +504,10 @@ npm run visual:qa -- --phase=handoff
 - **Production URL**: https://birthday-pi-wheat.vercel.app
 - **Production Asset Bundle**: `dist/assets/index-C6pUcSFJ.js` และ `dist/assets/index-CDWl2Kn4.css`
 - **Build Status**: `npm run build` ผ่านสมบูรณ์ (Zero errors, built in ~800ms)
+
+### 4. แก้ไขเพิ่มเติมหลังตรวจบัค
+
+- โหมด `prefers-reduced-motion` เพิ่มความหนาแน่นของอนุภาคที่ประกอบเป็น “ข้าวหอม” และค้างข้อความให้อ่านได้ แทนการเห็นเป็นเส้นบางๆ
+- ระหว่างทัวร์แนะนำบนมือถือ ล้างลูกศรชี้ดาวที่ค้างจากหน้าก่อน และซ่อนตัวชี้ทุกชนิดจนกว่าทัวร์จะจบ เพื่อไม่ให้ทับการ์ดคำแนะนำ
+- เพิ่ม assertion ใน `scripts/visual-qa.mjs` สำหรับจำนวนอนุภาคและตัวชี้ที่ต้องไม่แสดงระหว่างทัวร์
+- ตรวจ `npm run build` และ Visual QA 14 กรณีซ้ำแล้วผ่าน; ภาพอ้างอิงล่าสุดอยู่ใน `qa/round8-star-gate/reduced-motion-reveal.png` และ `qa/round8-star-gate/sharpness-focus-mobile.png`

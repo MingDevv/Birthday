@@ -307,6 +307,9 @@ try {
       await waitForAssets(page);
       await delay(1200);
 
+      const particleCount = await page.evaluate(() => window.__qaScene?.getObjectByName('arrivalHeartParticleReveal')?.geometry?.attributes?.position?.count || 0);
+      if (particleCount < 1300) errors.push(`reduced-motion-reveal: expected a readable static name field, got ${particleCount} particles`);
+
       await page.screenshot({ path: path.join(outputDir, 'reduced-motion-reveal.png') });
       await page.close();
     }
@@ -345,6 +348,21 @@ try {
       await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=sharpness-focus`, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await waitForAssets(page);
       await delay(1500);
+
+      const tourPointerOverlap = await page.evaluate(() => {
+        const card = document.querySelector('.guide-tour-card');
+        if (!card) return { missingTourCard: true, pointers: [] };
+        const pointers = [...document.querySelectorAll('.guide-3d-pointer, .guide-edge-arrow')]
+          .filter((el) => {
+            const rect = el.getBoundingClientRect();
+            const style = getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+          })
+          .map((el) => el.className);
+        return { missingTourCard: false, pointers };
+      });
+      if (tourPointerOverlap.missingTourCard) errors.push('sharpness-focus-mobile: HUD tour card was not visible');
+      if (tourPointerOverlap.pointers.length) errors.push(`sharpness-focus-mobile: planet pointers overlap the HUD tour card (${tourPointerOverlap.pointers.join(', ')})`);
 
       await page.screenshot({ path: path.join(outputDir, 'sharpness-focus-mobile.png') });
       await page.close();

@@ -56,6 +56,11 @@ export function startFirstRunTour({
     return null;
   }
 
+  // The tour card and its target spotlight replace the separate planet
+  // pointer/edge arrow. Remove any pointer left by the first-explore prompt.
+  document.body.classList.add('guide-tour-active');
+  document.querySelectorAll('.guide-3d-pointer, .guide-edge-arrow').forEach((element) => element.remove());
+
   let currentIndex = 0;
   let spotlightEl = document.querySelector('.guide-spotlight');
   if (!spotlightEl) {
@@ -67,6 +72,7 @@ export function startFirstRunTour({
   let currentCardHandle = null;
 
   function finishTour() {
+    document.body.classList.remove('guide-tour-active');
     try {
       sessionStorage.setItem('tourSeen', 'true');
     } catch {}

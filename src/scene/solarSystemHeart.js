@@ -1357,10 +1357,11 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         }
       }
 
-      // Point counts: mobile ~1600, desktop ~2600, low tier ~900, reduced-motion ~600
+      // Keep the reduced-motion lettering dense enough to read while rendering no travel animation.
+      // The static reduced-motion pass is cheaper than animating the full desktop particle field.
       const isMobile = typeof window !== 'undefined' && window.innerWidth <= 520;
       const count = reducedMotion
-        ? 600
+        ? 1400
         : quality.tier === 'low'
           ? 900
           : isMobile
@@ -1432,7 +1433,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         randoms[i] = Math.random();
       }
 
-      if (qaPreview) {
+      if (qaPreview || reducedMotion) {
         positions.set(letterTargets);
       }
 
@@ -1483,10 +1484,10 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         letterTargets,
         randoms,
         updateBillboardScale,
-        elapsed: qaPreview ? 2.6 : 0,
-        travel: reducedMotion ? 0.15 : 1.4,
-        letterTravel: reducedMotion ? 0.08 : 0.8,
-        hold: qaPreview ? 30 : (reducedMotion ? 0.4 : 2.5),
+        elapsed: qaPreview ? 2.6 : (reducedMotion ? 0.02 : 0),
+        travel: reducedMotion ? 0.01 : 1.4,
+        letterTravel: reducedMotion ? 0.01 : 0.8,
+        hold: qaPreview ? 30 : (reducedMotion ? 1.5 : 2.5),
         burst: reducedMotion ? 0.08 : 0.6,
         fade: reducedMotion ? 0.12 : 0.35,
         onComplete: () => {
@@ -1542,7 +1543,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         } else if (effect.elapsed < burstStart) {
           for (let i = 0; i < count; i += 1) {
             const i3 = i * 3;
-            const twinkle = Math.sin(realTime * 5.0 + effect.randoms[i] * 6.28) * 0.4;
+            const twinkle = reducedMotion ? 0 : Math.sin(realTime * 5.0 + effect.randoms[i] * 6.28) * 0.4;
             positions[i3] = effect.letterTargets[i3];
             positions[i3 + 1] = effect.letterTargets[i3 + 1];
             positions[i3 + 2] = effect.letterTargets[i3 + 2] + twinkle;

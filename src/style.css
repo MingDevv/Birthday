@@ -2231,6 +2231,8 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
   font-family: 'Prompt', sans-serif;
   pointer-events: auto;
 }
+body.guide-tour-active .guide-3d-pointer,
+body.guide-tour-active .guide-edge-arrow { display: none !important; }
 .guide-tour-step-badge {
   font-size: 0.74rem;
   font-weight: 700;

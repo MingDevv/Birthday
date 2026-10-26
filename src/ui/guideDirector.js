@@ -195,6 +195,9 @@ export function createGuideDirector({
   // 3D planet tracking: Pointer or Edge Arrow
   function pointAtPlanet(planetId, labelText = '') {
     if (isGuideOff || !solarSystem?.planetsList) return;
+    // The HUD tour owns the coach layer while active; do not let a later
+    // EXPLORE callback put a planet arrow over its card.
+    if (tourInstance || document.body.classList.contains('guide-tour-active') || document.querySelector('.guide-tour-card')) return;
     clearAllGuides();
 
     const planet = solarSystem.planetsList.find((p) => p.id === planetId);
@@ -287,6 +290,15 @@ export function createGuideDirector({
       const tourSeen = sessionStorage.getItem('tourSeen');
       if (tourSeen === 'true') return;
     } catch {}
+
+    // The first-explore guide can leave its 3D planet pointer behind after
+    // its bubble closes. The HUD tour has its own spotlight, so remove stale
+    // pointers/bubbles before placing the tour card.
+    if (tourInstance) {
+      tourInstance.stop();
+      tourInstance = null;
+    }
+    clearAllGuides();
 
     tourInstance = startFirstRunTour({
       uiDirector,
