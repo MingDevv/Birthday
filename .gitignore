@@ -21,3 +21,4 @@ lerna-debug.log*
 .vercel
 qa/cinematic-*/
 .env.local
+scratch/

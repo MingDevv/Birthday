@@ -266,10 +266,13 @@ export function createGalaxySkybox(scene, quality = {}) {
   flareGeo.setAttribute('size', new THREE.BufferAttribute(flareSizes, 1));
   flareGeo.setAttribute('phase', new THREE.BufferAttribute(flarePhases, 1));
 
+  let isArrivalMode = false;
+
   const flareShaderMat = new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uTexture: { value: diamondTex }
+      uTexture: { value: diamondTex },
+      uArrivalDim: { value: 1.0 }
     },
     vertexShader: `
       attribute float size;
@@ -291,13 +294,14 @@ export function createGalaxySkybox(scene, quality = {}) {
     `,
     fragmentShader: `
       uniform sampler2D uTexture;
+      uniform float uArrivalDim;
       varying vec3 vColor;
       varying float vTwinkle;
 
       void main() {
         vec4 tex = texture2D(uTexture, gl_PointCoord);
         if (tex.a < 0.04) discard;
-        gl_FragColor = vec4(vColor * 1.05, tex.a * vTwinkle * 0.72);
+        gl_FragColor = vec4(vColor * 1.05, tex.a * vTwinkle * 0.72 * uArrivalDim);
       }
     `,
     transparent: true,
@@ -510,6 +514,12 @@ export function createGalaxySkybox(scene, quality = {}) {
     setQuality(backgroundStars) {
       starGeo.setDrawRange(0, Math.min(backgroundStars, starCount));
     },
+    setArrivalMode(enabled) {
+      isArrivalMode = !!enabled;
+      if (flareShaderMat?.uniforms?.uArrivalDim) {
+        flareShaderMat.uniforms.uArrivalDim.value = enabled ? 0.25 : 1.0;
+      }
+    },
     triggerGrandShower,
 
     update(delta, time) {
@@ -519,25 +529,27 @@ export function createGalaxySkybox(scene, quality = {}) {
       // Slow majestic sky rotation
       galaxyGroup.rotation.y = 0;
 
-      // 1. Ambient Meteor timer (every 1.2 - 2.4s)
-      ambientTimer -= delta;
-      if (ambientTimer <= 0) {
-        spawnMeteor({ type: 'ambient' });
-        ambientTimer = 1.2 + Math.random() * 1.2;
-      }
+      if (!isArrivalMode) {
+        // 1. Ambient Meteor timer (every 1.2 - 2.4s)
+        ambientTimer -= delta;
+        if (ambientTimer <= 0) {
+          spawnMeteor({ type: 'ambient' });
+          ambientTimer = 1.2 + Math.random() * 1.2;
+        }
 
-      // 2. Periodic Cluster timer (every 16 - 22s)
-      clusterTimer -= delta;
-      if (clusterTimer <= 0) {
-        triggerCluster(3 + Math.floor(Math.random() * 3));
-        clusterTimer = 16.0 + Math.random() * 6.0;
-      }
+        // 2. Periodic Cluster timer (every 16 - 22s)
+        clusterTimer -= delta;
+        if (clusterTimer <= 0) {
+          triggerCluster(3 + Math.floor(Math.random() * 3));
+          clusterTimer = 16.0 + Math.random() * 6.0;
+        }
 
-      // 3. Fireball timer (every 35 - 45s)
-      fireballTimer -= delta;
-      if (fireballTimer <= 0) {
-        spawnMeteor({ type: 'fireball' });
-        fireballTimer = 35.0 + Math.random() * 10.0;
+        // 3. Fireball timer (every 35 - 45s)
+        fireballTimer -= delta;
+        if (fireballTimer <= 0) {
+          spawnMeteor({ type: 'fireball' });
+          fireballTimer = 35.0 + Math.random() * 10.0;
+        }
       }
 
       // 4. Update all active meteors in pool (Zero GC allocation: pure in-place scalar arithmetic)

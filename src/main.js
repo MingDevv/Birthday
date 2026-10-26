@@ -41,12 +41,16 @@ const queryFlags = getQueryFlags();
 const uiDirector = createUIDirector({ root: document.body, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
 const flow = createFlow({
   ui: uiDirector,
-  onChange: ({ next }) => {
+  onChange: ({ previous, next }) => {
     document.body.classList.remove('mobile-tools-open');
     guideDirector?.onState(next);
     if (!['ARRIVAL', 'EXPLORE'].includes(next)) {
       activeWorldTexts?.forEach((item) => item.dispose());
       activeWorldTexts?.clear();
+    }
+    if (previous === 'ARRIVAL' && next !== 'ARRIVAL') {
+      solarSystem?.cancelArrivalEffect?.();
+      galaxy?.setArrivalMode?.(false);
     }
     const grade = {
       FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
@@ -334,7 +338,7 @@ function showEpilogueActions() {
   const panel = document.createElement('div');
   panel.className = 'ui-epilogue-actions';
   panel.innerHTML = '<button type="button" data-action="memory">ดูความทรงจำอีกครั้ง</button><button type="button" data-action="cake">เป่าเทียนอีกครั้ง</button><button type="button" data-action="capture">เก็บภาพ</button>';
-  const handle = uiDirector.show({ id: 'epilogue-actions', zone: 'bottom-right', layer: 'action', exclusive: false, element: panel, states: ['EPILOGUE'] });
+  const handle = uiDirector.show({ id: 'epilogue-actions', zone: 'bottom-left', layer: 'action', exclusive: false, element: panel, states: ['EPILOGUE'] });
   panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
     uiDirector.hide('epilogue-actions');
     finaleSequenceStarted = false;
@@ -950,6 +954,7 @@ function startCinematicApproach(onComplete) {
       return;
     }
     const finishArrival = () => {
+      galaxy?.setArrivalMode?.(false);
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
       flow.go('EXPLORE');
@@ -965,8 +970,12 @@ function startCinematicApproach(onComplete) {
         startAtName: true
       });
     };
-    if (queryFlags.fxOff) finishArrival();
-    else solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival, camera });
+    if (queryFlags.fxOff) {
+      finishArrival();
+    } else {
+      galaxy?.setArrivalMode?.(true);
+      solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, onComplete: finishArrival, camera });
+    }
   };
 
   skipBtn.addEventListener('click', finishFlight);
@@ -1432,8 +1441,11 @@ guideDirector = createGuideDirector({
   }
 });
 guideDirector.onState(flow.state);
-// Wait for local planet textures so the introduction never opens onto an empty scene.
-await texturesReady;
+// Wait for local planet textures and fonts so the scene and text mask are crisp and ready
+await Promise.all([
+  texturesReady,
+  document.fonts ? document.fonts.ready : Promise.resolve()
+]);
 loadingOverlay?.classList.add('asset-loading-done');
 
 // Preload local memory photos so opening cards does not stutter
@@ -1446,7 +1458,11 @@ MEMORIES_LIST.forEach((m) => {
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
 if (queryFlags.skipIntro || queryFlags.cinema) {
-  flow.go(queryFlags.cinema ? 'FLIGHT' : 'EXPLORE');
+  if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word') {
+    flow.go('ARRIVAL');
+  } else {
+    flow.go(queryFlags.cinema ? 'FLIGHT' : 'EXPLORE');
+  }
   camera.position.copy(queryFlags.cinema ? deepSpacePos : defaultCameraPos);
   controls.target.copy(queryFlags.cinema ? new THREE.Vector3(0, 0, 0) : defaultCameraTarget);
   if (queryFlags.cinema) {
@@ -1492,11 +1508,13 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.maxDistance = 500;
   camera.updateProjectionMatrix();
   controls.update();
-} else if (queryFlags.qaScene === 'arrival-constellation') {
+} else if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word') {
+  flow.go('ARRIVAL');
   hud.hide();
   guideDirector?.clear();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
+  galaxy?.setArrivalMode?.(true);
   solarSystem.startArrivalShape({ reducedMotion: prefersReducedMotion, qaPreview: true, camera });
 } else if (queryFlags.qaScene === 'finale-align') {
   hud.hide();
@@ -1507,6 +1525,17 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
     progress.markVisited(planet.id);
   }
   solarSystem.setStage('finale-align');
+} else if (queryFlags.qaScene === 'epilogue' || queryFlags.qaScene === 'epilogue-actions') {
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+  for (const planet of solarSystem.planetsList) {
+    solarSystem.markVisited(planet.id);
+    progress.markVisited(planet.id);
+  }
+  solarSystem.setStage('epilogue');
+  hud.show();
+  flow.go('EPILOGUE');
+  showEpilogueActions();
 } else if (queryFlags.qaScene === 'epilogue-return') {
   hud.hide();
   camera.position.set(0, 30, 175);
@@ -1752,6 +1781,7 @@ function animate() {
   requestAnimationFrame(animate);
   if (queryFlags.qaScene) {
     window.__qaScene = scene;
+    window.__qaCamera = camera;
     window.__qaIsFlying = isCinematicFlying;
     window.__qaCosmicCake = cosmicCake;
     window.__qaSceneAudit = () => {

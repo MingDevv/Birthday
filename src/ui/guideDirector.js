@@ -98,7 +98,22 @@ export function createGuideDirector({
     }
   }
 
+  let epilogueGalaxyTimer = null;
+  let epilogueGalaxyCleanup = null;
+
   function clearAllGuides() {
+    if (tourInstance) {
+      tourInstance.stop();
+      tourInstance = null;
+    }
+    if (epilogueGalaxyTimer) {
+      clearTimeout(epilogueGalaxyTimer);
+      epilogueGalaxyTimer = null;
+    }
+    if (epilogueGalaxyCleanup) {
+      epilogueGalaxyCleanup();
+      epilogueGalaxyCleanup = null;
+    }
     if (currentGuideHandle) {
       currentGuideHandle.dispose();
       currentGuideHandle = null;
@@ -119,12 +134,12 @@ export function createGuideDirector({
   }
 
   // Shows a gentle coach bubble via uiDirector (layer: coach, exclusive: true)
-  function showBubble(text, { ttl = 6000, zone = 'bottom-left', states = ['EXPLORE'], onClose } = {}) {
+  function showBubble(text, { ttl = 6000, zone = 'bottom-left', states = ['EXPLORE'], onClose, className = '' } = {}) {
     if (isGuideOff) return null;
     clearAllGuides();
 
     const bubble = document.createElement('div');
-    bubble.className = 'guide-bubble';
+    bubble.className = `guide-bubble ${className}`.trim();
     bubble.setAttribute('role', 'status');
     bubble.setAttribute('aria-live', 'polite');
 
@@ -374,18 +389,102 @@ export function createGuideDirector({
     } else if (nextState === 'FINALE_ALIGN' || nextState === 'FINALE_HEART') {
       showBubble(copy.finale.wait, { ttl: 4500, zone: 'bottom-left', states: ['FINALE_ALIGN', 'FINALE_HEART'] });
     } else if (nextState === 'FINALE_CAKE') {
-      // Spotlight & coach for blowing candles
-      showBubble(copy.cake.coach, { ttl: 9000, zone: 'bottom-left', states: ['FINALE_CAKE'] });
+      // Spotlight & coach for blowing candles (floating centered above cake action buttons)
+      showBubble(copy.cake.coach, { ttl: 9000, zone: 'bottom-left', className: 'guide-bubble-cake', states: ['FINALE_CAKE'] });
       setTimeout(() => {
         if (flow.state === 'FINALE_CAKE') {
-          showBubble(copy.cake.idle, { ttl: 6000, zone: 'bottom-left', states: ['FINALE_CAKE'] });
+          showBubble(copy.cake.idle, { ttl: 6000, zone: 'bottom-left', className: 'guide-bubble-cake', states: ['FINALE_CAKE'] });
         }
       }, 10000);
     } else if (nextState === 'FINALE_LETTER') {
       showBubble(copy.letter.close, { ttl: 5000, zone: 'bottom-left', states: ['FINALE_LETTER'] });
     } else if (nextState === 'EPILOGUE') {
-      showBubble(copy.epilogue.tools, { ttl: 8000, zone: 'bottom-left', states: ['EPILOGUE'] });
+      epilogueGalaxyTimer = setTimeout(() => {
+        if (flow.state === 'EPILOGUE') {
+          showEpilogueGalaxyGuide();
+        }
+      }, reducedMotion ? 200 : 750);
     }
+  }
+
+  function showEpilogueGalaxyGuide() {
+    if (isGuideOff) return;
+    clearAllGuides();
+
+    const targetEl = document.querySelector('#btn-toggle-galaxy');
+    if (!targetEl || targetEl.offsetParent === null) {
+      epilogueGalaxyTimer = setTimeout(() => {
+        if (flow.state === 'EPILOGUE') showEpilogueGalaxyGuide();
+      }, 300);
+      return;
+    }
+
+    const rect = targetEl.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const radius = Math.max(rect.width, rect.height) * 0.7 + 16;
+
+    const spotlightEl = getSpotlight();
+    spotlightEl.style.setProperty('--gx', `${Math.round(centerX)}px`);
+    spotlightEl.style.setProperty('--gy', `${Math.round(centerY)}px`);
+    spotlightEl.style.setProperty('--gr', `${Math.round(radius)}px`);
+    spotlightEl.classList.add('visible');
+
+    const isMobile = window.innerWidth <= 520;
+    const message = isMobile ? copy.epilogue.galaxyMobile : copy.epilogue.galaxyDesktop;
+
+    const card = document.createElement('div');
+    card.className = 'guide-bubble guide-bubble-galaxy';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', 'แนะนำท่องกาแล็กซี่ 3D');
+
+    card.innerHTML = `
+      <p class="guide-bubble-text">${message}</p>
+      <button class="guide-bubble-close" aria-label="ปิดคำแนะนำ">✕</button>
+    `;
+
+    // Calculate position directly under #btn-toggle-galaxy
+    const cardWidth = Math.min(window.innerWidth * 0.9, 340);
+    let left = centerX - cardWidth / 2;
+    left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, left));
+    let top = rect.bottom + 12;
+
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
+
+    const dismiss = () => {
+      clearAllGuides();
+    };
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') dismiss();
+    };
+
+    targetEl.addEventListener('click', dismiss, { once: true });
+    window.addEventListener('keydown', onKey);
+
+    epilogueGalaxyCleanup = () => {
+      targetEl.removeEventListener('click', dismiss);
+      window.removeEventListener('keydown', onKey);
+      epilogueGalaxyCleanup = null;
+    };
+
+    card.querySelector('.guide-bubble-close').addEventListener('click', dismiss);
+
+    currentGuideHandle = uiDirector.show({
+      id: 'guide-epilogue-galaxy',
+      zone: 'top-right',
+      layer: 'coach',
+      exclusive: true,
+      ttl: reducedMotion ? 8000 : 16000,
+      element: card,
+      states: ['EPILOGUE'],
+      onClose: () => {
+        hideSpotlight();
+        if (epilogueGalaxyCleanup) epilogueGalaxyCleanup();
+        currentGuideHandle = null;
+      }
+    });
   }
 
   // Progress Update Reaction

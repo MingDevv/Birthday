@@ -1257,6 +1257,20 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       }
     },
 
+    cancelArrivalEffect() {
+      if (arrivalEffect) {
+        rootGroup.remove(arrivalEffect.points);
+        arrivalEffect.geometry.dispose();
+        arrivalEffect.material.dispose();
+        arrivalEffect = null;
+      }
+      this.setOrbitsVisible(true);
+      this.setOrbitsOpacity(0.28);
+      heartGroup.visible = true;
+      planetsList.forEach(p => { p.group.visible = true; });
+      this.setBeaconsVisible(true);
+    },
+
     startArrivalShape({ reducedMotion = false, onComplete, qaPreview = false, camera = activeCamera } = {}) {
       if (arrivalEffect) {
         arrivalEffect.onComplete = onComplete;
@@ -1265,75 +1279,95 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       if (camera) activeCamera = camera;
       const cam = activeCamera;
 
-      // 1. Stage Clearing: Dim orbits, planets, center heart and hide beacons during particle arrival
+      // 1. Stage Clearing: Completely hide orbits, planets, center heart and beacons during particle arrival
       this.setBeaconsVisible(false);
-      this.setOrbitsOpacity(0.08);
-      this.setStageDimmed(true);
+      this.setOrbitsVisible(false);
+      this.setOrbitsOpacity(0.0);
+      heartGroup.visible = false;
+      planetsList.forEach(p => { p.group.visible = false; });
 
-      // 2. High-Resolution Canvas (512x512) for Heart and "ข้าวหอม"
+      // 2. High-Resolution Canvas (800x280) for Heart and "ข้าวหอม"
       const shapeCanvas = document.createElement('canvas');
-      shapeCanvas.width = 512;
-      shapeCanvas.height = 512;
+      shapeCanvas.width = 800;
+      shapeCanvas.height = 280;
       const context = shapeCanvas.getContext('2d', { willReadFrequently: true });
 
-      // Draw romantic Heart Shape centered at (256, 256)
+      // Draw romantic Heart Shape centered at (400, 140)
       context.fillStyle = '#fff';
       context.beginPath();
-      context.moveTo(256, 420);
-      context.bezierCurveTo(192, 350, 48, 260, 48, 155);
-      context.bezierCurveTo(48, 60, 156, 36, 256, 136);
-      context.bezierCurveTo(356, 36, 464, 60, 464, 155);
-      context.bezierCurveTo(464, 260, 320, 350, 256, 420);
+      context.moveTo(400, 245);
+      context.bezierCurveTo(340, 190, 200, 120, 200, 55);
+      context.bezierCurveTo(200, 0, 300, -10, 400, 65);
+      context.bezierCurveTo(500, -10, 600, 0, 600, 55);
+      context.bezierCurveTo(600, 120, 460, 190, 400, 245);
       context.fill();
 
-      // Sample mask with boundary/edge weighting for crisp contours
-      const sampleMask = (dilate = false) => {
-        const imgData = context.getImageData(0, 0, 512, 512);
-        const pixels = imgData.data;
-        const candidates = [];
-        const edges = [];
-        for (let y = 4; y < 508; y += 2) {
-          for (let x = 4; x < 508; x += 2) {
-            const idx = (y * 512 + x) * 4 + 3;
-            if (pixels[idx] > 30) {
-              candidates.push([x, y]);
-              const isEdge = pixels[idx - 4] <= 30 || pixels[idx + 4] <= 30 ||
-                             pixels[idx - 512 * 4] <= 30 || pixels[idx + 512 * 4] <= 30;
-              if (isEdge) edges.push([x, y]);
-            } else if (dilate) {
-              if (pixels[idx - 4] > 80 || pixels[idx + 4] > 80 ||
-                  pixels[idx - 512 * 4] > 80 || pixels[idx + 512 * 4] > 80) {
-                candidates.push([x, y]);
-                edges.push([x, y]);
+      const imgDataHeart = context.getImageData(0, 0, 800, 280);
+      const heartCoords = [];
+      for (let y = 0; y < 280; y += 2) {
+        for (let x = 0; x < 800; x += 2) {
+          if (imgDataHeart.data[(y * 800 + x) * 4 + 3] > 40) {
+            heartCoords.push([x, y]);
+          }
+        }
+      }
+
+      // Draw "ข้าวหอม" with Thai typography
+      context.clearRect(0, 0, 800, 280);
+      context.fillStyle = '#fff';
+      context.font = '900 144px "Prompt", "Kanit", "Noto Sans Thai", sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('ข้าวหอม', 400, 140);
+
+      const imgDataWord = context.getImageData(0, 0, 800, 280);
+      const pix = imgDataWord.data;
+      const bodyCoords = [];
+      const edgeCoords = [];
+      for (let y = 2; y < 278; y += 1) {
+        for (let x = 2; x < 798; x += 1) {
+          const idx = (y * 800 + x) * 4 + 3;
+          const a = pix[idx];
+          if (a > 45) {
+            bodyCoords.push([x, y]);
+            if (pix[idx - 4] < 30 || pix[idx + 4] < 30 || pix[idx - 800 * 4] < 30 || pix[idx + 800 * 4] < 30) {
+              edgeCoords.push([x, y]);
+            }
+          }
+        }
+      }
+
+      // Robust fallback if custom font failed to render
+      if (bodyCoords.length < 50) {
+        context.clearRect(0, 0, 800, 280);
+        context.fillStyle = '#fff';
+        context.font = 'bold 144px sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('ข้าวหอม', 400, 140);
+        const fbPix = context.getImageData(0, 0, 800, 280).data;
+        for (let y = 2; y < 278; y += 1) {
+          for (let x = 2; x < 798; x += 1) {
+            const idx = (y * 800 + x) * 4 + 3;
+            if (fbPix[idx] > 45) {
+              bodyCoords.push([x, y]);
+              if (fbPix[idx - 4] < 30 || fbPix[idx + 4] < 30 || fbPix[idx - 800 * 4] < 30 || fbPix[idx + 800 * 4] < 30) {
+                edgeCoords.push([x, y]);
               }
             }
           }
         }
-        return { candidates, edges: edges.length ? edges : candidates };
-      };
+      }
 
-      const heartData = sampleMask(false);
-      const heartPool = [...heartData.candidates, ...heartData.edges];
-
-      // Draw "ข้าวหอม" with Thai typography
-      context.clearRect(0, 0, 512, 512);
-      context.font = '900 114px "Prompt", "Kanit", "Noto Sans Thai", sans-serif';
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillText('ข้าวหอม', 256, 256);
-
-      const letterData = sampleMask(true);
-      const letterPool = [...letterData.candidates, ...letterData.edges, ...letterData.edges];
-
-      // Point counts: mobile ~900, desktop ~2000, low tier ~500, reduced-motion ~300
+      // Point counts: mobile ~1600, desktop ~2600, low tier ~900, reduced-motion ~600
       const isMobile = typeof window !== 'undefined' && window.innerWidth <= 520;
       const count = reducedMotion
-        ? 300
+        ? 600
         : quality.tier === 'low'
-          ? 500
+          ? 900
           : isMobile
-            ? 900
-            : 2000;
+            ? 1600
+            : 2600;
 
       const starts = new Float32Array(count * 3);
       const heartTargets = new Float32Array(count * 3);
@@ -1346,9 +1380,27 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const cLavender = new THREE.Color(0xc084fc);
       const cWhite = new THREE.Color(0xffffff);
 
+      const bodyRatio = 0.65;
+      const bodyCount = Math.floor(count * bodyRatio);
+      const edgeCount = count - bodyCount;
+      const bodyStride = bodyCoords.length / Math.max(1, bodyCount);
+      const edgeList = edgeCoords.length ? edgeCoords : bodyCoords;
+      const edgeStride = edgeList.length / Math.max(1, edgeCount);
+
       for (let i = 0; i < count; i += 1) {
-        const hp = heartPool[Math.floor(Math.random() * heartPool.length)];
-        const lp = letterPool[Math.floor(Math.random() * letterPool.length)];
+        let lx, ly;
+        if (i < bodyCount) {
+          const idx = Math.floor(i * bodyStride) % bodyCoords.length;
+          lx = bodyCoords[idx][0] + (Math.random() - 0.5) * 0.7;
+          ly = bodyCoords[idx][1] + (Math.random() - 0.5) * 0.7;
+        } else {
+          const eIdx = (i - bodyCount);
+          const idx = Math.floor(eIdx * edgeStride) % edgeList.length;
+          lx = edgeList[idx][0] + (Math.random() - 0.5) * 0.4;
+          ly = edgeList[idx][1] + (Math.random() - 0.4);
+        }
+
+        const hp = heartCoords.length ? heartCoords[Math.floor(Math.random() * heartCoords.length)] : [400, 140];
 
         // Sphere explosion start distribution
         const u = Math.random();
@@ -1365,13 +1417,13 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         starts.set(start, i * 3);
         positions.set(start, i * 3);
 
-        const zJitter = (Math.random() - 0.5) * 4.0;
-        heartTargets.set([(hp[0] - 256) * 0.52, (256 - hp[1]) * 0.52, zJitter], i * 3);
-        letterTargets.set([(lp[0] - 256) * 0.55, (256 - lp[1]) * 0.55, zJitter], i * 3);
+        const zJitter = (Math.random() - 0.5) * 1.5;
+        heartTargets.set([(hp[0] - 400) * 0.52, (140 - hp[1]) * 0.52, (Math.random() - 0.5) * 2.5], i * 3);
+        letterTargets.set([(lx - 400) * 0.52, (140 - ly) * 0.52, zJitter], i * 3);
 
-        const tColor = THREE.MathUtils.clamp((lp[0] / 512), 0, 1);
+        const tColor = THREE.MathUtils.clamp((lx - 160) / 480, 0, 1);
         const col = new THREE.Color();
-        if (Math.random() < 0.12) {
+        if (Math.random() < 0.20) {
           col.copy(cWhite);
         } else if (tColor < 0.5) {
           col.lerpColors(cPink, cLavender, tColor * 2.0);
@@ -1390,7 +1442,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-      const pointPx = Math.max(3.2, Math.min(window.devicePixelRatio || 1, 2) * 3.2);
+      const pointPx = Math.max(3.6, Math.min(window.devicePixelRatio || 1, 2) * 3.6);
       const material = new THREE.PointsMaterial({
         map: sparkleTex,
         vertexColors: true,
@@ -1417,8 +1469,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         const vHeight = 2 * dist * Math.tan(fovRad / 2);
         const vWidth = vHeight * cam.aspect;
         const isPortrait = cam.aspect < 1.0;
-        const targetWidth = isPortrait ? vWidth * 0.76 : vWidth * 0.46;
-        const s = targetWidth / 260;
+        const targetWidth = isPortrait ? vWidth * 0.82 : vWidth * 0.50;
+        const s = targetWidth / 250;
         points.scale.set(s, s, s);
       };
       updateBillboardScale();
@@ -1436,13 +1488,15 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         elapsed: qaPreview ? 2.6 : 0,
         travel: reducedMotion ? 0.15 : 1.4,
         letterTravel: reducedMotion ? 0.08 : 0.8,
-        hold: qaPreview ? 30 : (reducedMotion ? 0.3 : 2.0),
+        hold: qaPreview ? 30 : (reducedMotion ? 0.4 : 2.5),
         burst: reducedMotion ? 0.08 : 0.6,
         fade: reducedMotion ? 0.12 : 0.35,
         onComplete: () => {
+          this.setOrbitsVisible(true);
+          heartGroup.visible = true;
+          planetsList.forEach(p => { p.group.visible = true; });
           this.setOrbitsOpacity(0.28);
           this.setBeaconsVisible(true);
-          this.setStageDimmed(false);
           onComplete?.();
         }
       };
@@ -1501,6 +1555,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           }
           effect.material.opacity = 1.0;
         } else if (effect.elapsed < finishTime) {
+          heartGroup.visible = true;
           const p = THREE.MathUtils.clamp((effect.elapsed - burstStart) / effect.burst, 0, 1);
           const ease = p * p;
           for (let i = 0; i < count; i += 1) {
@@ -1706,6 +1761,13 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     setOrbitsOpacity(opacity) {
       for (const material of orbitPathMaterials.values()) {
         material.opacity = opacity;
+      }
+    },
+
+    setOrbitsVisible(visible) {
+      for (const p of planetsList) {
+        const ribbon = rootGroup.getObjectByName(`orbitPath-${p.id}`);
+        if (ribbon) ribbon.visible = !!visible;
       }
     },
 

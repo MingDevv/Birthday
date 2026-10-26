@@ -111,7 +111,207 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round6-')) {
+  if (phase.startsWith('round7-')) {
+    console.log(`Running Round 7 (Phases A-E) QA Suite for phase: ${phase}...`);
+
+    // -------------------------------------------------------------------------
+    // 1. Arrival Word - Desktop (1440x900)
+    // -------------------------------------------------------------------------
+    console.log('\n--- 1. Testing arrival-word (Desktop 1440x900) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+      page.on('console', (msg) => console.log(`[PAGE LOG ${msg.type()}]:`, msg.text()));
+      page.on('pageerror', (err) => errors.push(`arrival-word-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-word`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(2500);
+
+      const debugInfo = await page.evaluate(() => {
+        const root = window.__qaScene?.getObjectByName('solarSystemHeartMaster');
+        const points = window.__qaScene?.getObjectByName('arrivalHeartParticleReveal');
+        const cam = window.__qaCamera;
+        return {
+          hasScene: !!window.__qaScene,
+          children: window.__qaScene?.children?.map(c => c.name),
+          rootChildren: root?.children?.map(c => c.name),
+          pointsFound: !!points,
+          pointsScale: points?.scale,
+          pointsPos: points?.position,
+          pointsCount: points?.geometry?.attributes?.position?.count,
+          posSample: points?.geometry?.attributes?.position?.array?.slice(0, 9),
+          opacity: points?.material?.opacity,
+          visible: points?.visible,
+          camPos: cam?.position,
+          camFov: cam?.fov
+        };
+      });
+      console.log('DEBUG INFO:', JSON.stringify(debugInfo, null, 2));
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-word-desktop.png') });
+      await page.close();
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Arrival Word - Mobile Portrait (390x844)
+    // -------------------------------------------------------------------------
+    console.log('\n--- 2. Testing arrival-word (Mobile Portrait 390x844) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`arrival-word-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-word`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(2500);
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-word-portrait.png') });
+      await page.close();
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Arrival Word - Reduced Motion
+    // -------------------------------------------------------------------------
+    console.log('\n--- 3. Testing arrival-word (Reduced Motion) ---');
+    {
+      const page = await browser.newPage({
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce'
+      });
+      page.on('pageerror', (err) => errors.push(`arrival-word-reduced-motion: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-word`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-word-reduced-motion.png') });
+      await page.close();
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Cake Actions Mobile Clearance (No Coach Bubble Overlap)
+    // -------------------------------------------------------------------------
+    console.log('\n--- 4. Testing Cake Actions Mobile Clearance ---');
+    const cakeViewports = [
+      { name: '390x844', width: 390, height: 844 },
+      { name: '360x740', width: 360, height: 740 },
+      { name: '430x932', width: 430, height: 932 },
+      { name: '844x390', width: 844, height: 390 }
+    ];
+
+    for (const vp of cakeViewports) {
+      const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`cake-mobile-${vp.name}: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForSelector('.cake-actions', { timeout: 15000 });
+      await page.waitForSelector('.guide-bubble-cake', { timeout: 15000 });
+      await delay(600);
+
+      const collision = await page.evaluate(() => {
+        const actions = document.querySelector('.cake-actions');
+        const coach = document.querySelector('.guide-bubble-cake');
+        if (!actions || !coach) return { ok: false, reason: 'missing elements' };
+        const aRect = actions.getBoundingClientRect();
+        const cRect = coach.getBoundingClientRect();
+        const overlaps = !(
+          cRect.right < aRect.left ||
+          cRect.left > aRect.right ||
+          cRect.bottom < aRect.top ||
+          cRect.top > aRect.bottom
+        );
+        return {
+          ok: !overlaps,
+          coachBottom: cRect.bottom,
+          actionsTop: aRect.top,
+          clearance: aRect.top - cRect.bottom
+        };
+      });
+
+      console.log(`Cake mobile [${vp.name}]: collision ok=${collision.ok}, clearance=${collision.clearance}px`);
+      if (!collision.ok) {
+        errors.push(`Cake action collision on viewport ${vp.name}: coach overlaps actions!`);
+      }
+
+      if (vp.name === '390x844') {
+        await page.screenshot({ path: path.join(outputDir, 'cake-actions-mobile.png') });
+      }
+      await page.close();
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Epilogue Galaxy Prompt - Desktop (1440x900)
+    // -------------------------------------------------------------------------
+    console.log('\n--- 5. Testing Epilogue Galaxy Prompt (Desktop) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`epilogue-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=epilogue-actions`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForSelector('.guide-bubble-galaxy', { timeout: 15000 });
+      await delay(600);
+
+      const desktopText = await page.locator('.guide-bubble-galaxy .guide-bubble-text').textContent();
+      console.log(`Epilogue desktop prompt text: "${desktopText}"`);
+      if (!desktopText.includes('ท่องกาแล็กซี่ 3D')) {
+        errors.push(`Epilogue desktop prompt text missing expected galaxy reference!`);
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-galaxy-prompt-desktop.png') });
+      await page.close();
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Epilogue Galaxy Prompt - Mobile (390x844) & Navigation
+    // -------------------------------------------------------------------------
+    console.log('\n--- 6. Testing Epilogue Galaxy Prompt (Mobile) & Navigation ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`epilogue-mobile: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=epilogue-actions`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForSelector('.guide-bubble-galaxy', { timeout: 15000 });
+      await delay(600);
+
+      const mobileText = await page.locator('.guide-bubble-galaxy .guide-bubble-text').textContent();
+      console.log(`Epilogue mobile prompt text: "${mobileText}"`);
+      if (!mobileText.includes('🌌')) {
+        errors.push(`Epilogue mobile prompt text missing expected galaxy icon!`);
+      }
+
+      // Check touch target of #btn-toggle-galaxy
+      const btnSize = await page.evaluate(() => {
+        const btn = document.querySelector('#btn-toggle-galaxy');
+        if (!btn) return null;
+        const r = btn.getBoundingClientRect();
+        return { width: r.width, height: r.height };
+      });
+      console.log(`Mobile #btn-toggle-galaxy touch target: ${btnSize?.width}x${btnSize?.height}`);
+      if (!btnSize || btnSize.width < 44 || btnSize.height < 44) {
+        errors.push(`Touch target for #btn-toggle-galaxy on mobile is less than 44x44px: ${btnSize?.width}x${btnSize?.height}`);
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-galaxy-prompt-mobile.png') });
+
+      // 7. Click #btn-toggle-galaxy to enter Galaxy View
+      console.log('Clicking #btn-toggle-galaxy to enter Galaxy view...');
+      await page.locator('#btn-toggle-galaxy').click();
+      await delay(2600);
+
+      // Verify guide is gone
+      const guideVisible = await page.locator('.guide-bubble-galaxy').count();
+      if (guideVisible > 0) {
+        errors.push(`Guide bubble still visible after clicking #btn-toggle-galaxy!`);
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-galaxy-active.png') });
+
+      // 8. Click again to return to Heart View
+      console.log('Clicking #btn-toggle-galaxy again to return to heart view...');
+      await page.locator('#btn-toggle-galaxy').click();
+      await delay(2400);
+
+      await page.screenshot({ path: path.join(outputDir, 'epilogue-return-to-heart.png') });
+      await page.close();
+    }
+  } else if (phase.startsWith('round6-')) {
     console.log(`Running Round 6 (Phases A-E) QA Suite for phase: ${phase}...`);
 
     // =========================================================================

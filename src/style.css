@@ -1540,8 +1540,11 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   }
   .hud-icon-btn {
     padding: 0.42rem 0.58rem;
-    min-height: 36px;
+    min-height: 44px;
+    min-width: 44px;
     justify-content: center;
+    display: inline-flex;
+    align-items: center;
   }
   .vinyl-widget {
     gap: 0.38rem;
@@ -1619,7 +1622,7 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   .tracker-header { gap: 8px; font-size: .76rem; }
   .tracker-hearts { gap: .25rem; font-size: 1rem; }
   .hud-top-actions { flex: 0 0 auto; gap: 6px; }
-  .hud-icon-btn { flex: 0 0 auto; min-height: 38px; padding: 5px 9px; white-space: nowrap; font-size: .78rem; }
+  .hud-icon-btn { flex: 0 0 auto; min-height: 44px; min-width: 44px; padding: 5px 9px; white-space: nowrap; font-size: .78rem; display: inline-flex; align-items: center; justify-content: center; }
   .hud-icon-btn .btn-label { display: none; }
   .vinyl-widget { flex: 0 0 auto; gap: 5px; padding: 4px 9px 4px 5px; }
   .vinyl-disc { width: 27px; height: 27px; }
@@ -2089,6 +2092,32 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
 }
 .guide-bubble .guide-bubble-close:hover {
   color: #fff;
+}
+
+.guide-bubble-cake {
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 66px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  text-align: center;
+  max-width: min(88vw, 420px);
+}
+
+.guide-bubble-galaxy {
+  position: fixed !important;
+  right: auto !important;
+  bottom: auto !important;
+  border-color: rgba(255, 215, 0, 0.88) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.72), 0 0 24px rgba(255, 215, 0, 0.4) !important;
+  animation: galaxyBubbleGlow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes galaxyBubbleGlow {
+  0% { box-shadow: 0 12px 36px rgba(0, 0, 0, 0.72), 0 0 16px rgba(255, 215, 0, 0.25); }
+  100% { box-shadow: 0 12px 36px rgba(0, 0, 0, 0.72), 0 0 28px rgba(255, 215, 0, 0.6); border-color: rgba(255, 235, 130, 0.95) !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-bubble-galaxy { animation: none !important; }
 }
 
 .guide-3d-pointer {
