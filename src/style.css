@@ -101,9 +101,7 @@ body.cinema-portrait #webgl-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at center, rgba(30, 16, 60, 0.70) 0%, rgba(8, 4, 24, 0.78) 100%);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: radial-gradient(circle at center, rgba(16, 8, 36, 0.42) 0%, rgba(6, 3, 16, 0.78) 100%);
   transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   padding: 1.5rem;
   text-align: center;
@@ -1689,14 +1687,16 @@ body.cinema-portrait .wish-btn {
 /* Skip Flight Button during approach journey */
 .skip-flight-btn {
   position: fixed;
-  bottom: 2.5rem;
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 8px);
   left: 50%;
   transform: translateX(-50%);
+  min-height: 44px;
+  min-width: 140px;
   z-index: var(--z-action);
-  background: rgba(18, 14, 38, 0.85);
+  background: rgba(18, 14, 38, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(192, 132, 252, 0.4);
   color: #f1f5f9;
   font-family: var(--font-family);
   font-size: 0.95rem;
@@ -1707,12 +1707,39 @@ body.cinema-portrait .wish-btn {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 16px var(--glass-glow);
   transition: all 0.25s ease;
   animation: fadeIn 0.4s ease-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .skip-flight-btn:hover {
   background: rgba(35, 25, 65, 0.95);
   border-color: var(--primary-pink);
   transform: translateX(-50%) translateY(-2px);
+}
+
+/* Non-intrusive toasts during flight & general guidance */
+.flight-toast-hud,
+.guide-toast {
+  pointer-events: none;
+  background: rgba(18, 8, 38, 0.88);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  border-radius: 999px;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.92rem;
+  color: #f5d0fe;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin-bottom: 74px;
+  animation: guideToastFadeInOut 3.5s ease forwards;
+}
+
+@keyframes guideToastFadeInOut {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  12% { opacity: 1; transform: translateY(0) scale(1); }
+  82% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(0.98); }
 }
 
 /* Floating 3D Glowing Romantic Wish Banner in Space */

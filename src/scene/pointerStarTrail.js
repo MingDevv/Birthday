@@ -100,6 +100,8 @@ export function createHeartStreak(scene, quality = { tier: 'high' }) {
   vertical.position.set(0, 0, 3);
   horizontal.name = 'heartAnamorphicHorizontalStreak';
   vertical.name = 'heartAnamorphicVerticalStreak';
+  horizontal.visible = false;
+  vertical.visible = false;
   scene.add(horizontal, vertical);
   return {
     setVisible(visible) {

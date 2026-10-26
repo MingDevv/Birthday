@@ -452,6 +452,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     new THREE.Vector3(24, 18, -7), new THREE.Vector3(32, -2, -7)
   ];
   let arrivalEffect = null;
+  let inTransitMode = false;
 
   // ===========================================================================
   // 1. The Sculpted 3D Crystalline Heart at (0, 0, 0)
@@ -1264,11 +1265,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         arrivalEffect.material.dispose();
         arrivalEffect = null;
       }
-      this.setOrbitsVisible(true);
-      this.setOrbitsOpacity(0.28);
-      heartGroup.visible = true;
-      planetsList.forEach(p => { p.group.visible = true; });
-      this.setBeaconsVisible(true);
+      this.setTransitMode(false);
     },
 
     startArrivalShape({ reducedMotion = false, onComplete, qaPreview = false, camera = activeCamera } = {}) {
@@ -1280,6 +1277,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const cam = activeCamera;
 
       // 1. Stage Clearing: Completely hide orbits, planets, center heart and beacons during particle arrival
+      rootGroup.visible = true;
       this.setBeaconsVisible(false);
       this.setOrbitsVisible(false);
       this.setOrbitsOpacity(0.0);
@@ -1492,11 +1490,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         burst: reducedMotion ? 0.08 : 0.6,
         fade: reducedMotion ? 0.12 : 0.35,
         onComplete: () => {
-          this.setOrbitsVisible(true);
-          heartGroup.visible = true;
-          planetsList.forEach(p => { p.group.visible = true; });
-          this.setOrbitsOpacity(0.28);
-          this.setBeaconsVisible(true);
+          this.setTransitMode(false);
           onComplete?.();
         }
       };
@@ -1717,7 +1711,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     },
 
     setHover(hitMesh, isHovered, clientX, clientY) {
-      if (!hitMesh || !hitMesh.userData) {
+      if (inTransitMode || !hitMesh || !hitMesh.userData) {
         if (tooltipEl) tooltipEl.classList.add('hidden');
         return;
       }
@@ -1747,8 +1741,43 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       }
     },
 
+    setTransitMode(enabled) {
+      inTransitMode = Boolean(enabled);
+      if (inTransitMode) {
+        rootGroup.visible = false;
+        heartGroup.visible = false;
+        planetsList.forEach(p => {
+          p.group.visible = false;
+          if (p.beaconSprite) p.beaconSprite.visible = false;
+          if (p.labelSprite) p.labelSprite.visible = false;
+        });
+        this.setOrbitsVisible(false);
+        this.setOrbitsOpacity(0.0);
+        this.setBeaconsVisible(false);
+        if (enchantedRose?.group) enchantedRose.group.visible = false;
+        memoryLineRecords.forEach(r => { if (r.line) r.line.visible = false; });
+        if (finalHeartLine) finalHeartLine.visible = false;
+        orbitalParticleSystems.forEach(ops => { if (ops.points) ops.points.visible = false; });
+        if (tooltipEl) tooltipEl.classList.add('hidden');
+      } else {
+        rootGroup.visible = true;
+        heartGroup.visible = true;
+        planetsList.forEach(p => {
+          p.group.visible = true;
+        });
+        this.setOrbitsVisible(true);
+        this.setOrbitsOpacity(0.28);
+        this.setBeaconsVisible(true);
+        orbitalParticleSystems.forEach(ops => { if (ops.points) ops.points.visible = true; });
+      }
+    },
+
+    isTransitMode() {
+      return inTransitMode;
+    },
+
     setBeaconsVisible(visible) {
-      beaconsVisible = Boolean(visible);
+      beaconsVisible = Boolean(visible) && !inTransitMode;
       planetsList.forEach(p => {
         if (p.beaconSprite) p.beaconSprite.visible = beaconsVisible && !finaleMode && currentStage !== 'cake';
       });
@@ -1760,14 +1789,14 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
     setOrbitsOpacity(opacity) {
       for (const material of orbitPathMaterials.values()) {
-        material.opacity = opacity;
+        material.opacity = inTransitMode ? 0.0 : opacity;
       }
     },
 
     setOrbitsVisible(visible) {
       for (const p of planetsList) {
         const ribbon = rootGroup.getObjectByName(`orbitPath-${p.id}`);
-        if (ribbon) ribbon.visible = !!visible;
+        if (ribbon) ribbon.visible = !!visible && !inTransitMode;
       }
     },
 

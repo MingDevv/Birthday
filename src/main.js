@@ -21,7 +21,7 @@ import { PolaroidModal } from './ui/polaroidModal.js';
 import { HudOverlay } from './ui/hudOverlay.js';
 import { IntroScreen } from './ui/introScreen.js';
 import { createGiant3DNameText } from './scene/name3DText.js';
-import { createWormhole } from './scene/wormhole.js';
+import { createStarGate } from './scene/starGate.js';
 import { showArrivalCelebrationFlow } from './ui/arrivalPopups.js';
 import { createFrameGovernor, getQualityConfig, getQueryFlags } from './core/quality.js';
 import { heroCamera } from './core/responsive.js';
@@ -163,7 +163,7 @@ const bokehPass = new BokehPass(scene, camera, { focus: 24, aperture: 0.00012, m
 bokehPass.enabled = false;
 composer.addPass(bokehPass);
 const cinematicPass = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.28 }, uGrain: { value: 0.018 }, uCA: { value: 0.0012 }, uGrade: { value: new THREE.Color(1, 1, 1) } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVignette: { value: 0.24 }, uGrain: { value: 0.003 }, uCA: { value: 0.0 }, uGrade: { value: new THREE.Color(1, 1, 1) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader: `varying vec2 vUv; uniform sampler2D tDiffuse; uniform float uTime,uVignette,uGrain,uCA; uniform vec3 uGrade;
     float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
@@ -176,9 +176,9 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const syncCinematicPass = () => {
   const enabled = currentQuality.tier === 'high' || currentQuality.tier === 'ultra';
   cinematicPass.enabled = enabled;
-  cinematicPass.uniforms.uGrain.value = reducedMotion.matches ? 0 : 0.018;
-  cinematicPass.uniforms.uCA.value = enabled ? 0.0012 : 0;
-  cinematicPass.uniforms.uVignette.value = enabled ? 0.28 : 0.16;
+  cinematicPass.uniforms.uGrain.value = reducedMotion.matches ? 0 : 0.003;
+  cinematicPass.uniforms.uCA.value = 0.0; // Phase C: Zero chromatic aberration for crisp text and planetary silhouettes
+  cinematicPass.uniforms.uVignette.value = enabled ? 0.24 : 0.14;
 };
 syncCinematicPass();
 composer.addPass(cinematicPass);
@@ -608,7 +608,8 @@ function setupBirthdayCountdown() {
   tick();
 }
 const name3DText = createGiant3DNameText(scene);
-const wormhole = createWormhole(scene);
+const starGate = createStarGate(scene);
+let isWarpActive = false;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const frameGovernor = createFrameGovernor({
   renderer,
@@ -632,221 +633,6 @@ const frameGovernor = createFrameGovernor({
     qualityController?.updateDisplay();
   }
 });
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// 5. Hyperspace Warp Speed System (TikTok Give Love Studio Style — Ultra Spectacle)
-// -----------------------------------------------------------------------------
-const warpStreakCount = 550;
-const warpStreakGeo = new THREE.BufferGeometry();
-const warpStreakPositions = new Float32Array(warpStreakCount * 6);
-const warpStreakColors = new Float32Array(warpStreakCount * 6);
-const warpStreaksData = [];
-
-const warpPalette = [
-  new THREE.Color(0xf5d0fe), // Diamond Lilac
-  new THREE.Color(0xd946ef), // Neon Magenta
-  new THREE.Color(0xa855f7), // Cosmic Purple
-  new THREE.Color(0x38bdf8), // Electric Cyan
-  new THREE.Color(0xfef08a), // Stardust Gold
-  new THREE.Color(0xffffff)  // Pure Diamond Starlight
-];
-
-for (let i = 0; i < warpStreakCount; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const rad = 8 + Math.random() * 52;
-  const z = (Math.random() - 0.5) * 380;
-  const speed = 260 + Math.random() * 320;
-  const len = 18 + Math.random() * 42;
-  const col = warpPalette[Math.floor(Math.random() * warpPalette.length)];
-
-  warpStreaksData.push({ rad, theta, z, speed, len });
-
-  const x = Math.cos(theta) * rad;
-  const y = Math.sin(theta) * rad;
-  const idx = i * 6;
-
-  warpStreakPositions[idx] = x;
-  warpStreakPositions[idx + 1] = y;
-  warpStreakPositions[idx + 2] = z;
-  warpStreakPositions[idx + 3] = x;
-  warpStreakPositions[idx + 4] = y;
-  warpStreakPositions[idx + 5] = z - len;
-
-  warpStreakColors[idx] = col.r;
-  warpStreakColors[idx + 1] = col.g;
-  warpStreakColors[idx + 2] = col.b;
-  warpStreakColors[idx + 3] = col.r * 0.12;
-  warpStreakColors[idx + 4] = col.g * 0.12;
-  warpStreakColors[idx + 5] = col.b * 0.12;
-}
-
-warpStreakGeo.setAttribute('position', new THREE.BufferAttribute(warpStreakPositions, 3));
-warpStreakGeo.setAttribute('color', new THREE.BufferAttribute(warpStreakColors, 3));
-
-const warpStreakMat = new THREE.LineBasicMaterial({
-  vertexColors: true,
-  transparent: true,
-  opacity: 0,
-  blending: THREE.AdditiveBlending
-});
-const warpStreakMesh = new THREE.LineSegments(warpStreakGeo, warpStreakMat);
-warpStreakMesh.visible = false;
-scene.add(warpStreakMesh);
-
-// 5b. Hyperspace Stargate Concentric Warp Rings (12 Glowing Neon Rings)
-const warpRingCount = 12;
-const warpRingGroup = new THREE.Group();
-warpRingGroup.visible = false;
-scene.add(warpRingGroup);
-
-const warpRingsData = [];
-for (let r = 0; r < warpRingCount; r++) {
-  const ringGeo = new THREE.RingGeometry(16 + r * 1.8, 17.2 + r * 1.8, 48);
-  const ringCol = warpPalette[r % warpPalette.length];
-  const ringMat = new THREE.MeshBasicMaterial({
-    color: ringCol,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
-  const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-  ringMesh.position.z = -r * 28;
-  warpRingGroup.add(ringMesh);
-
-  warpRingsData.push({
-    mesh: ringMesh,
-    mat: ringMat,
-    z: -r * 28,
-    speed: 180 + r * 16,
-    baseRad: 16 + r * 1.8
-  });
-}
-
-// 5c. Cosmic Stardust Cloud Particle Surge (1,200 Particles)
-const warpSurgeCount = 1200;
-
-function createGlowTexture(size, centerColor, edgeColor) {
-  const glowCanvas = document.createElement('canvas');
-  glowCanvas.width = size;
-  glowCanvas.height = size;
-  const context = glowCanvas.getContext('2d');
-  const gradient = context.createRadialGradient(
-    size / 2, size / 2, 0,
-    size / 2, size / 2, size / 2
-  );
-  gradient.addColorStop(0, centerColor);
-  gradient.addColorStop(1, edgeColor);
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, size, size);
-  const texture = new THREE.CanvasTexture(glowCanvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-const warpSurgeGeo = new THREE.BufferGeometry();
-const warpSurgePos = new Float32Array(warpSurgeCount * 3);
-const warpSurgeCol = new Float32Array(warpSurgeCount * 3);
-const warpSurgeData = [];
-
-for (let i = 0; i < warpSurgeCount; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const rad = 4.0 + Math.random() * 38;
-  const z = (Math.random() - 0.5) * 320;
-  const speed = 220 + Math.random() * 360;
-  const col = warpPalette[Math.floor(Math.random() * warpPalette.length)];
-
-  warpSurgePos[i * 3] = Math.cos(theta) * rad;
-  warpSurgePos[i * 3 + 1] = Math.sin(theta) * rad;
-  warpSurgePos[i * 3 + 2] = z;
-
-  warpSurgeCol[i * 3] = col.r;
-  warpSurgeCol[i * 3 + 1] = col.g;
-  warpSurgeCol[i * 3 + 2] = col.b;
-
-  warpSurgeData.push({ theta, rad, z, speed });
-}
-
-warpSurgeGeo.setAttribute('position', new THREE.BufferAttribute(warpSurgePos, 3));
-warpSurgeGeo.setAttribute('color', new THREE.BufferAttribute(warpSurgeCol, 3));
-
-const warpSurgeMat = new THREE.PointsMaterial({
-  size: 1.15,
-  map: createGlowTexture(48, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)'),
-  vertexColors: true,
-  transparent: true,
-  alphaTest: 0.025,
-  opacity: 0,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false
-});
-const warpSurgePoints = new THREE.Points(warpSurgeGeo, warpSurgeMat);
-warpSurgePoints.visible = false;
-scene.add(warpSurgePoints);
-
-let isWarpActive = false;
-
-function updateWarpStreaks(delta) {
-  if (!isWarpActive) {
-    warpStreakMesh.visible = false;
-    warpRingGroup.visible = false;
-    warpSurgePoints.visible = false;
-    return;
-  }
-  warpStreakMesh.visible = true;
-  warpRingGroup.visible = true;
-  warpSurgePoints.visible = true;
-
-  // Align warp tunnel precisely with camera pose
-  warpStreakMesh.position.copy(camera.position);
-  warpStreakMesh.quaternion.copy(camera.quaternion);
-
-  warpRingGroup.position.copy(camera.position);
-  warpRingGroup.quaternion.copy(camera.quaternion);
-
-  warpSurgePoints.position.copy(camera.position);
-  warpSurgePoints.quaternion.copy(camera.quaternion);
-
-  // 1. Update Warp Streaks
-  const pos = warpStreakGeo.attributes.position.array;
-  for (let i = 0; i < warpStreakCount; i++) {
-    const s = warpStreaksData[i];
-    s.z += s.speed * delta;
-    if (s.z > 40) s.z = -340;
-
-    const x = Math.cos(s.theta) * s.rad;
-    const y = Math.sin(s.theta) * s.rad;
-    const idx = i * 6;
-
-    pos[idx] = x;
-    pos[idx + 1] = y;
-    pos[idx + 2] = s.z;
-    pos[idx + 3] = x;
-    pos[idx + 4] = y;
-    pos[idx + 5] = s.z - s.len;
-  }
-  warpStreakGeo.attributes.position.needsUpdate = true;
-
-  // 2. Update Warp Rings
-  for (let r = 0; r < warpRingCount; r++) {
-    const item = warpRingsData[r];
-    item.z += item.speed * delta;
-    if (item.z > 30) item.z = -320;
-    item.mesh.position.z = item.z;
-  }
-
-  // 3. Update Stardust Surge
-  const sPos = warpSurgeGeo.attributes.position.array;
-  for (let i = 0; i < warpSurgeCount; i++) {
-    const s = warpSurgeData[i];
-    s.z += s.speed * delta;
-    if (s.z > 35) s.z = -300;
-    sPos[i * 3 + 2] = s.z;
-  }
-  warpSurgeGeo.attributes.position.needsUpdate = true;
-}
 
 // -----------------------------------------------------------------------------
 // 6. Extended TikTok-Style Cinematic Galaxy Journey (Give Love Studio Signature)
@@ -909,20 +695,28 @@ function runCinemaDirector() {
 function startCinematicApproach(onComplete) {
   isCinematicFlying = true;
   let flightFinished = false;
+
+  // Phase A: Guarantee solar system is 100% hidden before and during FLIGHT
+  solarSystem.setTransitMode(true);
   flow.go('FLIGHT');
   controls.autoRotate = false;
   isWarpActive = true;
-  wormhole.setActive(!prefersReducedMotion);
+  starGate.triggerGateOpen();
+  if (!prefersReducedMotion && !queryFlags.fxOff) {
+    starGate.setWarpActive(true);
+  }
 
   const skipBtn = document.createElement('button');
   skipBtn.id = 'btn-skip-flight';
   skipBtn.className = 'skip-flight-btn ui-action-slot';
   skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง ⏩</span>';
   const skipHandle = uiDirector.show({ id: 'skip-flight', zone: 'bottom-center', layer: 'action', exclusive: true, element: skipBtn, states: ['FLIGHT'] });
-  const flightCaption = document.createElement('div');
-  flightCaption.className = 'ui-captions flight-lower-third';
-  flightCaption.textContent = 'ยินดีต้อนรับสู่ดาวลูกหมู 🐷✨';
-  uiDirector.show({ id: 'flight-caption', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 3600, element: flightCaption, states: ['FLIGHT'] });
+
+  // Phase D: Non-intrusive flight toast
+  const flightToast = document.createElement('div');
+  flightToast.className = 'flight-toast-hud';
+  flightToast.textContent = 'กำลังเดินทาง… แตะข้ามได้ทุกเมื่อ 🚀';
+  uiDirector.show({ id: 'flight-toast', zone: 'bottom-center', layer: 'hud', exclusive: false, ttl: 4000, element: flightToast, states: ['FLIGHT'] });
 
   soundManager.playWhooshSound();
 
@@ -931,13 +725,8 @@ function startCinematicApproach(onComplete) {
     flightFinished = true;
     if (approachTimeline) approachTimeline.kill();
     isWarpActive = false;
-    wormhole.setActive(false);
-    warpStreakMat.opacity = 0;
-    warpSurgeMat.opacity = 0;
-    warpRingsData.forEach(r => { r.mat.opacity = 0; });
-    warpStreakMesh.visible = false;
-    warpRingGroup.visible = false;
-    warpSurgePoints.visible = false;
+    starGate.setWarpActive(false);
+    starGate.setIntroMode(false);
     skipHandle.dispose();
     flow.go('ARRIVAL');
 
@@ -946,15 +735,18 @@ function startCinematicApproach(onComplete) {
     camera.updateProjectionMatrix();
     camera.position.copy(defaultCameraPos);
     controls.target.copy(defaultCameraTarget);
-    bloomPass.strength = 0.24;
+    bloomPass.strength = 0.20;
     isCinematicFlying = false;
     controls.autoRotate = true;
     if (queryFlags.cinema) {
+      solarSystem.setTransitMode(false);
+      flow.go('EXPLORE');
       runCinemaDirector();
       return;
     }
     const finishArrival = () => {
       galaxy?.setArrivalMode?.(false);
+      solarSystem.setTransitMode(false);
       if (!queryFlags.fxOff) soundManager.playMusicBoxTone(880, 0.8, 0.06);
       if (onComplete) onComplete();
       flow.go('EXPLORE');
@@ -970,7 +762,7 @@ function startCinematicApproach(onComplete) {
         startAtName: true
       });
     };
-    if (queryFlags.fxOff) {
+    if (queryFlags.fxOff || prefersReducedMotion) {
       finishArrival();
     } else {
       galaxy?.setArrivalMode?.(true);
@@ -984,127 +776,87 @@ function startCinematicApproach(onComplete) {
     onComplete: finishFlight
   });
 
-  // Stage 1 (0.0s - 2.5s): Hyperspace Warp Tunnel Acceleration & Dynamic FOV stretch
-  approachTimeline.to(warpStreakMat, {
-    opacity: 0.62,
-    duration: 1.2,
-    ease: 'power2.in'
-  }, 0);
+  if (prefersReducedMotion || queryFlags.fxOff) {
+    approachTimeline.to({}, { duration: 0.4 });
+    return;
+  }
 
-  approachTimeline.to(warpSurgeMat, {
-    opacity: 0.42,
-    duration: 1.2,
-    ease: 'power2.in'
-  }, 0);
-
-  warpRingsData.forEach(r => {
-    approachTimeline.to(r.mat, {
-      opacity: 0.34,
-      duration: 1.2,
-      ease: 'power2.in'
-    }, 0);
-  });
-
+  // Phase B: 7.8s "Star Gate Arrival" Storyboard (within 7-9s target, natural speed)
+  // Stage 1 (0.0s - 1.8s): Gate Expansion & Hyperspace Acceleration
   approachTimeline.to(camera, {
-    fov: 82, // Moderate cinematic stretch without distorting the scene
-    duration: 2.2,
+    fov: 76,
+    duration: 1.8,
     ease: 'power2.in',
     onUpdate: () => camera.updateProjectionMatrix()
   }, 0);
 
   approachTimeline.to(camera.position, {
-    x: 75,
-    y: 110,
-    z: 180,
-    duration: 2.5,
+    x: 42,
+    y: 58,
+    z: 140,
+    duration: 2.0,
     ease: 'power2.inOut'
   }, 0);
 
-  // Cinematic Banking Roll along the galaxy arm
   approachTimeline.to(camera.rotation, {
-    z: -0.14,
-    duration: 2.2,
+    z: -0.10,
+    duration: 1.8,
     ease: 'power2.inOut'
   }, 0);
 
-  // Stage 2 (2.5s - 5.0s): Sweeping Arc Bank through the glowing purple spiral arm
+  // Stage 2 (1.8s - 5.2s): Warp Corridor Cruising through deep space
   approachTimeline.to(camera.position, {
-    x: -32,
-    y: 52,
-    z: 110,
-    duration: 2.5,
-    ease: 'power2.inOut'
-  }, 2.5);
+    x: -24,
+    y: 32,
+    z: 95,
+    duration: 3.4,
+    ease: 'sine.inOut'
+  }, 1.8);
 
   approachTimeline.to(camera.rotation, {
-    z: 0.08,
-    duration: 2.5,
-    ease: 'power2.inOut'
-  }, 2.5);
+    z: 0.06,
+    duration: 3.4,
+    ease: 'sine.inOut'
+  }, 1.8);
 
   approachTimeline.to(controls.target, {
     x: defaultCameraTarget.x,
     y: defaultCameraTarget.y,
     z: defaultCameraTarget.z,
-    duration: 2.5,
+    duration: 3.4,
     ease: 'power2.inOut'
-  }, 2.5);
+  }, 1.8);
 
-  // Stage 3 (5.0s - 7.5s): Smooth Deceleration, Warp exit, and Grand Reveal of Heart & Orbits
-  approachTimeline.to(warpStreakMat, {
+  // Stage 3 (5.2s - 7.8s): Smooth Deceleration & Gate Exit to Destination
+  approachTimeline.to({ opacity: 1 }, {
     opacity: 0,
-    duration: 1.6,
-    ease: 'power2.out'
-  }, 4.8);
-
-  approachTimeline.to(warpSurgeMat, {
-    opacity: 0,
-    duration: 1.6,
-    ease: 'power2.out'
-  }, 4.8);
-
-  warpRingsData.forEach(r => {
-    approachTimeline.to(r.mat, {
-      opacity: 0,
-      duration: 1.4,
-      ease: 'power2.out'
-    }, 4.8);
-  });
+    duration: 2.0,
+    ease: 'power2.out',
+    onUpdate: function() {
+      starGate.setOpacity(this.targets()[0].opacity);
+    }
+  }, 5.0);
 
   approachTimeline.to(camera.rotation, {
     z: 0,
     duration: 2.4,
     ease: 'power2.out'
-  }, 4.8);
+  }, 5.2);
 
   approachTimeline.to(camera, {
-    fov: heroPose.fov, // Restore the aspect-fitted hero composition
-    duration: 2.7,
+    fov: heroPose.fov,
+    duration: 2.6,
     ease: 'power3.out',
     onUpdate: () => camera.updateProjectionMatrix()
-  }, 4.8);
-
-  // Subtle arrival glow; keep the scene readable during the reveal.
-  approachTimeline.to(bloomPass, {
-    strength: 0.48,
-    duration: 0.5,
-    yoyo: true,
-    repeat: 1,
-    ease: 'power2.inOut',
-    onStart: () => {
-      soundManager.playChimeSound();
-    }
-  }, 5.0);
+  }, 5.2);
 
   approachTimeline.to(camera.position, {
     x: defaultCameraPos.x,
     y: defaultCameraPos.y,
     z: defaultCameraPos.z,
-    duration: 2.7,
+    duration: 2.6,
     ease: 'power3.out'
-  }, 4.8);
-
-  if (!prefersReducedMotion) approachTimeline.timeScale(0.55);
+  }, 5.2);
 }
 
 // -----------------------------------------------------------------------------
@@ -1457,15 +1209,29 @@ MEMORIES_LIST.forEach((m) => {
 });
 
 // Intro Screen: 3-2-1 Countdown & Journey Trigger
+// Intro Screen: 3-2-1 Countdown & Journey Trigger
 if (queryFlags.skipIntro || queryFlags.cinema) {
-  if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word') {
+  if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word' || queryFlags.qaScene === 'arrival-reveal') {
     flow.go('ARRIVAL');
+    solarSystem.setTransitMode(true);
+    starGate.setIntroMode(false);
+  } else if (queryFlags.qaScene?.startsWith('flight')) {
+    flow.go('FLIGHT');
+    solarSystem.setTransitMode(true);
+    starGate.setIntroMode(false);
+    starGate.setWarpActive(true);
+  } else if (queryFlags.qaScene === 'intro' || queryFlags.qaScene === 'intro-clean') {
+    flow.go('INTRO');
+    solarSystem.setTransitMode(true);
+    starGate.setIntroMode(true);
   } else {
     flow.go(queryFlags.cinema ? 'FLIGHT' : 'EXPLORE');
+    solarSystem.setTransitMode(queryFlags.cinema ? true : false);
+    starGate.setIntroMode(false);
   }
   camera.position.copy(queryFlags.cinema ? deepSpacePos : defaultCameraPos);
   controls.target.copy(queryFlags.cinema ? new THREE.Vector3(0, 0, 0) : defaultCameraTarget);
-  if (queryFlags.cinema) {
+  if (queryFlags.cinema || queryFlags.qaScene?.startsWith('flight')) {
     hud.hide();
   } else {
     hud.show();
@@ -1474,6 +1240,8 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
   }
 } else {
   flow.go('INTRO');
+  solarSystem.setTransitMode(true);
+  starGate.setIntroMode(true);
   new IntroScreen({
     soundManager,
     onEnter: () => {
@@ -1486,7 +1254,58 @@ if (queryFlags.skipIntro || queryFlags.cinema) {
   });
 }
 
-if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name') {
+if (queryFlags.qaScene === 'intro-clean') {
+  hud.hide();
+  flow.go('INTRO');
+  solarSystem.setTransitMode(true);
+  starGate.setIntroMode(true);
+  camera.position.copy(defaultCameraPos);
+  controls.target.copy(defaultCameraTarget);
+} else if (queryFlags.qaScene === 'flight-start') {
+  hud.hide();
+  flow.go('FLIGHT');
+  solarSystem.setTransitMode(true);
+  starGate.setIntroMode(false);
+  starGate.setWarpActive(true);
+  camera.fov = 76;
+  camera.position.set(42, 58, 140);
+  camera.rotation.z = -0.10;
+  camera.updateProjectionMatrix();
+} else if (queryFlags.qaScene === 'flight-mid') {
+  hud.hide();
+  flow.go('FLIGHT');
+  solarSystem.setTransitMode(true);
+  starGate.setIntroMode(false);
+  starGate.setWarpActive(true);
+  camera.fov = 76;
+  camera.position.set(-24, 32, 95);
+  camera.rotation.z = 0.06;
+  camera.updateProjectionMatrix();
+} else if (queryFlags.qaScene === 'flight-end') {
+  hud.hide();
+  flow.go('FLIGHT');
+  solarSystem.setTransitMode(true);
+  starGate.setIntroMode(false);
+  starGate.setWarpActive(true);
+  camera.fov = heroPose.fov;
+  camera.position.copy(defaultCameraPos);
+  camera.rotation.z = 0;
+  camera.updateProjectionMatrix();
+} else if (queryFlags.qaScene === 'sharpness-focus') {
+  hud.show();
+  flow.go('EXPLORE');
+  solarSystem.setTransitMode(false);
+  starGate.setIntroMode(false);
+  const earth = solarSystem.planetsList.find((planet) => planet.id === 2);
+  if (earth) {
+    qaFocusPlanet = earth;
+    camera.position.set(earth.group.position.x, earth.group.position.y + 1, earth.group.position.z + 14);
+    controls.target.copy(earth.group.position);
+    camera.fov = 38;
+    camera.updateProjectionMatrix();
+    controls.update();
+  }
+} else if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name') {
   hud.hide();
   isGalaxyView = true;
   spiralGalaxy.setGalaxyView(true);
@@ -1508,7 +1327,7 @@ if (queryFlags.qaScene === 'name-front' || queryFlags.qaScene === 'galaxy-name')
   controls.maxDistance = 500;
   camera.updateProjectionMatrix();
   controls.update();
-} else if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word') {
+} else if (queryFlags.qaScene === 'arrival-constellation' || queryFlags.qaScene === 'arrival-word' || queryFlags.qaScene === 'arrival-reveal') {
   flow.go('ARRIVAL');
   hud.hide();
   guideDirector?.clear();
@@ -1628,7 +1447,7 @@ window.addEventListener('pointermove', (e) => {
     return;
   }
   pointerStarTrail?.spawn(e.clientX, e.clientY, canvas.getBoundingClientRect());
-  if (polaroidModal.isOpen || isCinematicFlying) {
+  if (polaroidModal.isOpen || isCinematicFlying || solarSystem.isTransitMode() || flow.state !== 'EXPLORE') {
     solarSystem.setHover(null, false);
     return;
   }
@@ -1661,7 +1480,7 @@ window.addEventListener('pointerup', (e) => {
     && Math.hypot(e.clientX - pointerDownPosition.x, e.clientY - pointerDownPosition.y) > 8;
   pointerDownPosition = null;
   if (wasDrag) return;
-  if (polaroidModal.isOpen || isCinematicFlying) return;
+  if (polaroidModal.isOpen || isCinematicFlying || solarSystem.isTransitMode() || flow.state !== 'EXPLORE') return;
 
   if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
@@ -1779,11 +1598,14 @@ document.addEventListener('visibilitychange', () => {
 
 function animate() {
   requestAnimationFrame(animate);
-  if (queryFlags.qaScene) {
-    window.__qaScene = scene;
-    window.__qaCamera = camera;
-    window.__qaIsFlying = isCinematicFlying;
-    window.__qaCosmicCake = cosmicCake;
+  window.__qaScene = scene;
+  window.__qaCamera = camera;
+  window.__qaIsFlying = isCinematicFlying;
+  window.__qaCosmicCake = cosmicCake;
+  window.__solarSystem = solarSystem;
+  window.__starGate = starGate;
+  window.__flow = flow;
+  if (!window.__qaSceneAudit) {
     window.__qaSceneAudit = () => {
       const visibleObjects = [];
       const isVisibleChain = (obj) => {
@@ -1924,9 +1746,8 @@ function animate() {
   heartStreak?.update(delta, musicBass);
   bloomPass.strength = currentQuality.bloomStrength + Math.min(0.05, musicBass * 0.05);
   fireworks.update(delta);
-  updateWarpStreaks(delta);
+  starGate.update(delta, time, camera, approachTimeline?.progress() ?? 0);
   name3DText.update(delta, time, camera);
-  wormhole.update(time, camera, isWarpActive && !prefersReducedMotion, approachTimeline?.progress() ?? 0);
   frameGovernor.update(delta);
 
   // Render through EffectComposer with UnrealBloomPass for celestial glowing aesthetics

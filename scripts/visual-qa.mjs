@@ -111,7 +111,245 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round7-')) {
+  if (phase.startsWith('round8-')) {
+    console.log(`Running Round 8 (Phases A-E) Star Gate QA Suite for phase: ${phase}...`);
+
+    // Helper to check for solar system leaks in scene audit
+    const assertNoSolarSystemLeaks = (audit, context) => {
+      const forbiddenPatterns = ['heart', 'planet', 'orbit', 'beacon', 'moon', 'saturnring', 'rose'];
+      const leaked = audit.filter(item => {
+        const name = (item.name || '').toLowerCase();
+        const parent = (item.parentName || '').toLowerCase();
+        return forbiddenPatterns.some(pat => name.includes(pat) || parent.includes(pat));
+      });
+      if (leaked.length > 0) {
+        errors.push(`${context}: Leaked solar system objects during transit: ${leaked.map(l => l.name).join(', ')}`);
+      } else {
+        console.log(`[PASS] ${context}: Zero solar system objects visible in scene.`);
+      }
+    };
+
+    // 1. Intro Clean - Desktop (1280x720)
+    console.log('\n--- 1. Testing Intro Clean (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`intro-clean-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=intro-clean`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'intro-clean-desktop');
+
+      await page.screenshot({ path: path.join(outputDir, 'intro-clean-desktop.png') });
+      await page.close();
+    }
+
+    // 2. Intro Clean - Portrait (390x844)
+    console.log('\n--- 2. Testing Intro Clean (Portrait 390x844) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`intro-clean-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=intro-clean`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'intro-clean-portrait');
+
+      await page.screenshot({ path: path.join(outputDir, 'intro-clean-portrait.png') });
+      await page.close();
+    }
+
+    // 3. Flight Start - Desktop (1280x720)
+    console.log('\n--- 3. Testing Flight Start (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-start-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=flight-start`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(800);
+
+      const isTransit = await page.evaluate(() => window.__solarSystem?.isTransitMode());
+      if (!isTransit) errors.push('flight-start-desktop: solarSystem.isTransitMode() is NOT true!');
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'flight-start-desktop');
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-start-desktop.png') });
+      await page.close();
+    }
+
+    // 4. Flight Mid - Desktop (1280x720)
+    console.log('\n--- 4. Testing Flight Mid (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-mid-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=flight-mid`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(800);
+
+      const isTransit = await page.evaluate(() => window.__solarSystem?.isTransitMode());
+      if (!isTransit) errors.push('flight-mid-desktop: solarSystem.isTransitMode() is NOT true!');
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'flight-mid-desktop');
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-mid-desktop.png') });
+      await page.close();
+    }
+
+    // 5. Flight End - Desktop (1280x720)
+    console.log('\n--- 5. Testing Flight End (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-end-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=flight-end`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(800);
+
+      const isTransit = await page.evaluate(() => window.__solarSystem?.isTransitMode());
+      if (!isTransit) errors.push('flight-end-desktop: solarSystem.isTransitMode() is NOT true!');
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'flight-end-desktop');
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-end-desktop.png') });
+      await page.close();
+    }
+
+    // 6. Flight Mid - Portrait (390x844)
+    console.log('\n--- 6. Testing Flight Mid (Portrait 390x844) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-mid-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=flight-mid`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(800);
+
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'flight-mid-portrait');
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-mid-portrait.png') });
+      await page.close();
+    }
+
+    // 7. Flight Mid - Landscape (844x390)
+    console.log('\n--- 7. Testing Flight Mid (Landscape 844x390) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-mid-landscape: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=flight-mid`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(800);
+
+      const audit = await page.evaluate(() => window.__qaSceneAudit?.() || []);
+      assertNoSolarSystemLeaks(audit, 'flight-mid-landscape');
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-mid-landscape.png') });
+      await page.close();
+    }
+
+    // 8. Arrival Reveal - Desktop (1280x720)
+    console.log('\n--- 8. Testing Arrival Reveal (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`arrival-reveal-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-reveal`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(2500);
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-reveal-desktop.png') });
+      await page.close();
+    }
+
+    // 9. Arrival Reveal - Portrait (390x844)
+    console.log('\n--- 9. Testing Arrival Reveal (Portrait 390x844) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`arrival-reveal-portrait: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-reveal`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(2500);
+
+      await page.screenshot({ path: path.join(outputDir, 'arrival-reveal-portrait.png') });
+      await page.close();
+    }
+
+    // 10. Flight Skip (1280x720)
+    console.log('\n--- 10. Testing Flight Skip Action ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`flight-skip: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&cinema=1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await page.waitForSelector('#btn-skip-flight', { timeout: 10000 });
+      await page.locator('#btn-skip-flight').click();
+      await delay(1200);
+
+      const state = await page.evaluate(() => window.__flow?.state);
+      console.log(`Flow state after skip: ${state}`);
+      if (state !== 'ARRIVAL' && state !== 'EXPLORE') {
+        errors.push(`Expected state after skip to be ARRIVAL or EXPLORE, got ${state}`);
+      }
+
+      await page.screenshot({ path: path.join(outputDir, 'flight-skip.png') });
+      await page.close();
+    }
+
+    // 11. Reduced Motion Reveal (1280x720)
+    console.log('\n--- 11. Testing Reduced Motion Reveal ---');
+    {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce'
+      });
+      page.on('pageerror', (err) => errors.push(`reduced-motion-reveal: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=arrival-reveal`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'reduced-motion-reveal.png') });
+      await page.close();
+    }
+
+    // 12. FX Off Reveal (1280x720)
+    console.log('\n--- 12. Testing FX Off Reveal ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`fx-off-reveal: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&fx=off&qa=arrival-reveal`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1200);
+
+      await page.screenshot({ path: path.join(outputDir, 'fx-off-reveal.png') });
+      await page.close();
+    }
+
+    // 13. Sharpness Focus - Desktop (1280x720)
+    console.log('\n--- 13. Testing Sharpness Focus (Desktop 1280x720) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`sharpness-focus-desktop: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=sharpness-focus`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1500);
+
+      await page.screenshot({ path: path.join(outputDir, 'sharpness-focus-desktop.png') });
+      await page.close();
+    }
+
+    // 14. Sharpness Focus - Mobile (390x844)
+    console.log('\n--- 14. Testing Sharpness Focus (Mobile 390x844) ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+      page.on('pageerror', (err) => errors.push(`sharpness-focus-mobile: ${err.message}`));
+      await page.goto(`${baseUrl}?mute=1&skipintro=1&qa=sharpness-focus`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(page);
+      await delay(1500);
+
+      await page.screenshot({ path: path.join(outputDir, 'sharpness-focus-mobile.png') });
+      await page.close();
+    }
+  } else if (phase.startsWith('round7-')) {
     console.log(`Running Round 7 (Phases A-E) QA Suite for phase: ${phase}...`);
 
     // -------------------------------------------------------------------------

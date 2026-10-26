@@ -456,3 +456,51 @@ npm run visual:qa -- --phase=handoff
 - **Production URL**: https://birthday-pi-wheat.vercel.app
 - **Production Asset Bundle**: `dist/assets/index-CpQHV152.js` และ `dist/assets/index-D3Ma7g6Z.css`
 - **Build Status**: `npm run build` ผ่านสมบูรณ์ (Zero errors, built in ~700ms)
+
+---
+
+## แผนรอบ 8: ออกแบบการเดินทางใหม่ “ประตูดาวลูกหมู — Star Gate Arrival” · ซ่อนระบบสุริยะระหว่างทาง · ทำภาพให้คมชัด (Phases A–E)
+
+อัปเดต: 26 ตุลาคม 2026  
+สถานะ: **เสร็จสมบูรณ์ตามข้อกำหนดทุกข้อ, ผ่านการตรวจ Automated Visual QA (Round 8) ครบทั้ง 14 การทดสอบ (100% PASS, 0 Leaked Objects), ตรวจสอบภาพจริงครบถ้วนด้วยตา, และพร้อม Deploy ขึ้น Production บน Vercel**
+
+---
+
+### 1. รายละเอียดการแก้ไขในแต่ละเฟส (Phases A–E)
+
+| เฟส | ปัญหาเดิมและขอบเขตงาน | แนวทางแก้ไขและผลลัพธ์ | ไฟล์ที่แก้ไข |
+| :---: | :--- | :--- | :--- |
+| **A** | **ซ่อนระบบสุริยะระหว่างการเดินทางอย่างสมบูรณ์**<br>• เดิมเห็นหัวใจ, ดาวเคราะห์ 5 ดวง, ป้ายชื่อ และเส้นวงโคจรลอยอยู่กลางอุโมงค์ขณะเดินทาง<br>• ไม่มี State จัดการ Transit Mode แบบรวมศูนย์ | 1. **สร้างระบบ Transit Mode (`solarSystem.setTransitMode(true/false)`)**: ซ่อน `rootGroup`, `heartGroup`, `planetsList`, เส้นทางวงโคจร, ป้ายชื่อดาว, บีคอน และ Pointer trails ทั้งหมด พร้อมปิดการ Hover และ Raycasting ของดาวเคราะห์ตลอดการเดินทาง<br>2. **กักกันวัตถุใน Scene**: ตั้งค่าเริ่มต้นให้ `heartAnamorphicHorizontalStreak` และ `VerticalStreak` ซ่อนตัว (`visible = false`) เพื่อให้ Scene สะอาด 100%<br>3. **รวมศูนย์ Cleanup ทางเดียว (`finishFlight`)**: ทำงานครั้งเดียวรองรับทั้งการบินจบตามธรรมชาติ, การกดปุ่มข้าม (Skip), โหมด Reduced Motion, `?fx=off` และการสลับหน้าจอ ป้องกัน Timer หรือ Tween ซ้ำซ้อน | `src/scene/solarSystemHeart.js`<br>`src/scene/pointerStarTrail.js`<br>`src/main.js` |
+| **B** | **สร้างฉาก “Star Gate Arrival” ใหม่**<br>• เอฟเฟกต์วาร์ปเดิมมีวงแหวนขนาดใหญ่และอนุภาคหนาแน่นทับซ้อนกลางจอ<br>• เวลาเดินทางยาวนานผิดปกติเพราะถูกหน่วงด้วย `timeScale(0.55)` | 1. **ดีไซน์ประตูดาวลูกหมู (Star Gate)**: วงแหวนทวินสีโรสโกลด์/มาเจนตา และสีทองเรืองรอง พร้อม 8 Starlight Nodes และ Iris ตรงกลางที่ค่อยๆ เปิดออก<br>2. **Peripheral Speed Streaks**: เส้นแสงความเร็วพุ่งจากขอบประตูสู่ขอบจอ (รัศมี 19 ถึง 68) เว้นพื้นที่ตรงกลางให้โปร่ง สะอาด และมองเห็นอวกาศลึกชัดเจน<br>3. **ความเร็วธรรมชาติ 7.8 วินาที**: ปลดล็อก `timeScale(0.55)` ออก และใช้ GSAP Easing ธรรมชาติ 7.8s (สอดคล้องกับเป้าหมาย 7–9 วินาที)<br>4. **ลำดับการเปิดเผยระบบสุริยะ (Arrival Reveal)**: ชะลอความเร็วเข้าสู่ความมืดคม → ละอองดาวเปล่งแสงวาดคำว่า **“ข้าวหอม”** ค้างให้อ่านชัดเจน $\ge 2.0$ วินาที → ละอองคำยุบตัวพุ่งเข้าสู่จุดศูนย์กลาง `(0, 0, 0)` → หัวใจคริสตัลระเบิดแสงเปิดตัว → วงโคจรและดาวเคราะห์ทั้ง 5 สว่างขึ้นตามลำดับ | `src/scene/starGate.js`<br>`src/scene/wormhole.js`<br>`src/main.js` |
+| **C** | **ขจัดความเบลอ ปรับภาพและตัวอักษรให้คมชัดกริบ**<br>• ภาพรวมและตัวอักษรไทยดูนุ่ม มีขอบสีแดง/ฟ้า (Chromatic Aberration) และฟิล์มเกรนที่แรงเกินไป<br>• Overlay ของ Intro มี `backdrop-filter: blur(5px)` บังทับ WebGL Canvas | 1. **Chromatic Aberration เป็นศูนย์ (`uCA = 0.0`)**: ปิดการแยกขอบสีใน `cinematicPass` ขจัดขอบสีแดง/ฟ้า รอบตัวอักษรไทยและดวงดาวทุกดวงโดยสิ้นเชิง<br>2. **ลด Film Grain สู่ระดับ Micro (`uGrain = 0.003`)**: ลดสัญญาณรบกวนให้ภาพสะอาด เนียนตา และคมชัดทุกพิกเซล<br>3. **ปิด BokehPass ตลอดเส้นทางหลัก**: ยืนยัน `bokehPass.enabled = false` ในช่วง Intro, Flight, Arrival, Explore และ Cake คงความคมชัดแบบ Tack-sharp<br>4. **ถอด Backdrop Blur จากหน้า Intro**: ลบ `backdrop-filter: blur(5px)` ออกจาก `.intro-screen-overlay` เพื่อให้ดวงดาวและประตูดาวลูกหมูหลังหน้าต่างข้อความคมชัดเต็มความละเอียด | `src/main.js`<br>`src/style.css` |
+| **D** | **ปรับปรุง UX Guide และ Flow**<br>• กล่องคำแนะนำเดิมระหว่างเดินทางอาจเกะกะและชวนให้เข้าใจผิดว่าเป็นจุดที่ต้องคลิก | 1. **Toast คำแนะนำแบบ Non-blocking**: แสดงข้อความ `กำลังเดินทาง… แตะข้ามได้ทุกเมื่อ 🚀` ด้วย CSS Class `.flight-toast-hud` ที่มี `pointer-events: none` หายไปเองใน 4 วินาที ไม่บดบังปุ่มข้ามและฉากหลัง<br>2. **ปุ่มข้ามฉากเดินทางปลอดภัย (`#btn-skip-flight`)**: แสดงตลอดช่วง Flight มี Touch Target ขั้นต่ำ $44\times 44\text{px}$ พร้อม Safe Area Padding สำหรับหน้าจอมือถือที่มีติ่งหรือขอบโค้ง<br>3. **ล้าง Timers อัตโนมัติใน `guideDirector.js`**: ฟังก์ชัน `clearAllGuides()` เคลียร์ทั้ง `idleTimer1`, `idleTimer2`, `idleTimer3` ป้องกันไกด์ขึ้นซ้อนทับเมื่อกดข้ามหรือสลับหน้าจอ | `src/ui/guideDirector.js`<br>`src/style.css`<br>`src/main.js` |
+| **E** | **Automated Visual QA Round 8 (14 ภาพ) & Scene Audit**<br>• ตรวจสอบการรั่วไหลของวัตถุระบบสุริยะและการเรนเดอร์ในทุกขนาดจอ | 1. **Scene Audit กวดขัน 100%**: ตรวจสอบผ่าน `window.__qaSceneAudit()` ระหว่างเดินทาง ยืนยันว่า **Zero Solar System Objects** (0 รายการ) หลุดรอดเข้ามาใน Scene<br>2. **บันทึกภาพทดสอบจริงครบ 14 ใบ**: ครอบคลุมทั้ง Desktop, Portrait, Landscape, Reduced Motion, FX-off, Flight Skip และ Sharpness Focus | `scripts/visual-qa.mjs`<br>`qa/round8-star-gate/` |
+
+---
+
+### 2. ผลการตรวจสอบภาพ Visual QA จริงทั้ง 14 ใบ (Round 8)
+
+| ลำดับ | ไฟล์ภาพ QA | Viewport / สถานะ | ผลการตรวจ Scene Audit และความคมชัด | สถานะ |
+| :---: | :--- | :--- | :--- | :---: |
+| 1 | `intro-clean-desktop.png` | 1280×720 (Desktop) | วงแหวนประตู Star Gate สองชั้นสีโรสโกลด์/ทอง โดดเด่นกลางอวกาศม่วงลึก ปราศจากดาวเคราะห์และหัวใจ (0 leaked objects) | **ผ่าน (PASS)** |
+| 2 | `intro-clean-portrait.png` | 390×844 (Mobile) | ประตูวางตัวกึ่งกลางพอดี ดาวพื้นหลังระยิบระยับคมชัด ปราศจากระบบสุริยะ (0 leaked objects) | **ผ่าน (PASS)** |
+| 3 | `flight-start-desktop.png` | 1280×720 (Desktop) | จุดเริ่มต้นการบิน: ประตูขยายออก เส้นสปีดขอบจอเริ่มพุ่ง ตรงกลางโปร่งสะอาด (0 leaked objects) | **ผ่าน (PASS)** |
+| 4 | `flight-mid-desktop.png` | 1280×720 (Desktop) | กึ่งกลางการเดินทาง: อุโมงค์มิติสีม่วงเข้ม เส้นแสงพุ่งรอบนอก ตรงกลางโล่งสะอาด ไร้หัวใจ/ดาวเคราะห์/วงโคจร 100% | **ผ่าน (PASS)** |
+| 5 | `flight-end-desktop.png` | 1280×720 (Desktop) | ท้ายการเดินทาง: ชะลอความเร็วเข้าสู่ความมืดคมเพื่อเตรียมเปิดตัวอักษร (0 leaked objects) | **ผ่าน (PASS)** |
+| 6 | `flight-mid-portrait.png` | 390×844 (Mobile) | กึ่งกลางการเดินทางบนมือถือแนวตั้ง: ประตูและเส้นความเร็วสเกลสมบูรณ์ พื้นที่กลางจอสะอาดหมดจด | **ผ่าน (PASS)** |
+| 7 | `flight-mid-landscape.png`| 844×390 (Landscape)| กึ่งกลางการเดินทางบนมือถือแนวนอน: ปรับมุมมองกว้างสวยงาม ไร้สิ่งแปลกปลอม | **ผ่าน (PASS)** |
+| 8 | `arrival-reveal-desktop.png`| 1280×720 (Desktop) | กลุ่มละอองดาวระยิบระยับเรียงตัวเป็นคำว่า **“ข้าวหอม”** ชัดเจน ลอยเด่นกลางความมืด ก่อนยุบตัวเปิดหัวใจ | **ผ่าน (PASS)** |
+| 9 | `arrival-reveal-portrait.png`| 390×844 (Mobile) | ตัวอักษร “ข้าวหอม” อ่านง่าย สระและวรรณยุกต์ครบถ้วน สมดุลกลางจอมือถือ | **ผ่าน (PASS)** |
+| 10 | `flight-skip.png` | 1280×720 (Desktop) | ผลหลังกดปุ่ม "ข้ามฉากเดินทาง ⏩": เข้าสู่สถานะ EXPLORE อย่างถูกต้อง คืนระบบสุริยะครบ 5 ดวงพร้อมหัวใจ ไร้ Tween ค้าง | **ผ่าน (PASS)** |
+| 11 | `reduced-motion-reveal.png` | 1280×720 (Reduced Motion)| ปิดการหมุนกล้องความเร็วสูง แสดงการเปิดตัวอักษรอย่างนุ่มนวลและปลอดภัยต่อสายตา | **ผ่าน (PASS)** |
+| 12 | `fx-off-reveal.png` | 1280×720 (`?fx=off`) | โหมดประหยัดทรัพยากร: ข้ามเอฟเฟกต์หนัก เข้าสู่ระบบสุริยะได้อย่างสมบูรณ์แบบ | **ผ่าน (PASS)** |
+| 13 | `sharpness-focus-desktop.png`| 1280×720 (Desktop) | ตรวจสอบความคมชัด: พื้นผิวโลก, ทวีป, เมฆ, หัวใจคริสตัล, ข้อความภาษาไทย และปุ่ม UI คมกริบ ไร้ขอบสี Chromatic Aberration | **ผ่าน (PASS)** |
+| 14 | `sharpness-focus-mobile.png` | 390×844 (Mobile) | ความคมชัดบนมือถือ: ข้อความไกด์, ตัวเลขนับดาว 16 ปี, ปุ่มปิดทัวร์ คมชัด ไร้รอยเบลอ | **ผ่าน (PASS)** |
+
+---
+
+### 3. สถานะการ Deploy บน Production (Vercel)
+
+- **Production URL**: https://birthday-pi-wheat.vercel.app
+- **Production Asset Bundle**: `dist/assets/index-C6pUcSFJ.js` และ `dist/assets/index-CDWl2Kn4.css`
+- **Build Status**: `npm run build` ผ่านสมบูรณ์ (Zero errors, built in ~800ms)

@@ -106,6 +106,9 @@ export function createGuideDirector({
       tourInstance.stop();
       tourInstance = null;
     }
+    if (idleTimer1) { clearTimeout(idleTimer1); idleTimer1 = null; }
+    if (idleTimer2) { clearTimeout(idleTimer2); idleTimer2 = null; }
+    if (idleTimer3) { clearTimeout(idleTimer3); idleTimer3 = null; }
     if (epilogueGalaxyTimer) {
       clearTimeout(epilogueGalaxyTimer);
       epilogueGalaxyTimer = null;
@@ -131,6 +134,25 @@ export function createGuideDirector({
       cancelAnimationFrame(rAF);
       rAF = null;
     }
+  }
+
+  // Shows a gentle toast notification via uiDirector (layer: hud, non-blocking)
+  function showToast(text, { ttl = 3500, states = ['EXPLORE', 'FLIGHT'] } = {}) {
+    if (isGuideOff) return null;
+    const toast = document.createElement('div');
+    toast.className = 'guide-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.innerHTML = `<span class="guide-toast-text">${text}</span>`;
+    return uiDirector.show({
+      id: 'guide-toast-active',
+      zone: 'bottom-center',
+      layer: 'hud',
+      exclusive: false,
+      ttl: reducedMotion ? Math.min(ttl, 2500) : ttl,
+      element: toast,
+      states
+    });
   }
 
   // Shows a gentle coach bubble via uiDirector (layer: coach, exclusive: true)
@@ -519,6 +541,7 @@ export function createGuideDirector({
     noteInteraction,
     pointAtPlanet,
     showBubble,
+    showToast,
     clear: clearAllGuides,
     openHelp: () => helpSheet.open(),
     closeHelp: () => helpSheet.close(),
