@@ -261,7 +261,7 @@ npm run visual:qa -- --phase=handoff
 ## แผนรอบ 5: ระบบไกด์ "กดอะไรก่อน" + ปิดงานบัคให้สมบูรณ์ (สรุปผลการดำเนินงานจริง)
 
 อัปเดต: 26 ตุลาคม 2026
-สถานะ: **เสร็จสมบูรณ์ตามข้อกำหนดและผ่านการตรวจ Visual QA 25 ภาพ** (`qa/round5-all/`)
+สถานะ: **เสร็จสมบูรณ์ตามข้อกำหนด, ผ่านการตรวจ Visual QA 25 ภาพ และ Deploy ขึ้น Production บน Vercel เรียบร้อยแล้ว** (Commit `61599f0`)
 
 ---
 
@@ -363,3 +363,13 @@ npm run visual:qa -- --phase=handoff
    - ตรวจสอบว่ารูปโมเสก 2x2 ในความทรงจำใบที่ 5 แสดงผลเรียงกัน 4 ช่องคมชัด
 3. **ทางเลือกสำหรับรูปที่ 5 ในอนาคต**:
    - หากในอนาคตเจ้าของมีภาพเดี่ยวใบที่ 5 ที่ต้องการใส่แทนโมเสก สามารถนำไฟล์รูปไปวางทับที่ `public/images/memory-5.jpg` และนำบรรทัด `collage: [1, 2, 3, 4],` ออกจาก `src/config/memoriesData.js` ได้อย่างง่ายดาย
+
+---
+
+### 5. สถานะการ Deploy บน Production (Vercel)
+
+- **Production URL**: https://birthday-pi-wheat.vercel.app
+- **Git Commit**: `61599f0` (branch: `main`)
+- **Production Asset Bundle**: `assets/index-DvdZumnE.js` และ `assets/index-0mMAda7-.css`
+- **HTTP Response Verification**: 200 OK (ตอบสนองสมบูรณ์ทุก Asset)
+- **วันเวลาที่ Deploy**: 26 ตุลาคม 2026 เวลา 13:45 น. (GMT+7)
