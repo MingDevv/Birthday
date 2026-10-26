@@ -426,6 +426,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   let blown = false;
   let blowingOut = false;
   let blowTimeouts = [];
+  let blowGeneration = 0;
   let breathStrength = 0;
   let lastLitCandleCount = 0;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -527,6 +528,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     },
 
     cancelBlowOut() {
+      blowGeneration++;
       blowTimeouts.forEach(id => clearTimeout(id));
       blowTimeouts = [];
       blowingOut = false;
@@ -537,6 +539,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       if (!revealed || blown) return false;
       blown = true;
       blowingOut = true;
+      const currentGen = ++blowGeneration;
       blowTimeouts.forEach(id => clearTimeout(id));
       blowTimeouts = [];
 
@@ -544,9 +547,11 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
         flames.forEach((flame) => { flame.visible = false; });
         cakePointLight.intensity = 0;
         const rmId = window.setTimeout(() => {
+          if (currentGen !== blowGeneration) return;
           blowingOut = false;
           onComplete?.();
         }, 600);
+        blowTimeouts.push(rmId);
       } else {
         // Phase D2: 0.0s - 0.6s: Flame flutter & wind response
         // 0.6s onwards: sequential extinguishing at 220ms per candle (15 intervals * 220ms = 3300ms + 600ms prelude + 500ms pause = 4.4s)
@@ -554,6 +559,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
         const INTERVAL = 220;
         flames.forEach((flame, index) => {
           const timeoutId = window.setTimeout(() => {
+            if (currentGen !== blowGeneration) return;
             flame.visible = false;
             // Trigger lavender smoke puff
             const smoke = smokePuffs[index];
@@ -569,9 +575,10 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
 
             if (index === flames.length - 1) {
               cakePointLight.intensity = 0;
-              blowingOut = false;
               // 0.5s pause in serene darkness before celebration
               const finalTimeout = window.setTimeout(() => {
+                if (currentGen !== blowGeneration) return;
+                blowingOut = false;
                 onComplete?.();
               }, 500);
               blowTimeouts.push(finalTimeout);
@@ -646,6 +653,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     },
 
     hide() {
+      blowGeneration++;
       group.visible = false;
       group.position.set(0, -30, -5);
       group.scale.setScalar(1);
@@ -691,6 +699,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     },
 
     dispose() {
+      blowGeneration++;
       blowTimeouts.forEach(id => clearTimeout(id));
       blowTimeouts = [];
       blowingOut = false;

@@ -23,13 +23,14 @@
    - กำหนด `INTERVAL = 220` ms ต่อเล่ม (16 เล่ม 15 intervals = 3300ms + prelude 600ms + pause 500ms = 4.40s รวมก่อนเริ่มฉลอง)
    - **ยืนยัน:** เครื่องมือวัด performance.now() อัตโนมัติวัดได้ 16 เล่มเฉลี่ย 220.0ms รวมระยะเวลา 4.40s แม่นยำ 100%
 
-5. **P2 (จัดการ Timer และ Tween ของฉากฉลอง — ยืนยัน 100%):**
+5. **P2 (จัดการ Timer และ Tween ของฉากฉลอง & ยกเลิกการเป่าเทียนใน Reduced-Motion — ยืนยัน 100%):**
    - เพิ่ม `cancelCelebrationShower()` ใน `galaxySkybox.js`, `cancelCelebrationVolley()` ใน `fireworks.js`, `cancelCelebration()` ใน `main.js` และ `reset()` ใน `cosmicCake.js`
+   - **แก้บั๊ก timer reduced-motion:** ใส่ `rmId` ใน `blowTimeouts` และเพิ่มระบบ `blowGeneration` token guard ใน `cosmicCake.js` เมื่อสั่ง `cancelBlowOut()` callback จะไม่รั่วไปเริ่มฉลองเด็ดขาด (ทดสอบ cancel ทันที -> completed: 0, ไม่ cancel -> completed: 1)
    - ยกเลิก timers ทั้งหมดอัตโนมัติเมื่อออกจากฉาก `FINALE_CAKE` หรือเริ่มรอบใหม่
-   - **ยืนยัน:** รันลูปเป่าเค้ก 5 รอบต่อเนื่อง ตรวจ `renderer.info.memory` พบ geometries 112 -> 111, textures 25 -> 24 (Zero Memory Leak)
+   - **ยืนยัน:** รันลูปเป่าเค้ก 5 รอบต่อเนื่อง ตรวจ `renderer.info.memory` พบ geometries 112 -> 111, textures 24 -> 23 (Zero Memory Leak)
 
 6. **ขยายชุด Visual QA & ตรวจสอบภาพจริง:**
-   - เพิ่มคำสั่ง `node scripts/visual-qa.mjs --phase=round10-fixes` พร้อม 28 assertions, 0 errors, ตรวจ console error และ network request
+   - เพิ่มคำสั่ง `node scripts/visual-qa.mjs --phase=round10-fixes` พร้อม 31 assertions, 0 errors, ตรวจ console error และ network request
    - ตรวจดูภาพจริงทั้ง 6 ภาพใน `qa/round10-fixes/` ครบถ้วนด้วยสายตา
    - `npm run visual:qa -- --phase=round9-master` รัน regression ผ่าน 100%
    - `npm run build` ผ่าน 100%

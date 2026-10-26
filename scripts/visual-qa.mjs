@@ -377,6 +377,55 @@ try {
       await page.close();
     }
 
+    // TEST 6: P2 — Candle Extinguish Cancellation (Reduced-Motion & Normal Motion)
+    console.log('\n--- [TEST 6] P2: Candle Extinguish Cancellation (Reduced-Motion & Normal) ---');
+    {
+      // 1. Test reduced-motion cancel vs non-cancel
+      const pageRM = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      await pageRM.emulateMedia({ reducedMotion: 'reduce' });
+      attachPageListeners(pageRM, 'candle-cancel-rm');
+      await pageRM.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(pageRM);
+      await delay(800);
+
+      const rmCancelResult = await pageRM.evaluate(async () => {
+        let completed = 0;
+        window.__qaDebug.cosmicCake.blowOut(() => { completed++; });
+        window.__qaDebug.cosmicCake.cancelBlowOut();
+        await new Promise(r => setTimeout(r, 750));
+        return { completed };
+      });
+      assert(rmCancelResult.completed === 0, 'In reduced-motion: cancelBlowOut() cancels timer and onComplete never fires (completed: 0)');
+
+      const rmNormalResult = await pageRM.evaluate(async () => {
+        let completed = 0;
+        window.__qaDebug.cosmicCake.reset();
+        window.__qaDebug.cosmicCake.blowOut(() => { completed++; });
+        await new Promise(r => setTimeout(r, 750));
+        return { completed };
+      });
+      assert(rmNormalResult.completed === 1, 'In reduced-motion without cancel: onComplete fires exactly once (completed: 1)');
+      await pageRM.close();
+
+      // 2. Test normal motion cancel
+      const pageNorm = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      attachPageListeners(pageNorm, 'candle-cancel-normal');
+      await pageNorm.goto(`${baseUrl}?mute=1&skipintro=1&qa=cake-lit`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await waitForAssets(pageNorm);
+      await delay(800);
+
+      const normCancelResult = await pageNorm.evaluate(async () => {
+        let completed = 0;
+        window.__qaDebug.cosmicCake.blowOut(() => { completed++; });
+        await new Promise(r => setTimeout(r, 300));
+        window.__qaDebug.cosmicCake.cancelBlowOut();
+        await new Promise(r => setTimeout(r, 1200));
+        return { completed };
+      });
+      assert(normCancelResult.completed === 0, 'In normal motion: cancelBlowOut() halts sequence and onComplete never fires (completed: 0)');
+      await pageNorm.close();
+    }
+
     console.log('\n======================================================');
     console.log(`📊 Round 10 QA Suite Summary:`);
     console.log(`   - Assertions Passed: ${assertionsPassed}`);
