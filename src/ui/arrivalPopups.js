@@ -11,7 +11,8 @@ export function showArrivalCelebrationFlow(soundManager, {
   worldTextRegistry,
   reducedMotion = false,
   quality = { tier: 'medium' },
-  startAtName = false
+  startAtName = false,
+  onSelectFirstPlanet
 } = {}) {
   const isQa = new URLSearchParams(location.search).get('qa')?.startsWith('arrival-');
   let currentStep = startAtName ? 'name' : 'number';
@@ -119,7 +120,7 @@ export function showArrivalCelebrationFlow(soundManager, {
       onClose: () => {
         currentStep = 'done';
         cleanupListeners();
-        showGuideCardPrompt(uiDirector, { reducedMotion });
+        showGuideCardPrompt(uiDirector, { reducedMotion, onSelectFirstPlanet });
       }
     });
 
@@ -172,7 +173,7 @@ export function showArrivalCelebrationFlow(soundManager, {
   }
 }
 
-export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) {
+export function showGuideCardPrompt(uiDirector, { reducedMotion = false, onSelectFirstPlanet } = {}) {
   if (ledger.seen('explore-first')) return null;
   const guideEl = document.createElement('div');
   guideEl.id = 'guide-open-card';
@@ -190,7 +191,7 @@ export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) 
     states: ['EXPLORE'],
     onClose: () => {
       window.removeEventListener('memory-modal-opened', onCardOpen);
-      guideEl.removeEventListener('click', cleanup);
+      guideEl.removeEventListener('click', onPillClick);
     }
   });
 
@@ -203,8 +204,12 @@ export function showGuideCardPrompt(uiDirector, { reducedMotion = false } = {}) 
     handle.hide();
   };
 
+  const onPillClick = () => {
+    cleanup();
+    onSelectFirstPlanet?.();
+  };
   const onCardOpen = () => cleanup();
-  guideEl.addEventListener('click', cleanup, { once: true });
+  guideEl.addEventListener('click', onPillClick, { once: true });
   window.addEventListener('memory-modal-opened', onCardOpen, { once: true });
   return handle;
 }

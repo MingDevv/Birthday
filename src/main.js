@@ -618,8 +618,8 @@ function showCakeActions() {
   });
 }
 
-function startFinaleSequence() {
-  if (finaleSequenceStarted || visitedMemories.size < 5) return;
+function startFinaleSequence(force = false) {
+  if (finaleSequenceStarted || (!force && visitedMemories.size < 5)) return;
   finaleSequenceStarted = true;
   stopCakeMic();
   uiDirector.hideAll();
@@ -921,7 +921,8 @@ function startCinematicApproach(onComplete) {
         worldTextRegistry: activeWorldTexts,
         reducedMotion: prefersReducedMotion,
         quality: currentQuality,
-        startAtName: true
+        startAtName: true,
+        onSelectFirstPlanet: () => flyToPlanet(1)
       });
     };
     if (queryFlags.fxOff || prefersReducedMotion) {
@@ -1320,6 +1321,17 @@ const polaroidModal = new PolaroidModal({
     polaroidModal.close(false);
     setTimeout(() => flyToPlanet(nextId), 380);
   },
+  onFinaleCake: () => {
+    uiDirector.setModalOpen(false);
+    for (let id = 1; id <= 5; id++) {
+      progress.markVisited(id);
+      solarSystem.markVisited(id);
+    }
+    flow.go('EXPLORE');
+    returnToCenterOrbit();
+    guideDirector?.showBubble(GUIDE_COPY.memory.last, { ttl: 2600, zone: 'bottom-left' });
+    setTimeout(() => startFinaleSequence(true), prefersReducedMotion ? 400 : 1600);
+  },
   onBackToGalaxy: () => {
     uiDirector.setModalOpen(false);
     if (progress.isComplete()) {
@@ -1408,6 +1420,9 @@ const hud = new HudOverlay({
   onOpenHelp: () => {
     guideDirector?.openHelp();
   }
+});
+soundManager.addPlayStateListener((isPlaying) => {
+  hud.setSoundPlayingState(isPlaying);
 });
 
 guideDirector = createGuideDirector({
@@ -1639,7 +1654,17 @@ if (queryFlags.qaScene === 'intro-clean') {
   hud.hide();
   camera.position.copy(defaultCameraPos);
   controls.target.copy(defaultCameraTarget);
-  showArrivalCelebrationFlow(soundManager, { uiDirector, flow, scene, camera, solarSystem, worldTextRegistry: activeWorldTexts, reducedMotion: prefersReducedMotion, quality: currentQuality });
+  showArrivalCelebrationFlow(soundManager, {
+    uiDirector,
+    flow,
+    scene,
+    camera,
+    solarSystem,
+    worldTextRegistry: activeWorldTexts,
+    reducedMotion: prefersReducedMotion,
+    quality: currentQuality,
+    onSelectFirstPlanet: () => flyToPlanet(1)
+  });
 }
 
 setupShootingStarWishes();

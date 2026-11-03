@@ -999,19 +999,31 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       planetNode.add(ringShadow);
     }
 
-    // 6. Interactive Hitbox (Plan Round 9: Generous radius ensuring >= 44x44px tap target on mobile)
+    // 6. Interactive Hitbox (Plan Round 9 & 11: Generous radius + beacon banner hitbox ensuring >= 44x44px tap target on mobile)
     const hitGeo = new THREE.SphereGeometry(pConfig.radius * 2.2, 16, 16);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitMesh = new THREE.Mesh(hitGeo, hitMat);
-    hitMesh.userData = {
+    const sharedUserData = {
       planetId: pConfig.id,
       memoryId: pConfig.id,
       planetConfig: pConfig,
       parentGroup: planetNode,
       planetMesh: planetMesh
     };
+    hitMesh.userData = sharedUserData;
     planetNode.add(hitMesh);
     interactiveMeshes.push(hitMesh);
+
+    // Dedicated beacon banner hitbox for mobile touch targets
+    const beaconHitGeo = new THREE.BoxGeometry(pConfig.radius * 5.4, pConfig.radius * 2.0, pConfig.radius * 2.0);
+    const beaconHitMesh = new THREE.Mesh(beaconHitGeo, hitMat);
+    beaconHitMesh.position.set(0, pConfig.radius * 2.45, 0);
+    beaconHitMesh.userData = sharedUserData;
+    planetNode.add(beaconHitMesh);
+    interactiveMeshes.push(beaconHitMesh);
+
+    beaconSprite.userData = sharedUserData;
+    interactiveMeshes.push(beaconSprite);
 
     let cloudLayer = null;
     if (pConfig.type === 'earth') {

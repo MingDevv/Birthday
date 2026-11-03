@@ -9,13 +9,14 @@ import { ledger } from './guideLedger.js';
  * - Special finale letter for Memory 05
  */
 export class PolaroidModal {
-  constructor({ onNext, onPrev, onBackToGalaxy, onWish, onTypeTick, onCapture }) {
+  constructor({ onNext, onPrev, onBackToGalaxy, onWish, onTypeTick, onCapture, onFinaleCake }) {
     this.onNext = onNext;
     this.onPrev = onPrev;
     this.onBackToGalaxy = onBackToGalaxy;
     this.onWish = onWish;
     this.onTypeTick = onTypeTick;
     this.onCapture = onCapture;
+    this.onFinaleCake = onFinaleCake;
     this.typeTimer = null;
 
     this.currentMemory = null;
@@ -117,10 +118,16 @@ export class PolaroidModal {
     this.container.querySelector('#modal-capture-btn').addEventListener('click', () => this.onCapture?.());
 
     this.container.querySelector('#modal-next-btn').addEventListener('click', () => {
-      if (this.currentMemory && this.onNext) {
-        // If memory 5, wraps back to 1
-        const nextId = this.currentMemory.id >= 5 ? 1 : this.currentMemory.id + 1;
-        this.onNext(nextId);
+      if (this.currentMemory) {
+        if (this.currentMemory.id >= 5 && this.onFinaleCake) {
+          this.close(false);
+          this.onFinaleCake();
+          return;
+        }
+        if (this.onNext) {
+          const nextId = this.currentMemory.id >= 5 ? 1 : this.currentMemory.id + 1;
+          this.onNext(nextId);
+        }
       }
     });
 
@@ -304,7 +311,8 @@ export class PolaroidModal {
 
     if (memory.id === 5) {
       finaleBox.classList.remove('hidden');
-      nextBtn.innerHTML = '<span>วนกลับสู่จุดเริ่มต้น ↺</span>';
+      nextBtn.innerHTML = '<span>ไปเป่าเค้กวันเกิด 🎂✨</span>';
+      nextBtn.classList.add('btn-finale-cake');
       const wishText = Array.from(PLANET_CONFIG.wishBody);
       wishBody.textContent = '';
       let character = 0;
@@ -321,6 +329,7 @@ export class PolaroidModal {
     } else {
       finaleBox.classList.add('hidden');
       nextBtn.innerHTML = '<span>ความทรงจำถัดไป ➔</span>';
+      nextBtn.classList.remove('btn-finale-cake');
       wishBody.textContent = PLANET_CONFIG.wishBody;
     }
 

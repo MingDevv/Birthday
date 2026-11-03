@@ -13,12 +13,43 @@ export class SoundManager {
     this.recordDestination = null;
     this.isPlayingBGM = false;
     this.isMuted = false;
+    this.playStateListeners = new Set();
     this.bgmAudio = new Audio(`${import.meta.env.BASE_URL}audio/velika-official-audio.mp3`);
     this.bgmAudio.loop = true;
     this.bgmAudio.preload = 'none';
     this.bgmAudio.volume = 0.35;
 
+    this.bgmAudio.addEventListener('play', () => {
+      this.isPlayingBGM = true;
+      this.notifyPlayState(true);
+    });
+    this.bgmAudio.addEventListener('pause', () => {
+      this.isPlayingBGM = false;
+      this.notifyPlayState(false);
+    });
+    this.bgmAudio.addEventListener('ended', () => {
+      this.isPlayingBGM = false;
+      this.notifyPlayState(false);
+    });
+
     this.initAudioContext = this.initAudioContext.bind(this);
+  }
+
+  addPlayStateListener(listener) {
+    if (typeof listener === 'function') {
+      this.playStateListeners.add(listener);
+      listener(this.isPlaying());
+    }
+  }
+
+  removePlayStateListener(listener) {
+    this.playStateListeners.delete(listener);
+  }
+
+  notifyPlayState(isPlaying) {
+    this.playStateListeners.forEach((listener) => {
+      try { listener(isPlaying); } catch {}
+    });
   }
 
   initAudioContext() {
@@ -310,19 +341,30 @@ export class SoundManager {
 
   // Start the supplied MP3 after a user gesture (browser autoplay policy)
   startBGM() {
-    if (this.isPlayingBGM || this.isMuted) return;
-    this.isPlayingBGM = true;
-    this.bgmAudio.preload = 'auto';
-    this.bgmAudio.load();
-    this.bgmAudio.play().catch((error) => {
-      this.isPlayingBGM = false;
-      console.warn('Background music could not start:', error);
-    });
+    if (this.isMuted) return;
+    this.initAudioContext();
+    if (this.bgmAudio.preload !== 'auto') {
+      this.bgmAudio.preload = 'auto';
+    }
+    const playPromise = this.bgmAudio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          this.isPlayingBGM = true;
+          this.notifyPlayState(true);
+        })
+        .catch((error) => {
+          this.isPlayingBGM = false;
+          this.notifyPlayState(false);
+          console.warn('Background music could not start:', error);
+        });
+    }
   }
 
   stopBGM() {
     this.isPlayingBGM = false;
     this.bgmAudio.pause();
+    this.notifyPlayState(false);
   }
 
   toggleMute() {
@@ -332,7 +374,7 @@ export class SoundManager {
     } else {
       this.startBGM();
     }
-    return !this.isMuted;
+    return this.isPlaying();
   }
 
   isPlaying() {
