@@ -190,6 +190,7 @@ export function showGuideCardPrompt(uiDirector, { reducedMotion = false, onSelec
     element: guideEl,
     states: ['EXPLORE'],
     onClose: () => {
+      ledger.retire('explore-first');
       window.removeEventListener('memory-modal-opened', onCardOpen);
       guideEl.removeEventListener('click', onPillClick);
     }

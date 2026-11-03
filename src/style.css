@@ -1170,9 +1170,10 @@ body.cinema-portrait #webgl-canvas {
 .ui-action-slot button { min-height: 44px; }
 .ui-layer-cinematic { pointer-events: none; }
 .ui-layer-cinematic button { pointer-events: auto; }
-.finale-letter-card { width: min(88vw, 680px); padding: clamp(20px, 4vw, 38px); border: 1px solid rgba(255,226,245,.6); border-radius: 24px; color: #fff5fb; background: linear-gradient(145deg, rgba(42,20,59,.94), rgba(16,13,36,.96)); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 0 28px rgba(255,190,219,.08); text-align: center; font: 600 clamp(21px, 3vw, 34px)/1.6 'Mali', 'Prompt', sans-serif; }
-.finale-letter-card.lite { font-size: clamp(20px, 2.6vw, 30px); }
+.finale-letter-card { width: min(88vw, 680px); padding: clamp(20px, 4vw, 38px); border: 1px solid rgba(255,226,245,.6); border-radius: 24px; color: #fff5fb; background: linear-gradient(145deg, rgba(42,20,59,.94), rgba(16,13,36,.96)); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 0 28px rgba(255,190,219,.08); text-align: center; font: 600 clamp(21px, 3vw, 34px)/1.6 'Mali', 'Prompt', sans-serif; cursor: pointer; }
+.finale-letter-card.lite { font-size: clamp(20px, 2.6vw, 30px); cursor: default; }
 .finale-letter-card button { display: block; margin: 18px auto 0; padding: 10px 18px; border: 1px solid rgba(255,230,244,.55); border-radius: 999px; color: #fff; background: rgba(133,73,157,.55); font: 600 14px 'Prompt',sans-serif; }
+.finale-letter-hint { display: block; margin-top: 14px; font-size: 13px; font-weight: 400; opacity: 0.72; color: #fce7f3; }
 .ui-epilogue-actions { display: grid; gap: 8px; width: min(230px, calc(100vw - 32px)); }
 .ui-epilogue-actions button { min-height: 42px; padding: 7px 12px; border: 1px solid rgba(255,230,244,.5); border-radius: 14px; color: #fff6fc; background: rgba(30,18,49,.84); font: 500 13px 'Prompt',sans-serif; }
 

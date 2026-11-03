@@ -111,7 +111,129 @@ try {
     args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader']
   });
   const errors = [];
-  if (phase.startsWith('round11-')) {
+  if (phase.startsWith('round12-')) {
+    console.log(`\n======================================================`);
+    console.log(`🚀 Running Round 12 Bugfix & Deep QA Suite (${phase})`);
+    console.log(`======================================================\n`);
+
+    let assertionsPassed = 0;
+    let assertionsFailed = 0;
+    let screenshotsTaken = 0;
+
+    const assert = (condition, message) => {
+      if (condition) {
+        assertionsPassed++;
+        console.log(`  [PASS] ${message}`);
+      } else {
+        assertionsFailed++;
+        errors.push(`Assertion failed: ${message}`);
+        console.error(`  [FAIL] ${message}`);
+      }
+    };
+
+    const recordScreenshot = async (page, filename) => {
+      const p = path.join(outputDir, filename);
+      await page.screenshot({ path: p });
+      screenshotsTaken++;
+      console.log(`  📸 Saved screenshot: ${filename}`);
+      return p;
+    };
+
+    // TEST 1: #btn-tilt ID presence on mobile device
+    console.log('\n--- [TEST 1] Tilt Button ID & Guide Integration ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+      page.on('pageerror', (err) => errors.push(`test1: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(800);
+
+      const tiltBtn = await page.$('#btn-tilt');
+      assert(tiltBtn !== null, '#btn-tilt has valid ID matching guideHelpSheet & guideTour');
+      const hasTiltInSheet = await page.evaluate(() => {
+        const btn = document.querySelector('#btn-tilt');
+        return btn !== null;
+      });
+      assert(hasTiltInSheet, 'document.querySelector("#btn-tilt") resolves correctly');
+      await recordScreenshot(page, 'tilt-button-id.png');
+      await page.close();
+    }
+
+    // TEST 2: Raycaster Click-through Guard
+    console.log('\n--- [TEST 2] Raycaster Click-Through Guard for UI Elements ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      page.on('pageerror', (err) => errors.push(`test2: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await waitForAssets(page);
+      await page.waitForTimeout(1000);
+
+      // Verify that clicking a HUD button does NOT trigger planet navigation accidentally
+      await page.locator('#btn-reset-cam').click();
+      await page.waitForTimeout(400);
+      const state = await page.evaluate(() => window.__qaDebug.flow.state);
+      assert(state === 'EXPLORE', `Clicking HUD button kept state as EXPLORE (found: "${state}")`);
+      await page.close();
+    }
+
+    // TEST 3: Mobile Resize in FINALE_CAKE Preserves Cake Framing
+    console.log('\n--- [TEST 3] Orientation Change / Resize during FINALE_CAKE ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      page.on('pageerror', (err) => errors.push(`test3: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low&qa=cake`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await waitForAssets(page);
+      await page.waitForSelector('.cake-blow-button', { timeout: 10000 });
+
+      // Change viewport to simulate rotation to mobile portrait
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForFunction(() => window.__qaDebug.camera.position.z >= 180, undefined, { timeout: 10000 });
+
+      const cakeState = await page.evaluate(() => {
+        const cam = window.__qaDebug.camera;
+        return {
+          state: window.__qaDebug.flow.state,
+          y: Math.round(cam.position.y),
+          z: Math.round(cam.position.z)
+        };
+      });
+      assert(cakeState.state === 'FINALE_CAKE', `Flow state remains FINALE_CAKE after resize (found: "${cakeState.state}")`);
+      assert(cakeState.z >= 180, `Camera positioned in portrait cake vantage point (z >= 180, found: ${cakeState.z})`);
+      await recordScreenshot(page, 'cake-resize-preserved.png');
+      await page.close();
+    }
+
+    // TEST 4: Epilogue Re-visiting Memory Does NOT Auto-Trigger Cake Sequence
+    console.log('\n--- [TEST 4] Epilogue Re-visit Memory Card Closes Peacefully ---');
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      page.on('pageerror', (err) => errors.push(`test4: ${err.message}`));
+      await page.goto(`${baseUrl}?skipintro=1&mute=1&quality=low&qa=epilogue`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await waitForAssets(page);
+      await page.waitForSelector('.ui-epilogue-actions', { timeout: 10000 });
+
+      // Click "ดูความทรงจำอีกครั้ง"
+      await page.locator('.ui-epilogue-actions [data-action="memory"]').click();
+      await page.waitForSelector('#memory-modal-backdrop.visible', { timeout: 15000 });
+
+      // Close memory card 1
+      await page.locator('#modal-close-btn').click();
+      await page.waitForTimeout(2200); // Wait longer than the 1800ms old timer
+
+      const finalState = await page.evaluate(() => window.__qaDebug.flow.state);
+      assert(finalState === 'EXPLORE', `Closing memory card in re-visit mode returns peacefully to EXPLORE without forcing cake (found: "${finalState}")`);
+      await recordScreenshot(page, 'epilogue-peaceful-return.png');
+      await page.close();
+    }
+
+    console.log('\n======================================================');
+    console.log(`📊 Round 12 QA Suite Summary:`);
+    console.log(`   - Assertions Passed: ${assertionsPassed}`);
+    console.log(`   - Assertions Failed: ${assertionsFailed}`);
+    console.log(`   - Screenshots Captured: ${screenshotsTaken}`);
+    console.log(`   - Total Errors: ${errors.length}`);
+    console.log(`======================================================\n`);
+  } else if (phase.startsWith('round11-')) {
     console.log(`\n======================================================`);
     console.log(`🚀 Running Round 11 Bugfix & Deep QA Suite (${phase})`);
     console.log(`======================================================\n`);

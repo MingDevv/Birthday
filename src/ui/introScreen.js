@@ -14,6 +14,7 @@ export class IntroScreen {
     this.soundManager = soundManager;
     this.container = null;
     this.hasEntered = false;
+    this.greetingRevealed = false;
 
     this.initDOM();
     this.startCountdown();
@@ -127,6 +128,12 @@ export class IntroScreen {
   }
 
   revealGreeting() {
+    if (this.greetingRevealed) return;
+    this.greetingRevealed = true;
+    if (this.countdownTimer) {
+      clearTimeout(this.countdownTimer);
+      this.countdownTimer = null;
+    }
     const countdownWrap = this.container.querySelector('#intro-countdown-wrap');
     const greetingWrap = this.container.querySelector('#intro-greeting-wrap');
     const skipBtn = this.container.querySelector('#btn-skip-countdown');

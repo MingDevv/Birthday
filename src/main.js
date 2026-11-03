@@ -56,6 +56,9 @@ const flow = createFlow({
     if (previous === 'FINALE_CAKE' && next !== 'FINALE_CAKE') {
       cancelCelebration();
     }
+    if (next === 'EPILOGUE') {
+      hasCompletedFinaleOnce = true;
+    }
     const grade = {
       FLIGHT: [0.9, 0.96, 1.06], ARRIVAL: [1.03, 0.93, 1.04], MEMORY: [1.02, 0.98, 1.04],
       FINALE_ALIGN: [1.04, 0.98, 0.92], FINALE_HEART: [1.08, 0.99, 0.94], FINALE_CAKE: [1.06, 0.98, 0.92]
@@ -275,6 +278,7 @@ let cinemaButton = null;
 const activeAuroras = new Set();
 const activeWorldTexts = new Set();
 let finaleSequenceStarted = false;
+let hasCompletedFinaleOnce = false;
 let finaleWorldText = null;
 let qaFocusPlanet = null;
 const tiltState = { enabled: false, targetX: 0, targetY: 0, currentX: 0, currentY: 0, appliedX: 0, appliedY: 0, button: null };
@@ -284,6 +288,7 @@ function setupTiltMode() {
   if (uiDirector.entries.some((entry) => entry.id === 'tilt-mode')) return;
   const button = document.createElement('button');
   button.type = 'button';
+  button.id = 'btn-tilt';
   button.className = 'tilt-mode-button';
   button.textContent = 'เปิดโหมดเอียงเครื่อง';
   button.setAttribute('aria-pressed', 'false');
@@ -349,12 +354,13 @@ function showEpilogueActions() {
     flow.go('EXPLORE');
     flyToPlanet(1);
   });
-  panel.querySelector('[data-action="cake"]').addEventListener('click', startFinaleSequence);
+  panel.querySelector('[data-action="cake"]').addEventListener('click', () => startFinaleSequence(true));
   panel.querySelector('[data-action="capture"]').addEventListener('click', () => { captureRequestPending = true; });
   return handle;
 }
 
 function enterEpilogue() {
+  hasCompletedFinaleOnce = true;
   if (finaleWorldText) { finaleWorldText.dispose(); finaleWorldText = null; }
   finaleSequenceStarted = false;
   uiDirector.hideAll();
@@ -403,7 +409,10 @@ function dismissFinaleAfterCake() {
     const letter = document.createElement('div');
     letter.className = 'finale-letter-card';
     const text = document.createElement('p');
-    letter.append(text);
+    const hint = document.createElement('span');
+    hint.className = 'finale-letter-hint';
+    hint.textContent = 'แตะเพื่อข้าม ✨';
+    letter.append(text, hint);
     let index = 0;
     const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 8000, element: letter, states: ['FINALE_LETTER'] });
     const timer = window.setInterval(() => {
@@ -786,6 +795,7 @@ window.__qaDebug = {
   get bokehPass() { return bokehPass; },
   get outputPass() { return outputPass; },
   get camera() { return camera; },
+  get controls() { return controls; },
   get starGate() { return starGate; },
   get flow() { return flow; },
   get currentQuality() { return currentQuality; },
@@ -1334,7 +1344,7 @@ const polaroidModal = new PolaroidModal({
   },
   onBackToGalaxy: () => {
     uiDirector.setModalOpen(false);
-    if (progress.isComplete()) {
+    if (progress.isComplete() && !hasCompletedFinaleOnce) {
       flow.go('EXPLORE');
       returnToCenterOrbit();
       guideDirector?.showBubble(GUIDE_COPY.memory.last, { ttl: 2600, zone: 'bottom-left' });
@@ -1642,6 +1652,8 @@ if (queryFlags.qaScene === 'intro-clean') {
     progress.markVisited(planet.id);
   }
   showCakeActions();
+  gsap.killTweensOf(camera.position);
+  gsap.killTweensOf(controls.target);
   if (queryFlags.qaScene === 'cake-top') {
     camera.position.set(0, 68, 48);
     controls.target.set(0, 8, -5);
@@ -1650,6 +1662,7 @@ if (queryFlags.qaScene === 'intro-clean') {
     camera.position.copy(isPortrait ? new THREE.Vector3(0, 54, 204) : new THREE.Vector3(0, 40, 120));
     controls.target.copy(isPortrait ? new THREE.Vector3(0, 10, -5) : new THREE.Vector3(0, 8, -5));
   }
+  controls.update();
 } else if (queryFlags.qaScene?.startsWith('arrival-')) {
   hud.hide();
   camera.position.copy(defaultCameraPos);
@@ -1734,6 +1747,7 @@ window.addEventListener('pointerup', (e) => {
   pointerDownPosition = null;
   if (wasDrag) return;
   if (polaroidModal.isOpen || isCinematicFlying || solarSystem.isTransitMode() || flow.state !== 'EXPLORE') return;
+  if (e.target !== canvas && e.target.closest?.('button, a, input, [role="button"], #hud-overlay, .ui-director-root, .guide-spotlight, .modal-backdrop')) return;
 
   if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
@@ -1777,9 +1791,17 @@ window.addEventListener('resize', () => {
   defaultCameraTarget.set(heroPose.target.x, heroPose.target.y, heroPose.target.z);
   if (!isGalaxyView) controls.maxDistance = Math.max(240, defaultCameraPos.length() + 48);
   if (!isGalaxyView && !isCinematicFlying && !polaroidModal.isOpen) {
-    camera.fov = heroPose.fov;
-    gsap.to(camera.position, { ...heroPose.position, duration: 0.45, ease: 'power2.out' });
-    gsap.to(controls.target, { ...heroPose.target, duration: 0.45, ease: 'power2.out' });
+    if (flow.state === 'EXPLORE') {
+      camera.fov = heroPose.fov;
+      gsap.to(camera.position, { ...heroPose.position, duration: 0.45, ease: 'power2.out' });
+      gsap.to(controls.target, { ...heroPose.target, duration: 0.45, ease: 'power2.out' });
+    } else if (flow.state === 'FINALE_CAKE') {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const cakeCamPos = isPortrait ? new THREE.Vector3(0, 54, 204) : new THREE.Vector3(0, 40, 120);
+      const cakeTarget = isPortrait ? new THREE.Vector3(0, 10, -5) : new THREE.Vector3(0, 8, -5);
+      gsap.to(camera.position, { x: cakeCamPos.x, y: cakeCamPos.y, z: cakeCamPos.z, duration: 0.45, ease: 'power2.out', overwrite: true, onUpdate: () => controls.update() });
+      gsap.to(controls.target, { x: cakeTarget.x, y: cakeTarget.y, z: cakeTarget.z, duration: 0.45, ease: 'power2.out', overwrite: true });
+    }
   }
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, currentQuality.pixelRatio));

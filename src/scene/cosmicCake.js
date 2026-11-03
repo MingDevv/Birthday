@@ -687,7 +687,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       revealed = true;
       revealProgress = 1;
       group.position.set(0, -3, -5);
-      group.scale.setScalar(1);
+      group.scale.setScalar(2.05);
       blown = false;
       blowingOut = false;
       flames.forEach((flame) => {
