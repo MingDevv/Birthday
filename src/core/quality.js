@@ -5,10 +5,25 @@ const TIERS = {
   low: { pixelRatio: 1, galaxyStars: 27200, backgroundStars: 4250, samples: 0, bloomStrength: 0.1 }
 };
 
+function deviceKind() {
+  const touch = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (!touch) return 'desktop';
+  return Math.min(screen.width, screen.height) < 600 ? 'phone' : 'tablet';
+}
+
+// Round 18: phones start on low, tablets (iPad) on medium; pixel ratio capped per device.
+function mobilePixelCap() {
+  const kind = deviceKind();
+  return kind === 'phone' ? 1.25 : kind === 'tablet' ? 1.5 : Infinity;
+}
+
 function detectTier() {
   const memory = navigator.deviceMemory || 8;
   const cores = navigator.hardwareConcurrency || 8;
   const isMobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const kind = deviceKind();
+  if (kind === 'phone') return 'low';
+  if (kind === 'tablet') return memory <= 4 ? 'low' : 'medium';
   if (isMobile && memory <= 4) return 'low';
   if (isMobile || memory <= 6 || cores <= 4) return 'medium';
   if (memory >= 16 && cores >= 8) return 'ultra';
@@ -19,8 +34,7 @@ export function getQualityConfig(search = window.location.search) {
   const params = new URLSearchParams(search);
   const requested = params.get('quality');
   const tier = Object.prototype.hasOwnProperty.call(TIERS, requested) ? requested : detectTier();
-  const isMobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
-  return { tier, ...TIERS[tier], pixelRatio: Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, isMobile ? 1.5 : Infinity) };
+  return { tier, ...TIERS[tier], pixelRatio: Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, mobilePixelCap()) };
 }
 
 /** Dynamically adjusts render resolution without rebuilding scene geometry. */
@@ -35,8 +49,7 @@ export function createFrameGovernor({ renderer, composer, initialConfig, onTierC
   function apply(nextTier) {
     if (nextTier === tier) return;
     tier = nextTier;
-    const isMobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
-    const pixelRatio = Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, isMobile ? 1.5 : Infinity);
+    const pixelRatio = Math.min(TIERS[tier].pixelRatio, window.devicePixelRatio || 1, mobilePixelCap());
     const { width, height } = getSize();
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
@@ -58,7 +71,8 @@ export function createFrameGovernor({ renderer, composer, initialConfig, onTierC
       } else if (averageMs < 12) {
         fastSince += totalMs;
         if (fastSince >= 5000) {
-          apply(names[Math.min(names.length - 1, names.indexOf(tier) + 1)]);
+          const ceiling = deviceKind() === 'desktop' ? names.length - 1 : names.indexOf('medium');
+          apply(names[Math.min(ceiling, names.indexOf(tier) + 1)]);
           fastSince = 0;
           slowWindows = 0;
         }

@@ -401,16 +401,13 @@ export function createGuideDirector({
           states: ['EXPLORE'],
           onClose: () => {
             ledger.retire('explore-first');
-            startTour();
           }
         });
         if (nextId) pointAtPlanet(nextId, planetName);
         return;
       }
 
-      if (progress.size === 0) {
-        startTour();
-      }
+      // Round 18: the auto tour is retired; the journey bar shows the next step instead
       resetIdleTimers();
     } else if (nextState === 'FINALE_ALIGN' || nextState === 'FINALE_HEART') {
       if (!ledger.seen('finale-wait')) {

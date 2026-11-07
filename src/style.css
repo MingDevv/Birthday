@@ -2808,3 +2808,78 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
   .memory-actions button { width: 100%; min-width: 0; white-space: normal; }
 }
 .polaroid-read-hint, .memory-read-hint, .memory-first-guide { border: 0 !important; background: none !important; color: var(--ink-soft) !important; }
+
+/* ==========================================================================
+   Round 18 — one clear next step, lighter HUD on phones, iPad layout
+   ========================================================================== */
+.journey-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: var(--z-action);
+  display: none;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 8px 8px 20px;
+  border-radius: 999px;
+  background: rgba(17, 14, 25, .94);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .45);
+  color: var(--ink);
+  white-space: nowrap;
+}
+body[data-flow-state='EXPLORE'] .journey-bar { display: flex; }
+body.birth-sky-open .journey-bar { display: none !important; }
+.journey-step { font-size: 14px; color: var(--ink-soft); }
+.journey-go {
+  min-height: 44px; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink);
+  font: 600 16px var(--font-family);
+  transition: transform .18s ease, background-color .18s ease;
+}
+.journey-go::after { content: ' →'; }
+.journey-go:hover { background: #c9a4ff; transform: translateY(-1px); }
+.journey-go:active { transform: scale(.97); }
+.journey-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* the journey bar replaces these */
+.hud-hints, #hud-next-chip, .guide-open-card-pill { display: none !important; }
+/* keep the wish button clear of the journey bar */
+body[data-flow-state='EXPLORE'] .bottom-right-dock { bottom: calc(max(18px, env(safe-area-inset-bottom)) + 70px); }
+
+/* closing checklist */
+.ui-epilogue-actions { width: min(300px, calc(100vw - 32px)); gap: 8px; }
+.ui-epilogue-actions .epilogue-title { font: 700 18px/1.3 var(--serif); color: var(--ink); margin: 0 0 4px 4px; }
+.ui-epilogue-actions button { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px !important; text-align: left; }
+.ui-epilogue-actions button.is-done { color: var(--ink-soft) !important; }
+.ui-epilogue-actions .epi-check { color: var(--accent); font-weight: 700; }
+
+/* phones: a quieter screen */
+@media (max-width: 640px) {
+  .hud-subtitle, .tracker-title { display: none !important; }
+  .hud-beacons-tracker { padding: 8px 12px !important; min-width: 0 !important; }
+  .vinyl-label { display: none !important; }
+  .journey-bar { gap: 10px; padding: 6px 6px 6px 14px; max-width: calc(100vw - 24px); }
+  .journey-step { font-size: 13px; }
+  .journey-go { min-height: 42px; padding: 0 16px; font-size: 15px; }
+  .ui-epilogue-actions { width: calc(100vw - 32px); display: grid !important; grid-template-columns: 1fr 1fr; }
+  .ui-epilogue-actions .epilogue-title { grid-column: 1 / -1; font-size: 16px; }
+  .ui-epilogue-actions button { min-height: 44px; font-size: 13px !important; padding: 0 12px !important; }
+  .ui-epilogue-actions button.is-primary { grid-column: 1 / -1; }
+  body[data-flow-state='EPILOGUE'] .bottom-right-dock { display: none !important; }
+}
+
+/* iPad and other tablets */
+@media (min-width: 641px) and (max-width: 1180px) {
+  .hud-subtitle { display: none !important; }
+  .bs-head h2 { font-size: 36px; }
+  .bs-credit { display: none; }
+}
+/* narrow/portrait: the title keeps its room, the planet dots sit beside it */
+@media (max-width: 768px), (max-aspect-ratio: 3/4) {
+  .hud-left-panel { flex-direction: row !important; align-items: stretch; }
+  .hud-brand { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; }
+  .hud-beacons-tracker { width: auto !important; flex: 0 0 auto !important; display: flex !important; align-items: center; }
+}
+/* the journey bar already points the way */
+.guide-edge-arrow { display: none !important; }

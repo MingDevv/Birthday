@@ -173,6 +173,7 @@ const bloomPass = new UnrealBloomPass(
   1.0
 );
 composer.addPass(bloomPass);
+bloomPass.enabled = currentQuality.tier !== 'low';
 const bokehPass = new BokehPass(scene, camera, { focus: 24, aperture: 0.00012, maxblur: 0.006 });
 bokehPass.enabled = false;
 composer.addPass(bokehPass);
@@ -357,18 +358,32 @@ function showEpilogueActions() {
   uiDirector.hide('epilogue-actions');
   const panel = document.createElement('div');
   panel.className = 'ui-epilogue-actions';
-  panel.innerHTML = '<button type="button" data-action="sky" class="is-primary">ท้องฟ้าคืนที่ข้าวหอมเกิด</button><button type="button" data-action="memory">ดูความทรงจำอีกครั้ง</button><button type="button" data-action="cake">เป่าเทียนอีกครั้ง</button><button type="button" data-action="capture">เก็บภาพ</button>';
+  const items = [
+    { id: 'sky', label: 'ท้องฟ้าคืนที่ข้าวหอมเกิด', primary: true },
+    { id: 'galaxy', label: 'ท่องกาแล็กซี 3D' },
+    { id: 'wish', label: 'อธิษฐาน ดูพลุ' },
+    { id: 'memory', label: 'ดูความทรงจำอีกครั้ง' },
+    { id: 'cake', label: 'เป่าเทียนอีกครั้ง' },
+    { id: 'capture', label: 'เก็บภาพไว้' }
+  ];
+  const left = items.filter((item) => !featuresUsed.has(item.id)).length;
+  panel.innerHTML = `<p class="epilogue-title">${left ? `ยังเหลืออีก ${left} อย่างให้ลองนะ` : 'ลองครบทุกอย่างแล้ว'}</p>`
+    + items.map((item) => `<button type="button" data-action="${item.id}" class="${item.primary && !featuresUsed.has(item.id) ? 'is-primary' : ''} ${featuresUsed.has(item.id) ? 'is-done' : ''}"><span>${item.label}</span>${featuresUsed.has(item.id) ? '<span class="epi-check" aria-label="ลองแล้ว">✓</span>' : ''}</button>`).join('');
   const handle = uiDirector.show({ id: 'epilogue-actions', zone: 'bottom-left', layer: 'action', exclusive: false, element: panel, states: ['EPILOGUE'] });
+  const refresh = () => { if (flow.state === 'EPILOGUE') showEpilogueActions(); };
+  panel.querySelector('[data-action="sky"]').addEventListener('click', () => { birthSky.show(); setTimeout(refresh, 600); });
+  panel.querySelector('[data-action="galaxy"]').addEventListener('click', () => { featuresUsed.add('galaxy'); toggleGalaxyView(); refresh(); });
+  panel.querySelector('[data-action="wish"]').addEventListener('click', () => { hud.onMakeWish?.(); refresh(); });
   panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
+    featuresUsed.add('memory');
     uiDirector.hide('epilogue-actions');
     finaleSequenceStarted = false;
     solarSystem.setStage('explore');
     flow.go('EXPLORE');
     flyToPlanet(1);
   });
-  panel.querySelector('[data-action="sky"]').addEventListener('click', () => birthSky.show());
-  panel.querySelector('[data-action="cake"]').addEventListener('click', () => startFinaleSequence(true));
-  panel.querySelector('[data-action="capture"]').addEventListener('click', () => { captureRequestPending = true; });
+  panel.querySelector('[data-action="cake"]').addEventListener('click', () => { featuresUsed.add('cake'); startFinaleSequence(true); });
+  panel.querySelector('[data-action="capture"]').addEventListener('click', () => { featuresUsed.add('capture'); captureRequestPending = true; refresh(); });
   return handle;
 }
 
@@ -774,9 +789,10 @@ const name3DText = createGiant3DNameText(scene);
 const starGate = createStarGate(scene, currentQuality);
 let isWarpActive = false;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const featuresUsed = new Set(); // Round 18: what she has already tried, for the closing checklist
 const birthSky = createBirthSky({
   reducedMotion: prefersReducedMotion || queryFlags.fxOff,
-  onOpen: () => { document.body.classList.add('birth-sky-open'); },
+  onOpen: () => { featuresUsed.add('sky'); document.body.classList.add('birth-sky-open'); },
   onClose: () => { document.body.classList.remove('birth-sky-open'); clock.getDelta(); }
 });
 if (queryFlags.qaScene === 'birth-sky') setTimeout(() => birthSky.show(), 300);
@@ -799,6 +815,7 @@ const frameGovernor = createFrameGovernor({
     composer.renderTarget1.dispose();
     composer.renderTarget2.dispose();
     bloomPass.strength = next.bloomStrength;
+    bloomPass.enabled = next.tier !== 'low';
     if (next.tier === 'low' || next.tier === 'medium') bokehPass.enabled = false;
     syncCinematicPass();
     debugQuality.quality = next.tier;
@@ -1408,6 +1425,7 @@ window.addEventListener('memory-modal-closed', () => {
 
 const hud = new HudOverlay({
   onMakeWish: () => {
+    featuresUsed.add('wish');
     soundManager.initAudioContext();
     if (!isGalaxyView && !isCinematicFlying) {
       gsap.to(camera.position, {
@@ -1436,6 +1454,7 @@ const hud = new HudOverlay({
     returnToCenterOrbit();
   },
   onToggleGalaxy: () => {
+    featuresUsed.add('galaxy');
     toggleGalaxyView();
   },
   onSelectMemory: (id) => {
@@ -1453,6 +1472,32 @@ const hud = new HudOverlay({
 soundManager.addPlayStateListener((isPlaying) => {
   hud.setSoundPlayingState(isPlaying);
 });
+
+// Round 18: one clear "what to do next" bar while exploring, so no step gets missed
+const journeyBar = document.createElement('div');
+journeyBar.className = 'journey-bar';
+journeyBar.innerHTML = '<span class="journey-step"></span><button type="button" class="journey-go"></button>';
+document.body.appendChild(journeyBar);
+const journeyStep = journeyBar.querySelector('.journey-step');
+const journeyGo = journeyBar.querySelector('.journey-go');
+let journeyAction = null;
+function updateJourneyBar(state = progress.getState()) {
+  if (!state.isComplete) {
+    const memory = MEMORIES_LIST.find((m) => m.id === state.nextId);
+    journeyStep.textContent = `ดาวดวงที่ ${state.visitedCount + 1} จาก ${state.total}`;
+    journeyGo.textContent = `ไป${memory?.planetThai ?? 'ดาวดวงต่อไป'}`;
+    journeyAction = () => { if (polaroidModal.isOpen) polaroidModal.close(false); flyToPlanet(state.nextId); };
+  } else {
+    journeyStep.textContent = 'ครบ 5 ดวงแล้ว';
+    journeyGo.textContent = hasCompletedFinaleOnce ? 'ไปที่ตอนจบ' : 'ไปเป่าเค้กวันเกิด';
+    journeyAction = () => {
+      if (polaroidModal.isOpen) polaroidModal.close(false);
+      if (hasCompletedFinaleOnce) enterEpilogue(); else startFinaleSequence(true);
+    };
+  }
+}
+journeyGo.addEventListener('click', () => journeyAction?.());
+progress.onChange(updateJourneyBar);
 
 guideDirector = createGuideDirector({
   uiDirector,

@@ -255,8 +255,9 @@ export function createBirthSky({ reducedMotion = false, onOpen = () => {}, onClo
     document.body.appendChild(root);
 
     const canvas = root.querySelector('.bs-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !touch, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, touch ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping;
 
