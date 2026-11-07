@@ -113,7 +113,7 @@ export function createNebulaBackdrop(scene, quality = { tier: 'high' }, { reduce
         col *= 1.0 - 0.6 * lanes * band;
 
         // Cake mode: warm the whole sky gently toward celebration rose
-        col = mix(col, vec3(0.235, 0.075, 0.165), uRoseBoost * 0.30 * clouds);
+        col = mix(col, vec3(0.10, 0.05, 0.09), uRoseBoost * 0.25 * clouds);
         col += uRoseBoost * 0.006;
 
         gl_FragColor = vec4(col * uIntensity, 1.0);

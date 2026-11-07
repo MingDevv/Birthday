@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export function createWorldText(scene, { text, font = '700 96px Prompt', color = '#fff3fc', outline = true, width = 42, height = 7, position = new THREE.Vector3(0, 14, -8) } = {}) {
+export function createWorldText(scene, { text, font = '700 96px Mali', color = '#fff3fc', outline = true, width = 42, height = 7, position = new THREE.Vector3(0, 14, -8) } = {}) {
   const canvas = document.createElement('canvas');
   canvas.width = 2048;
   canvas.height = 384;

@@ -131,7 +131,7 @@ function createTextTexture(isExtrusion = false) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '900 360px "Prompt", "Kanit", "Noto Sans Thai", "Thonburi", sans-serif';
+  ctx.font = '700 360px "Mali", "Thonburi", sans-serif';
   ctx.lineJoin = 'round';
 
   if (isExtrusion) {

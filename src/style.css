@@ -17,7 +17,7 @@
   --glass-bg: rgba(15, 12, 30, 0.84);
   --glass-border: rgba(225, 215, 255, 0.16);
   --glass-glow: rgba(167, 139, 250, 0.18);
-  --font-family: 'Prompt', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'IBM Plex Sans Thai Looped', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --bottom-ui-h: 70px;
 }
 
@@ -1135,7 +1135,7 @@ body.cinema-portrait #webgl-canvas {
 .ui-zone-bottom-left { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }
 .ui-zone-top-left { left: max(16px, env(safe-area-inset-left)); top: max(16px, env(safe-area-inset-top)); }
 .ui-zone-top-right { right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top)); }
-.ui-captions { position: fixed; width: min(88vw, 760px); color: #fff5fc; text-align: center; font: 600 clamp(18px, 2vw, 26px)/1.45 'Prompt', sans-serif; text-shadow: 0 2px 16px rgba(0,0,0,.9); pointer-events: none; }
+.ui-captions { position: fixed; width: min(88vw, 760px); color: #fff5fc; text-align: center; font: 600 clamp(18px, 2vw, 26px)/1.45 'IBM Plex Sans Thai Looped', sans-serif; text-shadow: 0 2px 16px rgba(0,0,0,.9); pointer-events: none; }
 .flight-lower-third, .arrival-lower-third { top: auto; bottom: max(8vh, calc(88px + env(safe-area-inset-bottom))); left: 50%; width: min(90vw, 1100px); transform: translateX(-50%); padding: 10px 16px; border-bottom: 1px solid rgba(255,225,246,.48); font-size: clamp(18px, 1.35vw, 24px); animation: captionRise .45s ease both; }
 .arrival-caption .name-emph {
   font-size: 1.9em;
@@ -1165,17 +1165,17 @@ body.cinema-portrait #webgl-canvas {
   padding: 0 2px;
 }
 @keyframes captionRise { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-.focus-caption { bottom: calc(22px + env(safe-area-inset-bottom)); width: min(90vw, 720px); padding: 8px 16px; border-bottom: 1px solid rgba(255,225,246,.42); font: 600 clamp(14px, 1.5vw, 19px)/1.3 'Prompt',sans-serif; letter-spacing: .08em; }
+.focus-caption { bottom: calc(22px + env(safe-area-inset-bottom)); width: min(90vw, 720px); padding: 8px 16px; border-bottom: 1px solid rgba(255,225,246,.42); font: 600 clamp(14px, 1.5vw, 19px)/1.3 'IBM Plex Sans Thai Looped',sans-serif; letter-spacing: .08em; }
 .ui-action-slot { position: fixed; display: flex; align-items: center; justify-content: center; gap: 10px; max-width: calc(100vw - 28px); }
 .ui-action-slot button { min-height: 44px; }
 .ui-layer-cinematic { pointer-events: none; }
 .ui-layer-cinematic button { pointer-events: auto; }
-.finale-letter-card { width: min(88vw, 680px); padding: clamp(20px, 4vw, 38px); border: 1px solid rgba(255,226,245,.6); border-radius: 24px; color: #fff5fb; background: linear-gradient(145deg, rgba(42,20,59,.94), rgba(16,13,36,.96)); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 0 28px rgba(255,190,219,.08); text-align: center; font: 600 clamp(21px, 3vw, 34px)/1.6 'Mali', 'Prompt', sans-serif; cursor: pointer; }
+.finale-letter-card { width: min(88vw, 680px); padding: clamp(20px, 4vw, 38px); border: 1px solid rgba(255,226,245,.6); border-radius: 24px; color: #fff5fb; background: linear-gradient(145deg, rgba(42,20,59,.94), rgba(16,13,36,.96)); box-shadow: 0 20px 70px rgba(0,0,0,.55), inset 0 0 28px rgba(255,190,219,.08); text-align: center; font: 600 clamp(21px, 3vw, 34px)/1.6 'Mali', 'IBM Plex Sans Thai Looped', sans-serif; cursor: pointer; }
 .finale-letter-card.lite { font-size: clamp(20px, 2.6vw, 30px); cursor: default; }
-.finale-letter-card button { display: block; margin: 18px auto 0; padding: 10px 18px; border: 1px solid rgba(255,230,244,.55); border-radius: 999px; color: #fff; background: rgba(133,73,157,.55); font: 600 14px 'Prompt',sans-serif; }
+.finale-letter-card button { display: block; margin: 18px auto 0; padding: 10px 18px; border: 1px solid rgba(255,230,244,.55); border-radius: 999px; color: #fff; background: rgba(133,73,157,.55); font: 600 14px 'IBM Plex Sans Thai Looped',sans-serif; }
 .finale-letter-hint { display: block; margin-top: 14px; font-size: 13px; font-weight: 400; opacity: 0.72; color: #fce7f3; }
 .ui-epilogue-actions { display: grid; gap: 8px; width: min(230px, calc(100vw - 32px)); }
-.ui-epilogue-actions button { min-height: 42px; padding: 7px 12px; border: 1px solid rgba(255,230,244,.5); border-radius: 14px; color: #fff6fc; background: rgba(30,18,49,.84); font: 500 13px 'Prompt',sans-serif; }
+.ui-epilogue-actions button { min-height: 42px; padding: 7px 12px; border: 1px solid rgba(255,230,244,.5); border-radius: 14px; color: #fff6fc; background: rgba(30,18,49,.84); font: 500 13px 'IBM Plex Sans Thai Looped',sans-serif; }
 
 /* Unified Bottom-Right Dock */
 .bottom-right-dock {
@@ -1211,7 +1211,7 @@ body.cinema-portrait #webgl-canvas {
   border-radius: 50%;
   color: #fff;
   background: rgba(33, 20, 53, 0.94);
-  font: 700 28px/1 'Prompt', sans-serif;
+  font: 700 28px/1 'IBM Plex Sans Thai Looped', sans-serif;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
   cursor: pointer;
 }
@@ -1435,7 +1435,7 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   border-radius: 999px;
   color: #f8efff;
   background: rgba(25, 16, 42, 0.88);
-  font: 600 13px "Prompt", sans-serif;
+  font: 600 13px "IBM Plex Sans Thai Looped", sans-serif;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
@@ -1448,7 +1448,7 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   color: #fff7fc;
   background: rgba(92, 44, 145, 0.92);
   box-shadow: 0 8px 28px rgba(88, 28, 135, 0.28);
-  font: 700 15px "Prompt", sans-serif;
+  font: 700 15px "IBM Plex Sans Thai Looped", sans-serif;
   cursor: pointer;
 }
 
@@ -1457,7 +1457,7 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   cursor: default;
 }
 .cake-actions .cake-mic-button { display: grid; gap: 1px; min-height: 46px; padding: 5px 14px; font-size: 13px; opacity: .86; }
-.cake-actions .cake-mic-button small { color: rgba(255,244,252,.78); font: 400 9px/1.2 'Prompt',sans-serif; }
+.cake-actions .cake-mic-button small { color: rgba(255,244,252,.78); font: 400 9px/1.2 'IBM Plex Sans Thai Looped',sans-serif; }
 
 .cake-owner-message {
   position: fixed;
@@ -1473,7 +1473,7 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   color: #fff7fc;
   background: rgba(22, 12, 37, 0.88);
   text-align: center;
-  font: 600 18px "Prompt", sans-serif;
+  font: 600 18px "IBM Plex Sans Thai Looped", sans-serif;
 }
 
 @media (max-width: 480px) {
@@ -2031,13 +2031,6 @@ body[data-flow-state='EXPLORE'] .guide-open-card-pill { bottom: calc(var(--botto
 }
 
 
-@font-face {
-  font-family: 'Mali';
-  src: url('/fonts/Mali-Regular.ttf') format('truetype');
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
 
 .shooting-wish-card {
   position: fixed;
@@ -2052,7 +2045,7 @@ body[data-flow-state='EXPLORE'] .guide-open-card-pill { bottom: calc(var(--botto
   color: #fff4fb;
   background: rgba(29, 13, 53, .88);
   box-shadow: 0 8px 28px rgba(8, 4, 20, .38);
-  font: 500 15px/1.5 'Prompt', sans-serif;
+  font: 500 15px/1.5 'IBM Plex Sans Thai Looped', sans-serif;
   text-align: center;
 }
 .shooting-wish-card[hidden] { display: none; }
@@ -2062,7 +2055,7 @@ body[data-flow-state='EXPLORE'] .guide-open-card-pill { bottom: calc(var(--botto
   padding: 11px 18px;
   color: #fff;
   background: rgba(57, 25, 91, .86);
-  font: 600 14px 'Prompt', sans-serif;
+  font: 600 14px 'IBM Plex Sans Thai Looped', sans-serif;
 }
 body.cinema-recording .hud-container,
 body.cinema-recording .tilt-mode-button,
@@ -2081,16 +2074,16 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
   background: rgba(8, 3, 22, .92);
   color: #faeaff;
   text-align: center;
-  font-family: 'Prompt', sans-serif;
+  font-family: 'IBM Plex Sans Thai Looped', sans-serif;
 }
 .birthday-countdown > div { display: grid; gap: 14px; padding: 24px; }
 .birthday-countdown strong {
   color: #ffd5ef;
-  font: 600 clamp(25px, 5vw, 48px)/1.2 'Mali', 'Prompt', sans-serif;
+  font: 600 clamp(25px, 5vw, 48px)/1.2 'Mali', 'IBM Plex Sans Thai Looped', sans-serif;
   text-shadow: 0 0 16px rgba(228, 145, 255, .25);
   transform: translateY(-2px);
 }
-.finale-wish-box { font-family: 'Mali', 'Prompt', sans-serif; }
+.finale-wish-box { font-family: 'Mali', 'IBM Plex Sans Thai Looped', sans-serif; }
 @media (prefers-reduced-motion: reduce) {
   .shooting-wish-card, .cinema-record-button, .birthday-countdown { transition: none !important; }
 }
@@ -2124,7 +2117,7 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
   border: 1.5px solid rgba(255, 226, 164, 0.88);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65), 0 0 24px rgba(244, 114, 182, 0.35);
   color: #fff;
-  font-family: 'Prompt', sans-serif;
+  font-family: 'IBM Plex Sans Thai Looped', sans-serif;
   font-size: 0.92rem;
   line-height: 1.45;
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -2257,7 +2250,7 @@ body.cinema-recording .planet-tooltip { visibility: hidden !important; }
   border: 1.5px solid rgba(255, 226, 164, 0.88);
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.75), 0 0 30px rgba(244, 114, 182, 0.35);
   color: #fff;
-  font-family: 'Prompt', sans-serif;
+  font-family: 'IBM Plex Sans Thai Looped', sans-serif;
   pointer-events: auto;
 }
 body.guide-tour-active .guide-3d-pointer,
@@ -2343,7 +2336,7 @@ body.guide-tour-active .guide-edge-arrow { display: none !important; }
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.88), 0 0 35px rgba(168, 85, 247, 0.3);
   color: #fff;
-  font-family: 'Prompt', sans-serif;
+  font-family: 'IBM Plex Sans Thai Looped', sans-serif;
   overflow: hidden;
 }
 .guide-help-header {
@@ -2497,7 +2490,7 @@ body.guide-tour-active .guide-edge-arrow { display: none !important; }
 /* ==========================================================================
    Round 14 — "Observatory" restyle
    One near-black ground, one ink, one violet accent. No gradients, no glows,
-   no glass. Headings in Noto Serif Thai. Overrides the rules above.
+   no glass. Headings in Mali, body in IBM Plex Sans Thai Looped. Overrides the rules above.
    ========================================================================== */
 :root {
   --ground: #05040a;
@@ -2507,7 +2500,7 @@ body.guide-tour-active .guide-edge-arrow { display: none !important; }
   --ink-soft: rgba(244, 238, 252, 0.72);
   --accent: #b98cff;
   --accent-ink: #160b26;
-  --serif: 'Noto Serif Thai', 'Prompt', serif;
+  --serif: 'Mali', 'IBM Plex Sans Thai Looped', sans-serif;
   --primary-pink: var(--accent);
   --secondary-lilac: var(--ink);
   --glass-bg: rgba(17, 14, 25, 0.94);
@@ -2568,7 +2561,7 @@ h1, h2, h3,
   color: var(--ink) !important;
 }
 .hud-galaxy-btn:hover, .ui-epilogue-actions button:not(.is-primary):hover { background: #251e33 !important; }
-.ui-epilogue-actions button { border-radius: 999px !important; font-family: 'Prompt', sans-serif; }
+.ui-epilogue-actions button { border-radius: 999px !important; font-family: 'IBM Plex Sans Thai Looped', sans-serif; }
 .ui-epilogue-actions { width: min(260px, calc(100vw - 32px)); }
 
 /* Panels: solid surfaces instead of glowing glass */
@@ -2587,9 +2580,9 @@ h1, h2, h3,
 
 /* Emoji slots that are now empty */
 .bday-decor, .emblem-pig, .emblem-crown, .wish-star, .btn-sparkle, .btn-icon:empty, .wish-banner-sparkle,
-.guide-icon, .guide-arrow:empty, .guide-help-icon, .chip-arrow:empty, #galaxy-btn-icon, #hud-brand-icon,
+.guide-icon, .guide-arrow:empty, .guide-help-icon, .chip-arrow:empty, #hud-brand-icon,
 .placeholder-icon:empty, .lock-gate-heart:empty, .hud-planet-icon:empty { display: none !important; }
-.pointer-finger:empty::before { content: '↓'; font: 600 28px/1 'Prompt', sans-serif; color: var(--accent); }
+.pointer-finger:empty::before { content: '↓'; font: 600 28px/1 'IBM Plex Sans Thai Looped', sans-serif; color: var(--accent); }
 
 /* Progress hearts → plain dots */
 .heart-dot {
@@ -2614,7 +2607,7 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
   z-index: calc(var(--z-system) + 10);
   background: #020205;
   color: var(--ink);
-  font-family: 'Prompt', sans-serif;
+  font-family: 'IBM Plex Sans Thai Looped', sans-serif;
   opacity: 0;
   transition: opacity 1.2s ease;
   user-select: none;
@@ -2646,7 +2639,7 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
   pointer-events: none;
 }
 .bs-nw { display: inline-block; }
-.bs-head h2 { text-wrap: balance; font: 600 clamp(28px, 4.2vw, 52px)/1.1 var(--serif); color: var(--ink); }
+.bs-head h2 { text-wrap: balance; font: 700 clamp(26px, 3.3vw, 42px)/1.15 var(--serif); color: var(--ink); }
 .bs-head p { margin-top: 10px; font-size: clamp(14px, 1.3vw, 16px); line-height: 1.5; color: var(--ink-soft); }
 .bs-close {
   position: absolute;
@@ -2654,7 +2647,7 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
   min-height: 44px; padding: 0 20px;
   border: 0; border-radius: 999px;
   background: var(--surface-2); color: var(--ink);
-  font: 500 14px 'Prompt', sans-serif; cursor: pointer;
+  font: 500 14px 'IBM Plex Sans Thai Looped', sans-serif; cursor: pointer;
   transition: background-color .18s ease, transform .18s ease;
 }
 .bs-close:hover { background: #251e33; }
@@ -2726,7 +2719,7 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
 }
 .intro-birthday-badge, .intro-sub-badge {
   background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important;
-  font: 400 clamp(16px, 1.6vw, 20px)/1.5 'Prompt', sans-serif !important;
+  font: 400 clamp(16px, 1.6vw, 20px)/1.5 'IBM Plex Sans Thai Looped', sans-serif !important;
   color: var(--ink-soft) !important; letter-spacing: 0 !important;
   margin-bottom: 36px !important;
 }
@@ -2751,3 +2744,58 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
   font-weight: 500 !important;
   font-size: 13px !important;
 }
+
+/* Round 14 — birth-sky star-hopping guide */
+.bs-guide-start {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 96px);
+  min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font: 600 15px var(--font-family); cursor: pointer;
+  transition: transform .18s ease, background-color .18s ease;
+}
+.bs-guide-start:hover { background: #c9a4ff; transform: translateY(-1px); }
+.birth-sky.is-noted .bs-guide-start { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 96px); }
+.birth-sky.is-noted .bs-note { bottom: calc(max(24px, env(safe-area-inset-bottom)) + 156px); }
+.bs-guide {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 104px);
+  width: min(400px, calc(100vw - 48px));
+  max-height: calc(100vh - 300px); overflow: auto;
+  padding: 20px 22px 18px;
+  border-radius: 20px;
+  background: rgba(17, 14, 25, .94);
+  color: var(--ink);
+}
+.bs-guide-step { font-size: 13px; color: var(--ink-soft); }
+.bs-guide-title { margin-top: 4px; font: 700 24px/1.25 var(--serif); color: var(--accent); }
+.bs-guide-body { margin-top: 10px; font-size: 16px; line-height: 1.65; }
+.bs-guide-body strong { color: var(--accent); font-weight: 600; }
+.bs-guide-body ul { margin: 10px 0 0 1.1em; display: grid; gap: 6px; }
+.bs-guide-body li { font-size: 15px; line-height: 1.55; }
+.bs-guide-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.bs-guide-actions button {
+  min-height: 42px; padding: 0 18px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 600 14px var(--font-family);
+  background: var(--surface-2); color: var(--ink);
+}
+.bs-guide-actions .bs-guide-next { background: var(--accent); color: var(--accent-ink); }
+.bs-guide-start:focus-visible, .bs-guide-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.bs-label--guide { font-family: var(--serif); font-size: 15px; font-weight: 600; color: var(--accent); padding-top: 30px; }
+.bs-label--guide:not(.is-on) { opacity: 0 !important; }
+.birth-sky.is-guiding .bs-note { opacity: 0 !important; }
+@media (max-width: 640px) {
+  .bs-guide-start { left: 16px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 92px); font-size: 14px; }
+  .birth-sky.is-noted .bs-note { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 146px); }
+  .bs-guide { left: 16px; right: 16px; width: auto; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 96px); max-height: calc(100vh - 330px); padding: 16px 18px; }
+  .bs-guide-title { font-size: 20px; }
+  .bs-guide-body { font-size: 15px; }
+}
+
+/* Round 14 — line icons in place of emoji; Thai labels without tracking */
+.hud-svg { width: 18px; height: 18px; display: block; }
+#galaxy-btn-icon, .hud-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }
+.memory-tag-bar, .memory-tag-badge, .memory-tag-bar * { letter-spacing: 0 !important; text-transform: none !important; }

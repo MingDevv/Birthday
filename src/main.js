@@ -85,7 +85,7 @@ const getRenderSize = () => queryFlags.portraitRatio
   : { width: window.innerWidth, height: window.innerHeight, aspect: window.innerWidth / window.innerHeight };
 if (queryFlags.portraitRatio) document.body.classList.add('cinema-portrait');
 await Promise.race([
-  document.fonts.load('900 100px "Prompt"').catch(() => []),
+  Promise.all([document.fonts.load('700 100px "Mali"'), document.fonts.load('400 16px "IBM Plex Sans Thai Looped"')]).catch(() => []),
   new Promise((resolve) => setTimeout(resolve, 1800))
 ]);
 const debugModules = queryFlags.debug
@@ -1638,6 +1638,12 @@ if (queryFlags.qaScene === 'intro-clean') {
   window.setTimeout(() => {
     solarSystem.setStage('epilogue');
   }, 350);
+} else if (queryFlags.qaScene === 'heart-close') {
+  hud.hide();
+  camera.position.set(0, 4, 27);
+  controls.target.set(0, 0, 0);
+  solarSystem.setBeaconsVisible(false);
+  solarSystem.planetsList.forEach((p) => { p.group.visible = false; });
 } else if (queryFlags.qaScene === 'final-heart') {
   hud.hide();
   camera.position.copy(defaultCameraPos);
@@ -1867,7 +1873,7 @@ function downloadBirthdaySnapshot() {
       context.fillRect(0, frame.height - bandHeight, frame.width, bandHeight);
       context.textAlign = 'center';
       context.textBaseline = 'bottom';
-      context.font = `700 ${Math.max(24, Math.round(frame.width * 0.032))}px Prompt, sans-serif`;
+      context.font = `700 ${Math.max(24, Math.round(frame.width * 0.032))}px Mali, sans-serif`;
       context.fillStyle = '#fff0f8';
       context.shadowColor = 'rgba(0,0,0,.8)';
       context.shadowBlur = 8;
@@ -2037,6 +2043,8 @@ function animate() {
     if (item.disposed) activeWorldTexts.delete(item);
   });
   cosmicCake.update(delta, time);
+  // Round 14: the heart sits right above the cake; dim its sun so the frosting keeps its colour
+  heartSun.intensity = THREE.MathUtils.damp(heartSun.intensity, cosmicCake.group.visible ? 160 : 6000, 4, delta);
   pointerStarTrail?.update(delta);
   heartStreak?.update(delta, musicBass);
   bloomPass.strength = currentQuality.bloomStrength + Math.min(0.05, musicBass * 0.05);

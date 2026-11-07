@@ -330,7 +330,7 @@ export function createFireworksSystem(scene, soundManager, uiDirector = null) {
       <div class="wish-banner-content">
         <div class="wish-banner-sparkle"></div>
         <h2 class="wish-banner-title">สุขสันต์วันเกิดนะข้าวหอม</h2>
-        <p class="wish-banner-text">“ขอให้ทุกความปรารถนาและทุกความฝันในกาแล็กซี่นี้ จงเปล่งประกายและเป็นจริงเสมอไปนะ”</p>
+        <p class="wish-banner-text">ขอให้ทุกอย่างที่ขอในคืนนี้ เป็นจริงทีละข้อนะ</p>
       </div>
     `;
     if (uiDirector) {

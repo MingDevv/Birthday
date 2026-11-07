@@ -62,7 +62,7 @@ function createCandleSpiralTexture() {
   ctx.lineWidth = 14;
   for (let offset = -256; offset < 512; offset += 42) {
     // Pink stripe
-    ctx.strokeStyle = '#fca5a5';
+    ctx.strokeStyle = '#c9b3ff';
     ctx.beginPath();
     ctx.moveTo(-20, offset);
     ctx.lineTo(148, offset + 128);
@@ -121,10 +121,13 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   // =========================================================================
   const plateGeo = new THREE.CylinderGeometry(21.5, 20.8, 1.4, 64);
   geometriesToDispose.push(plateGeo);
-  const plateMat = new THREE.MeshStandardMaterial({
-    color: 0xdf9b92, // rose gold
-    metalness: 0.72,
-    roughness: 0.24
+  const plateMat = new THREE.MeshPhysicalMaterial({
+    color: 0xb4aec4, // porcelain
+    metalness: 0.04,
+    roughness: 0.22,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.08,
+    envMapIntensity: 0.35
   });
   materialsToDispose.push(plateMat);
   const plate = new THREE.Mesh(plateGeo, plateMat);
@@ -136,9 +139,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   const plateGlowGeo = new THREE.TorusGeometry(22.2, 0.42, 8, 64);
   geometriesToDispose.push(plateGlowGeo);
   const plateGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xffaed7,
+    color: 0xb98cff,
     transparent: true,
-    opacity: 0.45
+    opacity: 0.06
   });
   materialsToDispose.push(plateGlowMat);
   const plateGlow = new THREE.Mesh(plateGlowGeo, plateGlowMat);
@@ -151,10 +154,43 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   // 2. Three Opaque Pastel Cake Tiers (Lavender, Pink, Warm Cream)
   // Transparent/transmission is 0 to completely eliminate sorting artifacts!
   // =========================================================================
+  // Rounded shoulder on every tier so light rolls over the edge (Round 14)
+  function createRoundedTierGeometry(radius, height) {
+    const bevel = Math.min(1.1, height * 0.16);
+    const pts = [new THREE.Vector2(0, height / 2), new THREE.Vector2(radius - bevel, height / 2)];
+    for (let i = 1; i <= 10; i++) {
+      const a = (i / 10) * Math.PI / 2;
+      pts.push(new THREE.Vector2(radius - bevel + Math.sin(a) * bevel, height / 2 - bevel + Math.cos(a) * bevel));
+    }
+    pts.push(new THREE.Vector2(radius * 1.004, -height / 2 + 0.25), new THREE.Vector2(radius * 0.99, -height / 2), new THREE.Vector2(0, -height / 2));
+    const geo = new THREE.LatheGeometry(pts, 128);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  const frostingCanvas = document.createElement('canvas');
+  frostingCanvas.width = 512;
+  frostingCanvas.height = 128;
+  const fctx = frostingCanvas.getContext('2d');
+  fctx.fillStyle = '#808080';
+  fctx.fillRect(0, 0, 512, 128);
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 512, y = Math.random() * 128;
+    const shade = 110 + Math.floor(Math.random() * 40);
+    fctx.strokeStyle = `rgba(${shade},${shade},${shade},0.35)`;
+    fctx.lineWidth = 1 + Math.random() * 3;
+    fctx.beginPath();
+    fctx.moveTo(x, y);
+    fctx.lineTo(x + 18 + Math.random() * 40, y + (Math.random() - 0.5) * 3);
+    fctx.stroke();
+  }
+  const frostingBump = new THREE.CanvasTexture(frostingCanvas);
+  frostingBump.wrapS = frostingBump.wrapT = THREE.RepeatWrapping;
+  frostingBump.repeat.set(3, 1);
+
   const tiers = [
-    { radius: 17, height: 8.0, y: -9.8, color: 0xb99af0, name: 'tier-bottom-lavender' },
-    { radius: 13, height: 7.0, y: -2.3, color: 0xf7a8c8, name: 'tier-middle-pink' },
-    { radius: 9,  height: 6.0, y: 4.2,  color: 0xfff0e0, name: 'tier-top-cream' }
+    { radius: 17, height: 8.0, y: -9.8, color: 0x8f72d4, name: 'tier-bottom-lavender' },
+    { radius: 13, height: 7.0, y: -2.3, color: 0xcdb8f2, name: 'tier-middle-pink' },
+    { radius: 9,  height: 6.0, y: 4.2,  color: 0xf6ecdf, name: 'tier-top-cream' }
   ];
 
   const goldTrimMat = new THREE.MeshStandardMaterial({
@@ -166,22 +202,26 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
 
   const tierMeshes = [];
   tiers.forEach((tier) => {
+    // Buttercream: matte, soft sheen, combed texture in the bump map
     const tierMat = new THREE.MeshPhysicalMaterial({
       color: tier.color,
-      roughness: 0.38,
-      metalness: 0.08,
-      clearcoat: 0.55,
-      clearcoatRoughness: 0.12,
-      sheen: 0.6,
-      sheenColor: new THREE.Color(0xffe6f5),
-      sheenRoughness: 0.25,
+      roughness: 0.62,
+      metalness: 0,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.4,
+      sheen: 0.35,
+      sheenColor: new THREE.Color(0xf1e8ff),
+      sheenRoughness: 0.45,
+      bumpMap: frostingBump,
+      bumpScale: 0.9,
+      envMapIntensity: 0.22,
       transparent: false,
       transmission: 0,
       opacity: 1.0
     });
     materialsToDispose.push(tierMat);
 
-    const tierGeo = new THREE.CylinderGeometry(tier.radius, tier.radius * 1.02, tier.height, 64);
+    const tierGeo = createRoundedTierGeometry(tier.radius, tier.height);
     geometriesToDispose.push(tierGeo);
     const mesh = new THREE.Mesh(tierGeo, tierMat);
     mesh.position.y = tier.y;
@@ -190,7 +230,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     tierMeshes.push(mesh);
 
     // Elegant gold trim rim at tier base
-    const baseTrimGeo = new THREE.TorusGeometry(tier.radius * 1.01, 0.26, 8, 48);
+    const baseTrimGeo = new THREE.TorusGeometry(tier.radius * 1.005, 0.17, 10, 96);
     geometriesToDispose.push(baseTrimGeo);
     const baseTrim = new THREE.Mesh(baseTrimGeo, goldTrimMat);
     baseTrim.rotation.x = Math.PI / 2;
@@ -198,11 +238,11 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     group.add(baseTrim);
 
     // Gold trim rim at tier top
-    const topTrimGeo = new THREE.TorusGeometry(tier.radius * 0.99, 0.22, 8, 48);
+    const topTrimGeo = new THREE.TorusGeometry(tier.radius * 0.97, 0.12, 10, 96);
     geometriesToDispose.push(topTrimGeo);
     const topTrim = new THREE.Mesh(topTrimGeo, goldTrimMat);
     topTrim.rotation.x = Math.PI / 2;
-    topTrim.position.y = tier.y + tier.height / 2 - 0.15;
+    topTrim.position.y = tier.y + tier.height / 2 - 0.62;
     group.add(topTrim);
   });
 
@@ -411,6 +451,31 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   // =========================================================================
   // 7. Warm Candle PointLight above Cake
   // =========================================================================
+  // Studio lighting so the tiers read round: warm key, violet rim, soft contact shadow
+  const keyLight = new THREE.DirectionalLight(0xfff1e2, 0.55);
+  keyLight.position.set(26, 34, 38);
+  const rimLight = new THREE.DirectionalLight(0xb9a4ff, 2.2);
+  rimLight.position.set(-30, 18, -42);
+  group.add(keyLight, keyLight.target, rimLight, rimLight.target);
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = shadowCanvas.height = 256;
+  const sctx = shadowCanvas.getContext('2d');
+  const sg = sctx.createRadialGradient(128, 128, 30, 128, 128, 128);
+  sg.addColorStop(0, 'rgba(0,0,0,0.75)');
+  sg.addColorStop(0.6, 'rgba(0,0,0,0.3)');
+  sg.addColorStop(1, 'rgba(0,0,0,0)');
+  sctx.fillStyle = sg;
+  sctx.fillRect(0, 0, 256, 256);
+  const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+  const contactShadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+  materialsToDispose.push(contactShadowMat);
+  const contactShadow = new THREE.Mesh(new THREE.PlaneGeometry(58, 58), contactShadowMat);
+  geometriesToDispose.push(contactShadow.geometry);
+  contactShadow.rotation.x = -Math.PI / 2;
+  contactShadow.position.y = -15.05;
+  contactShadow.name = 'cakeContactShadow';
+  group.add(contactShadow);
+
   const cakePointLight = new THREE.PointLight(0xffb066, quality.tier === 'low' ? 0.35 : 1.15, 65);
   cakePointLight.position.set(0, 14.5, 0);
   cakePointLight.name = 'cakeWarmCandleLight';
@@ -483,7 +548,7 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       context.fillRect(0, 0, 1600, 200);
 
       // 15% larger font size (from 70px to 82px)
-      context.font = '700 82px Mali, Prompt, sans-serif';
+      context.font = '700 82px Mali, sans-serif';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.lineWidth = 12;

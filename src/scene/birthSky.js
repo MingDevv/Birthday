@@ -234,6 +234,16 @@ export function createBirthSky({ reducedMotion = false, onOpen = () => {}, onClo
         <h3>ดาวลูกไก่</h3>
         <p>คืนนั้นดาวลูกไก่ลอยอยู่เหนือเชียงราย สูงจากขอบฟ้า <strong class="bs-pleiades-alt">80°</strong> เกือบกลางฟ้าพอดี ให้เป็นดาวของข้าวหอมนะ</p>
       </aside>
+      <button type="button" class="bs-guide-start">วิธีหาดาวลูกไก่บนฟ้าจริง</button>
+      <aside class="bs-guide" hidden aria-live="polite">
+        <p class="bs-guide-step"></p>
+        <h3 class="bs-guide-title"></h3>
+        <div class="bs-guide-body"></div>
+        <div class="bs-guide-actions">
+          <button type="button" class="bs-guide-prev">ย้อนกลับ</button>
+          <button type="button" class="bs-guide-next">ต่อไป</button>
+        </div>
+      </aside>
       <div class="bs-time">
         <output class="bs-clock" for="bs-range">20:00</output>
         <label for="bs-range">เลื่อนดูทั้งคืน</label>
@@ -353,6 +363,40 @@ export function createBirthSky({ reducedMotion = false, onOpen = () => {}, onClo
     ring.scale.setScalar(64);
     sky.add(ring);
     labelSpecs.push({ kind: 'accent', text: 'ดาวลูกไก่', local: eqVector(PLEIADES.ra, PLEIADES.dec - 2.4, SKY_R) });
+
+    // Star-hopping guide: Orion's belt → Aldebaran → the Pleiades
+    const BELT = [[85.19, -1.94], [84.05, -1.2], [83.0, -0.3]];
+    const ALDEBARAN = [68.98, 16.51];
+    const beltCentre = [84.05, -1.2];
+    const guideMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending });
+    function arcTube(from, to, radius = 1.5) {
+      const a = eqVector(from[0], from[1], 1), b = eqVector(to[0], to[1], 1);
+      const pts = [];
+      for (let i = 0; i <= 48; i++) {
+        const t = i / 48;
+        pts.push(new THREE.Vector3().copy(a).lerp(b, t).normalize().multiplyScalar(SKY_R * 0.985));
+      }
+      const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, radius, 6, false);
+      const mesh = new THREE.Mesh(geo, guideMat);
+      mesh.visible = false;
+      sky.add(mesh);
+      return { mesh, total: geo.index.count, progress: 0, target: 0 };
+    }
+    const guideArcs = {
+      belt: arcTube(BELT[0], BELT[2], 3.2),
+      leg1: arcTube(beltCentre, ALDEBARAN, 2.4),
+      leg2: arcTube(ALDEBARAN, [PLEIADES.ra, PLEIADES.dec], 2.4)
+    };
+    const beltLabel = { kind: 'guide', text: 'เข็มขัดนายพราน', local: eqVector(84.05, -5.2, SKY_R) };
+    const aldLabel = { kind: 'guide', text: 'ตาวัว', local: eqVector(ALDEBARAN[0] + 4.5, ALDEBARAN[1] + 1.2, SKY_R) };
+    labelSpecs.push(beltLabel, aldLabel);
+    const guideFocus = {
+      belt: eqVector(84.05, -1.2, 1),
+      aldebaran: eqVector(ALDEBARAN[0], ALDEBARAN[1], 1),
+      between: eqVector(70, 12, 1),
+      pleiades: eqVector(PLEIADES.ra, PLEIADES.dec - 8, 1),
+      route: eqVector(71, 9, 1)
+    };
 
     // Planets (bright points) and the Moon
     const planetPts = new Float32Array(5 * 3);
@@ -523,6 +567,86 @@ export function createBirthSky({ reducedMotion = false, onOpen = () => {}, onClo
     });
     root.querySelector('.bs-close').addEventListener('click', () => close());
 
+    const GUIDE_STEPS = [
+      {
+        title: 'หาเข็มขัดนายพราน',
+        body: '<p>หันไปทาง<strong>ทิศตะวันออก</strong> มองหาดาวสว่าง 3 ดวงเรียงกันเป็นเส้นตรง ห่างเท่าๆ กัน นี่คือเข็มขัดของกลุ่มดาวนายพราน หาง่ายที่สุดบนฟ้าเดือนมกราคม</p>',
+        focus: 'belt', arcs: ['belt'], labels: [beltLabel]
+      },
+      {
+        title: 'ลากเส้นไปหาดาวสีส้ม',
+        body: '<p>ลากเส้นต่อจากเข็มขัด<strong>ขึ้นไปทางขวา</strong> จะเจอดาวสว่างสีส้มดวงหนึ่ง นั่นคือ<strong>ดาวโรหิณี</strong> ตาของกลุ่มดาววัว</p>',
+        focus: 'between', arcs: ['belt', 'leg1'], labels: [beltLabel, aldLabel]
+      },
+      {
+        title: 'ไปต่ออีกเท่าตัว เจอดาวลูกไก่',
+        body: '<p>ลากเส้นเดิมต่อไปอีกประมาณเท่าตัว จะเจอกลุ่มดาวเล็กๆ เกาะกันเป็นฝ้าจางๆ นั่นแหละ<strong>ดาวลูกไก่</strong> ดาวของข้าวหอม</p>',
+        focus: 'route', fov: 84, arcs: ['belt', 'leg1', 'leg2'], labels: [beltLabel, aldLabel], ring: true
+      },
+      {
+        title: 'ดูของจริงคืนวันเกิดปีนี้',
+        body: `<p>คืนวันที่ <strong>13 มกราคม 2570</strong> ราวสองทุ่ม ออกไปมองฟ้าที่เชียงราย ดาวทุกดวงจะอยู่ตรงตำแหน่งเดียวกับคืนที่ข้าวหอมเกิดเลย (ดาวกลับมาที่เดิมทุกปี มีแค่ดวงจันทร์กับดาวเคราะห์ที่ย้ายไป)</p>
+          <ul>
+            <li>ไปที่มืดๆ ห่างไฟถนน ยิ่งมืดยิ่งเห็นดาวเยอะ</li>
+            <li>ไม่ดูจอมือถือสัก 15 นาที ให้ตาชินกับความมืดก่อน</li>
+            <li>ดาวลูกไก่จะชัดขึ้นถ้ามองเฉียงๆ ข้างๆ แทนการจ้องตรงๆ</li>
+            <li>ถ้ามีกล้องส่องทางไกล จะเห็นดาวลูกไก่เป็นกระจุกสีฟ้าหลายสิบดวง</li>
+          </ul>`,
+        focus: 'pleiades', arcs: ['belt', 'leg1', 'leg2'], labels: [beltLabel, aldLabel], ring: true
+      }
+    ];
+    const guideEl = root.querySelector('.bs-guide');
+    const guideStart = root.querySelector('.bs-guide-start');
+    let guideStep = -1;
+    function lookAtLocal(vec) {
+      const w = tmp.copy(vec).applyMatrix4(sky.matrix).normalize();
+      view.targetAlt = THREE.MathUtils.clamp(Math.asin(w.y) / DEG, -4, 85);
+      let az = Math.atan2(w.x, -w.z) / DEG;
+      while (az - view.az > 180) az -= 360;
+      while (az - view.az < -180) az += 360;
+      view.targetAz = az;
+      view.fov = Math.max(view.fov, 64);
+    }
+    function showGuideStep(i) {
+      guideStep = i;
+      const step = GUIDE_STEPS[i];
+      introDone = true;
+      if (minute !== DEFAULT_MINUTE) { range.value = DEFAULT_MINUTE; setMinute(DEFAULT_MINUTE); }
+      root.querySelector('.bs-guide-step').textContent = `ขั้นที่ ${i + 1} จาก ${GUIDE_STEPS.length}`;
+      root.querySelector('.bs-guide-title').textContent = step.title;
+      root.querySelector('.bs-guide-body').innerHTML = step.body;
+      root.querySelector('.bs-guide-prev').hidden = i === 0;
+      root.querySelector('.bs-guide-next').textContent = i === GUIDE_STEPS.length - 1 ? 'ปิดคำแนะนำ' : 'ต่อไป';
+      for (const [key, arc] of Object.entries(guideArcs)) {
+        arc.target = step.arcs.includes(key) ? 1 : 0;
+        arc.mesh.visible = true;
+      }
+      for (const l of [beltLabel, aldLabel]) l.el.classList.toggle('is-on', step.labels.includes(l));
+      lookAtLocal(guideFocus[step.focus]);
+      if (step.fov) view.fov = step.fov;
+      // portrait: the guide card sits low, so lift the target into the upper half
+      if (window.innerWidth < window.innerHeight) view.targetAlt = Math.max(-4, view.targetAlt - 18);
+    }
+    function closeGuide() {
+      guideStep = -1;
+      guideEl.hidden = true;
+      guideStart.hidden = false;
+      root.classList.remove('is-guiding');
+      for (const arc of Object.values(guideArcs)) arc.target = 0;
+      for (const l of [beltLabel, aldLabel]) l.el.classList.remove('is-on');
+    }
+    guideStart.addEventListener('click', () => {
+      guideEl.hidden = false;
+      guideStart.hidden = true;
+      root.classList.add('is-guiding');
+      showGuideStep(0);
+      root.querySelector('.bs-guide-next').focus({ preventScroll: true });
+    });
+    root.querySelector('.bs-guide-next').addEventListener('click', () => {
+      if (guideStep >= GUIDE_STEPS.length - 1) closeGuide(); else showGuideStep(guideStep + 1);
+    });
+    root.querySelector('.bs-guide-prev').addEventListener('click', () => { if (guideStep > 0) showGuideStep(guideStep - 1); });
+
     function resize() {
       const w = window.innerWidth, h = window.innerHeight;
       renderer.setSize(w, h, false);
@@ -552,10 +676,17 @@ export function createBirthSky({ reducedMotion = false, onOpen = () => {}, onClo
       const revealTarget = reducedMotion ? 1.2 : Math.max(0, (now - introStart) / 1000 - 3.5) / 6;
       lineUniforms.uReveal.value = Math.min(1.2, revealTarget);
       const showNote = reducedMotion || now - introStart > 6000;
-      root.classList.toggle('is-noted', showNote);
+      root.classList.toggle('is-noted', showNote && guideStep < 0);
       ring.material.opacity = showNote ? Math.min(0.9, ring.material.opacity + 0.02) : 0;
       if (!reducedMotion) ring.scale.setScalar(64 + Math.sin(time * 1.4) * 3);
 
+      for (const arc of Object.values(guideArcs)) {
+        const speed = reducedMotion ? 1 : 0.035;
+        arc.progress += (arc.target - arc.progress) * (arc.target > arc.progress ? speed : 0.2);
+        const count = Math.floor(arc.progress * arc.total / 3) * 3;
+        arc.mesh.geometry.setDrawRange(0, count);
+        arc.mesh.visible = count > 0;
+      }
       const ease = reducedMotion ? 1 : 0.08;
       view.az += (view.targetAz - view.az) * ease;
       view.alt += (view.targetAlt - view.alt) * ease;

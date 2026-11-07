@@ -134,13 +134,13 @@ export function createGalaxySkybox(scene, quality = {}) {
   // Elegant Hubble Multi-Color Starlight Palette (Diamond, Sapphire, Gold, Rose)
   const diamondPalette = [
     new THREE.Color(0xffffff), // Pure Diamond White
-    new THREE.Color(0x38bdf8), // Electric Sapphire Blue
-    new THREE.Color(0x0ea5e9), // Vibrant Sky Cyan
-    new THREE.Color(0xfef08a), // Warm 24k Gold
-    new THREE.Color(0xf59e0b), // Radiant Amber
-    new THREE.Color(0xfbcfe8), // Soft Rose Crystal
+    new THREE.Color(0xc6d8ff), // Blue-white
+    new THREE.Color(0xa9c2ff), // Pale blue
+    new THREE.Color(0xfff3d6), // Warm white
+    new THREE.Color(0xffe2c0), // Pale gold
+    new THREE.Color(0xffdbe8), // Pale rose
     new THREE.Color(0xc084fc), // Radiant Lilac
-    new THREE.Color(0xa855f7)  // Deep Cosmic Purple
+    new THREE.Color(0x9d7be0)  // Muted violet
   ];
 
   for (let i = 0; i < starCount; i++) {
@@ -326,10 +326,10 @@ export function createGalaxySkybox(scene, quality = {}) {
 
   const meteorColors = [
     new THREE.Color(0xc084fc), // Cosmic Lavender (Khao Hom signature)
-    new THREE.Color(0xf472b6), // Starlight Rose
-    new THREE.Color(0xd8b4fe), // Diamond Lilac
+    new THREE.Color(0xdfe6ff), // Blue-white
+    new THREE.Color(0xf4f1ff), // White
     new THREE.Color(0xffffff), // Pure Brilliant White
-    new THREE.Color(0xfde68a)  // Soft Rose-Gold / Champagne (<= 1 in 5)
+    new THREE.Color(0xffe9cc)  // Warm white
   ];
 
   const whiteColor = new THREE.Color(0xffffff);

@@ -108,7 +108,7 @@ export function showArrivalCelebrationFlow(soundManager, {
 
     const caption = document.createElement('div');
     caption.className = 'ui-captions arrival-caption arrival-lower-third';
-    caption.innerHTML = '<span>สุขสันต์วันเกิดนะ<strong class="name-emph">ข้าวหอม</strong> ขอให้วัย 16 ปีนี้เต็มไปด้วยรอยยิ้ม ความสุข<br>และการเติบโตที่เปล่งประกายที่สุดในจักรวาล</span>';
+    caption.innerHTML = '<span>สุขสันต์วันเกิดนะ <strong class="name-emph">ข้าวหอม</strong><br>ขอให้อายุ 16 มีเรื่องให้ยิ้มได้ทุกวัน</span>';
 
     const handle = uiDirector.show({
       id: 'arrival-caption',

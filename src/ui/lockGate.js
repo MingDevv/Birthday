@@ -82,7 +82,7 @@ export async function initLockGate() {
         radial-gradient(ellipse 120% 90% at 50% -10%, rgba(88, 28, 135, .55), transparent 60%),
         radial-gradient(ellipse 100% 70% at 50% 110%, rgba(157, 23, 77, .38), transparent 55%),
         linear-gradient(180deg, #07031a 0%, #10042e 55%, #1b0533 100%);
-      font-family: 'Prompt', 'Noto Sans Thai', sans-serif;
+      font-family: 'IBM Plex Sans Thai Looped', sans-serif;
       transition: opacity .7s ease;
     }
     #lock-gate.lock-gate-out { opacity: 0; pointer-events: none; }

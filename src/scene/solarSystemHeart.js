@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createCuteCat } from './cuteCat.js';
 import { createGlowTexture } from './galaxySkybox.js';
 import { MEMORIES_LIST } from '../config/memoriesData.js';
 import { createEnchantedRose } from './enchantedRose.js';
@@ -465,22 +466,28 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
   const heartGeo = create3DHeartGeometry(0.55, 120, 80);
 
+  // Crystal heart: clear glass with a violet light living inside it (Round 14).
+  const premiumHeart = quality.tier === 'high' || quality.tier === 'ultra';
   const heartMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdb2777,             // Deep Radiant Cosmic Rose
-    emissive: 0x9333ea,          // Deep Royal Cosmic Purple (Khao Hom's favorite color)
-    emissiveIntensity: 0.2,      // Let the key light reveal facets instead of washing them out
-    roughness: 0.2,              // Polished crystal with enough surface definition
-    metalness: 0.08,
-    clearcoat: 0.76,
-    clearcoatRoughness: 0.12,
-    transmission: quality.tier === 'high' || quality.tier === 'ultra' ? 0.35 : 0,
-    thickness: 0.7,
-    ior: 1.4,
-    iridescence: quality.tier === 'high' || quality.tier === 'ultra' ? 0.6 : 0,
+    color: 0xf6f0ff,
+    emissive: 0x8a62d6,
+    emissiveIntensity: premiumHeart ? 0.5 : 0.55,
+    roughness: 0.04,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
+    transmission: premiumHeart ? 1 : 0,
+    thickness: 2.4,
+    ior: 1.5,
+    attenuationColor: new THREE.Color(0xc9a8ff),
+    attenuationDistance: 14,
+    iridescence: premiumHeart ? 0.3 : 0,
     iridescenceIOR: 1.3,
-    side: THREE.DoubleSide,      // Render both front and back cleanly from all angles
-    transparent: false,
-    reflectivity: 0.78
+    specularIntensity: 1,
+    side: THREE.FrontSide,
+    transparent: !premiumHeart,
+    opacity: premiumHeart ? 1 : 0.62,
+    envMapIntensity: 2.6
   });
 
   const heartMesh = new THREE.Mesh(heartGeo, heartMat);
@@ -489,8 +496,25 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   heartMesh.receiveShadow = false;
   heartGroup.add(heartMesh);
 
+  // The violet core seen through the glass
+  const heartCoreMat = new THREE.MeshBasicMaterial({
+    color: 0x9d6bff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+  });
+  const heartCore = new THREE.Mesh(heartGeo, heartCoreMat);
+  heartCore.name = 'heartVioletCore';
+  heartCore.scale.setScalar(0.56);
+  heartCore.rotation.x = -0.34;
+  heartGroup.add(heartCore);
+
+  // Round 15: the centre of the universe is Khao Hom's cat. The heart mesh stays
+  // as an invisible hit-target so tapping the centre still works everywhere.
+  heartMesh.visible = false;
+  heartCore.visible = false;
+  const khaoHomCat = createCuteCat({ quality: quality.tier });
+  heartGroup.add(khaoHomCat.group);
+
   // Soft romantic Point Light (gentle starlight, no blinding blowout)
-  const heartLight = new THREE.PointLight(0xd946ef, 1.05, 36, 1.8);
+  const heartLight = new THREE.PointLight(0xb98cff, 1.2, 36, 1.8);
   heartLight.position.set(0, 0, 0);
   heartGroup.add(heartLight);
 
@@ -500,8 +524,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   const gyroRingPivots = [];
   if (quality.tier !== 'low') {
     const ringDefs = [
-      { radius: 13.2, tube: 0.17, color: 0xf9a8d4, tiltX: 1.32, tiltZ: 0.22, speed: 0.42, opacity: 0.62 },
-      { radius: 10.6, tube: 0.14, color: 0xc084fc, tiltX: 0.16, tiltZ: -0.42, speed: -0.3, opacity: 0.5 }
+      { radius: 13.2, tube: 0.09, color: 0xeee8ff, tiltX: 1.32, tiltZ: 0.22, speed: 0.42, opacity: 0.62 },
+      { radius: 10.6, tube: 0.08, color: 0xb98cff, tiltX: 0.16, tiltZ: -0.42, speed: -0.3, opacity: 0.5 }
     ];
     for (const def of ringDefs) {
       const pivot = new THREE.Group();
@@ -561,9 +585,9 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   // Gentle Crystalline Aura Sprite (subtle romantic glow)
   const auraMat = new THREE.SpriteMaterial({
     map: glowTex,
-    color: 0xd946ef,
+    color: 0xb98cff,
     transparent: true,
-    opacity: 0.1,
+    opacity: 0.05,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: false
@@ -724,16 +748,58 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     // where LineBasicMaterial linewidth is ignored (Plan Round 9: 0.24, Saturn 0.32).
     const curvePoints = Array.from({ length: 192 }, (_, i) => orbitPoint((i / 192) * Math.PI * 2));
     const orbitCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
-    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.32 : 0.24, 6, true);
+    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.3 : 0.22, 8, true);
 
-    const pathMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0xdcd6ee), // one quiet orbit colour for every planet
+    // Round 14: a filament with depth. The far side of each orbit dims, the tube
+    // is brightest where it faces the camera, and a comet-like trail in the
+    // planet's own colour follows the planet around its path.
+    const pathMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(0xe4def2) },
+        uTrailColor: { value: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xffffff), 0.35) },
+        uOpacity: { value: 0.2 },
+        uPhase: { value: 0 },
+        uRadius: { value: pConfig.orbitRadius }
+      },
+      vertexShader: `
+        varying float vU;
+        varying float vRel;
+        varying float vFacing;
+        uniform float uRadius;
+        void main() {
+          vU = uv.x;
+          vec4 viewPos = modelViewMatrix * vec4(position, 1.0);
+          vec4 originView = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          vRel = (viewPos.z - originView.z) / uRadius;
+          vec3 n = normalize(normalMatrix * normal);
+          vFacing = abs(dot(n, normalize(-viewPos.xyz)));
+          gl_Position = projectionMatrix * viewPos;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform vec3 uTrailColor;
+        uniform float uOpacity;
+        uniform float uPhase;
+        varying float vU;
+        varying float vRel;
+        varying float vFacing;
+        void main() {
+          float behind = fract(uPhase - vU);
+          float trail = exp(-behind * 9.0);
+          float depth = mix(0.32, 1.0, smoothstep(-1.0, 0.9, vRel));
+          float core = 0.35 + 0.65 * vFacing;
+          float a = uOpacity * (2.1 + trail * 5.5) * depth * core;
+          vec3 col = mix(uColor, uTrailColor, clamp(trail * 1.4, 0.0, 1.0));
+          gl_FragColor = vec4(col * a, a);
+        }
+      `,
       transparent: true,
-      opacity: 0.20,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false
     });
+    pathMat.opacity = 0.2;
     const orbitRibbon = new THREE.Mesh(pathGeo, pathMat);
     orbitRibbon.name = `orbitPath-${pConfig.id}`;
     rootGroup.add(orbitRibbon);
@@ -846,7 +912,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     // Delicate rotating soft pink indicator ring for the Next Planet (Plan Round 9)
     const nextRingGeo = new THREE.RingGeometry(pConfig.radius * 1.55, pConfig.radius * 1.78, 48);
     const nextRingMat = new THREE.MeshBasicMaterial({
-      color: 0xf472b6,
+      color: 0xb98cff,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0,
@@ -865,7 +931,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     const labelText = `${String(pConfig.id).padStart(2, '0')} · ${memData.planetThai}`;
     labelContext.textAlign = 'center';
     labelContext.textBaseline = 'middle';
-    labelContext.font = '700 42px Prompt, sans-serif';
+    labelContext.font = '600 42px Mali, sans-serif';
     labelContext.lineWidth = 8;
     labelContext.strokeStyle = 'rgba(12,5,24,.9)';
     labelContext.strokeText(labelText, 320, 64);
@@ -906,38 +972,38 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         // Compact circular badge with checkmark (Plan Round 9: never crowd the scene)
         beaconContext.beginPath();
         beaconContext.arc(256, 64, 44, 0, Math.PI * 2);
-        beaconContext.fillStyle = 'rgba(38, 20, 56, 0.88)';
+        beaconContext.fillStyle = 'rgba(17, 14, 25, 0.9)';
         beaconContext.fill();
         beaconContext.lineWidth = 4;
-        beaconContext.strokeStyle = 'rgba(244, 114, 182, 0.92)';
+        beaconContext.strokeStyle = 'rgba(185, 140, 255, 0.95)';
         beaconContext.stroke();
-        beaconContext.fillStyle = '#fbcfe8';
+        beaconContext.fillStyle = '#f4eefc';
         beaconContext.textAlign = 'center';
         beaconContext.textBaseline = 'middle';
-        beaconContext.font = '700 52px Prompt, sans-serif';
+        beaconContext.font = '700 52px Mali, sans-serif';
         beaconContext.fillText('✓', 256, 64);
       } else {
         // Banner for next planet or hovered planet (short, single-line)
         beaconContext.beginPath();
         beaconContext.roundRect(16, 12, 480, 104, 52);
         beaconContext.fillStyle = visited
-          ? 'rgba(39, 25, 59, .90)'
+          ? 'rgba(27, 22, 38, .90)'
           : next
-            ? 'rgba(44, 18, 72, .95)'
-            : 'rgba(24, 14, 40, .85)';
+            ? 'rgba(27, 22, 38, .95)'
+            : 'rgba(17, 14, 25, .85)';
         beaconContext.fill();
         beaconContext.lineWidth = next ? 6 : 3;
         beaconContext.strokeStyle = visited
-          ? 'rgba(255, 188, 226, .90)'
+          ? 'rgba(244, 238, 252, .55)'
           : next
-            ? 'rgba(244, 114, 182, 1.0)'
-            : 'rgba(192, 132, 252, .65)';
+            ? 'rgba(185, 140, 255, 1.0)'
+            : 'rgba(244, 238, 252, .25)';
         beaconContext.stroke();
 
-        beaconContext.fillStyle = visited ? '#ffd2ec' : next ? '#fff0f8' : '#e6daf4';
+        beaconContext.fillStyle = visited ? '#d9cff0' : next ? '#ffffff' : '#e6dff4';
         beaconContext.textAlign = 'center';
         beaconContext.textBaseline = 'middle';
-        beaconContext.font = next ? '700 48px Prompt, sans-serif' : '600 44px Prompt, sans-serif';
+        beaconContext.font = next ? '700 48px Mali, sans-serif' : '600 44px Mali, sans-serif';
         const prefix = visited ? '✓' : next ? '' : String(pConfig.id).padStart(2, '0');
         beaconContext.fillText(`${prefix} · ${beaconName}`, 256, 64, 440);
       }
@@ -1203,8 +1269,11 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
     setQuality(nextQuality) {
       const premiumTier = nextQuality.tier === 'high' || nextQuality.tier === 'ultra';
-      heartMat.transmission = premiumTier ? 0.35 : 0;
-      heartMat.iridescence = premiumTier ? 0.6 : 0;
+      heartMat.transmission = premiumTier ? 1 : 0;
+      heartMat.iridescence = premiumTier ? 0.3 : 0;
+      heartMat.transparent = !premiumTier;
+      heartMat.opacity = premiumTier ? 1 : 0.62;
+      heartMat.emissiveIntensity = premiumTier ? 0.5 : 0.55;
       heartMat.needsUpdate = true;
     },
 
@@ -1421,7 +1490,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       // Draw "ข้าวหอม" with Thai typography
       context.clearRect(0, 0, 800, 280);
       context.fillStyle = '#fff';
-      context.font = '900 144px "Prompt", "Kanit", "Noto Sans Thai", sans-serif';
+      context.font = '700 150px "Mali", sans-serif';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText('ข้าวหอม', 400, 140);
@@ -1469,12 +1538,12 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       // The static reduced-motion pass is cheaper than animating the full desktop particle field.
       const isMobile = typeof window !== 'undefined' && window.innerWidth <= 520;
       const count = reducedMotion
-        ? 1400
+        ? 2200
         : quality.tier === 'low'
-          ? 900
+          ? 1800
           : isMobile
-            ? 1600
-            : 2600;
+            ? 3200
+            : 5200;
 
       const starts = new Float32Array(count * 3);
       const heartTargets = new Float32Array(count * 3);
@@ -1483,11 +1552,13 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const colors = new Float32Array(count * 3);
       const randoms = new Float32Array(count);
 
-      const cPink = new THREE.Color(0xf9a8d4);
-      const cLavender = new THREE.Color(0xc084fc);
+      const cWarm = new THREE.Color(0xfff1dc);
+      const cViolet = new THREE.Color(0xb98cff);
       const cWhite = new THREE.Color(0xffffff);
+      const cBlue = new THREE.Color(0xcfdcff);
+      const sizes = new Float32Array(count);
 
-      const bodyRatio = 0.65;
+      const bodyRatio = 0.55;
       const bodyCount = Math.floor(count * bodyRatio);
       const edgeCount = count - bodyCount;
       const bodyStride = bodyCoords.length / Math.max(1, bodyCount);
@@ -1509,17 +1580,14 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
         const hp = heartCoords.length ? heartCoords[Math.floor(Math.random() * heartCoords.length)] : [400, 140];
 
-        // Sphere explosion start distribution
-        const u = Math.random();
-        const v = Math.random();
-        const theta = u * 2.0 * Math.PI;
-        const phi = Math.acos(2.0 * v - 1.0);
-        const r = 120 + Math.random() * 110;
-        const sinPhi = Math.sin(phi);
+        // Start as a slowly turning two-armed galaxy around the heart
+        const arm = i % 2;
+        const gr = 30 + Math.pow(Math.random(), 0.7) * 170;
+        const ga = arm * Math.PI + Math.log(gr / 30) * 2.4 + (Math.random() - 0.5) * 0.9;
         const start = [
-          r * sinPhi * Math.cos(theta),
-          r * sinPhi * Math.sin(theta),
-          r * Math.cos(phi)
+          Math.cos(ga) * gr,
+          Math.sin(ga) * gr * 0.42,
+          (Math.random() - 0.5) * 30 - 40
         ];
         starts.set(start, i * 3);
         positions.set(start, i * 3);
@@ -1528,16 +1596,14 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         heartTargets.set([(hp[0] - 400) * 0.52, (140 - hp[1]) * 0.52, (Math.random() - 0.5) * 2.5], i * 3);
         letterTargets.set([(lx - 400) * 0.52, (140 - ly) * 0.52, zJitter], i * 3);
 
-        const tColor = THREE.MathUtils.clamp((lx - 160) / 480, 0, 1);
-        const col = new THREE.Color();
-        if (Math.random() < 0.20) {
-          col.copy(cWhite);
-        } else if (tColor < 0.5) {
-          col.lerpColors(cPink, cLavender, tColor * 2.0);
-        } else {
-          col.lerpColors(cLavender, cWhite, (tColor - 0.5) * 2.0);
-        }
+        // Edges are crisp white stars, the body is warm with violet sparks
+        const isEdge = i >= bodyCount;
+        const roll = Math.random();
+        const col = isEdge
+          ? (roll < 0.75 ? cWhite.clone() : cBlue.clone())
+          : (roll < 0.16 ? cViolet.clone() : roll < 0.3 ? cBlue.clone() : cWarm.clone());
         col.toArray(colors, i * 3);
+        sizes[i] = isEdge ? 0.85 + Math.random() * 0.6 : 0.55 + Math.pow(Math.random(), 3) * 1.6;
         randoms[i] = Math.random();
       }
 
@@ -1548,19 +1614,52 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+      geometry.setAttribute('aRand', new THREE.BufferAttribute(randoms, 1));
 
-      const pointPx = Math.max(3.6, Math.min(window.devicePixelRatio || 1, 2) * 3.6);
-      const material = new THREE.PointsMaterial({
-        map: sparkleTex,
-        vertexColors: true,
-        size: pointPx,
-        sizeAttenuation: false,
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          uOpacity: { value: qaPreview ? 1.0 : 0.0 },
+          uTime: { value: 0 },
+          uPx: { value: (isMobile ? 3.4 : 4.2) * pixelRatio },
+          uTwinkle: { value: reducedMotion ? 0 : 1 }
+        },
+        vertexShader: `
+          attribute float aSize;
+          attribute float aRand;
+          attribute vec3 color;
+          uniform float uPx;
+          uniform float uTime;
+          uniform float uTwinkle;
+          varying vec3 vColor;
+          varying float vTw;
+          void main() {
+            vColor = color;
+            vTw = 1.0 - uTwinkle * 0.35 * (0.5 + 0.5 * sin(uTime * (2.0 + aRand * 4.0) + aRand * 50.0));
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = uPx * aSize;
+          }
+        `,
+        fragmentShader: `
+          uniform float uOpacity;
+          varying vec3 vColor;
+          varying float vTw;
+          void main() {
+            float d = length(gl_PointCoord - 0.5) * 2.0;
+            if (d > 1.0) discard;
+            float core = exp(-d * d * 6.0);
+            float halo = exp(-d * 3.0) * 0.3;
+            float a = (core + halo) * uOpacity * vTw;
+            gl_FragColor = vec4(vColor * a, a);
+          }
+        `,
         transparent: true,
-        opacity: qaPreview ? 1.0 : 0.0,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         depthTest: false
       });
+      material.opacity = qaPreview ? 1.0 : 0.0;
 
       const points = new THREE.Points(geometry, material);
       points.name = 'arrivalHeartParticleReveal';
@@ -1621,11 +1720,12 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         const count = effect.starts.length / 3;
 
         if (effect.elapsed < letterStart) {
-          const p = THREE.MathUtils.clamp(effect.elapsed / effect.travel, 0, 1);
-          const ease = p * p * (3 - 2 * p);
+          const p0 = THREE.MathUtils.clamp(effect.elapsed / effect.travel, 0, 1);
           for (let i = 0; i < count; i += 1) {
             const i3 = i * 3;
-            const angle = (1 - ease) * 1.8;
+            const p = THREE.MathUtils.clamp(p0 * 1.35 - effect.randoms[i] * 0.35, 0, 1);
+            const ease = 1 - Math.pow(1 - p, 3);
+            const angle = (1 - ease) * 2.6;
             const cosA = Math.cos(angle);
             const sinA = Math.sin(angle);
             const sx = effect.starts[i3];
@@ -1637,12 +1737,15 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
             positions[i3 + 1] = THREE.MathUtils.lerp(rotY, effect.heartTargets[i3 + 1], ease);
             positions[i3 + 2] = THREE.MathUtils.lerp(sz, effect.heartTargets[i3 + 2], ease);
           }
-          effect.material.opacity = Math.min(1.0, p * 1.6);
+          effect.material.opacity = Math.min(1.0, p0 * 1.6);
         } else if (effect.elapsed < holdStart) {
-          const p = THREE.MathUtils.clamp((effect.elapsed - letterStart) / effect.letterTravel, 0, 1);
-          const ease = p * p * (3 - 2 * p);
+          const pAll = THREE.MathUtils.clamp((effect.elapsed - letterStart) / effect.letterTravel, 0, 1);
           for (let i = 0; i < count; i += 1) {
             const i3 = i * 3;
+            // letters settle from left to right
+            const lead = THREE.MathUtils.clamp((effect.letterTargets[i3] + 210) / 420, 0, 1) * 0.4;
+            const p = THREE.MathUtils.clamp((pAll - lead) / 0.6, 0, 1);
+            const ease = 1 - Math.pow(1 - p, 3);
             positions[i3] = THREE.MathUtils.lerp(effect.heartTargets[i3], effect.letterTargets[i3], ease);
             positions[i3 + 1] = THREE.MathUtils.lerp(effect.heartTargets[i3 + 1], effect.letterTargets[i3 + 1], ease);
             positions[i3 + 2] = THREE.MathUtils.lerp(effect.heartTargets[i3 + 2], effect.letterTargets[i3 + 2], ease);
@@ -1660,11 +1763,15 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         } else if (effect.elapsed < finishTime) {
           heartGroup.visible = true;
           const p = THREE.MathUtils.clamp((effect.elapsed - burstStart) / effect.burst, 0, 1);
-          const ease = p * p;
+          const ease = p * p * (3 - 2 * p);
           for (let i = 0; i < count; i += 1) {
             const i3 = i * 3;
-            positions[i3] = THREE.MathUtils.lerp(effect.letterTargets[i3], 0, ease);
-            positions[i3 + 1] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 1], 0, ease);
+            // a soft outward breath, then everything folds into the heart
+            const puff = Math.sin(p * Math.PI) * (6 + effect.randoms[i] * 10);
+            const lx = effect.letterTargets[i3], ly = effect.letterTargets[i3 + 1];
+            const len = Math.hypot(lx, ly) || 1;
+            positions[i3] = THREE.MathUtils.lerp(lx, 0, ease) + (lx / len) * puff;
+            positions[i3 + 1] = THREE.MathUtils.lerp(ly, 0, ease) + (ly / len) * puff;
             positions[i3 + 2] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 2], 0, ease);
           }
           effect.material.opacity = THREE.MathUtils.clamp(1.0 - p * 1.5, 0, 1);
@@ -1678,6 +1785,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         }
         if (arrivalEffect) {
           effect.geometry.attributes.position.needsUpdate = true;
+          effect.material.uniforms.uOpacity.value = effect.material.opacity;
+          effect.material.uniforms.uTime.value = realTime;
         }
       }
       if (currentStage === 'cake') {
@@ -1700,6 +1809,9 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       beat += Math.min(0.08, musicBass * 0.12);
       const heartScale = (1.0 + beat) * currentHeartScale;
       heartMesh.scale.set(heartScale, heartScale, heartScale);
+      // a touch bigger than the old heart, and much bigger as the cake topper so she can see it
+      khaoHomCat.group.scale.setScalar((currentStage === 'cake' ? 2.1 : 1.0) * currentHeartScale);
+      khaoHomCat.update(delta, realTime, reducedMotion || !effectsEnabled);
       heartLight.intensity = (1.45 + beat * 1.2) * (currentStage === 'cake' ? 0.35 : 1.0);
       auraSprite.scale.set((16 + beat * 2) * currentHeartScale, (16 + beat * 2) * currentHeartScale, 1);
 
@@ -1786,6 +1898,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           }
         }
 
+        if (orbitMat?.uniforms) orbitMat.uniforms.uOpacity.value = orbitMat.opacity;
         // Orbital particle system visibility (spark running on visited and next orbits)
         const ops = orbitalParticleSystems[p.id - 1];
         if (ops && ops.points) {
@@ -1793,6 +1906,10 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         }
 
         const currentAngle = p.config.initialAngle + orbitTime * p.config.orbitSpeed;
+        if (orbitMat?.uniforms) {
+          const turn = Math.PI * 2;
+          orbitMat.uniforms.uPhase.value = (((currentAngle % turn) + turn) % turn) / turn;
+        }
         const r = p.config.orbitRadius;
         const incl = p.config.inclination;
 

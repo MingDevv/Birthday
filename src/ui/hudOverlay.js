@@ -67,13 +67,13 @@ export class HudOverlay {
         <div class="hud-top-actions">
           <!-- Toggle Galaxy / Center Mode Button -->
           <button id="btn-toggle-galaxy" class="hud-icon-btn hud-galaxy-btn" title="สลับมุมมองท่องกาแล็กซี่ 3D หรือศูนย์กลางดวงใจวันเกิด">
-            <span id="galaxy-btn-icon"></span>
+            <span id="galaxy-btn-icon"><svg class="hud-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c0-1.4 1.6-2 2.6-1 1.6 1.6.2 4.4-2.1 4.4-3 0-4.6-3.6-2.7-6 2.4-3 7.6-2.3 8.9 1.6 1.4 4.2-1.9 8.4-6.4 8.4C7.4 19.4 4 15.8 4 11.6 4 7.2 7.6 4 11.6 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
             <span class="btn-label" id="galaxy-btn-text">ท่องกาแล็กซี่ 3D</span>
           </button>
 
           <!-- Reset Center View Button -->
           <button id="btn-reset-cam" class="hud-icon-btn" title="กลับมาที่หัวใจกลาง" aria-label="กลับมาที่หัวใจกลาง">
-            <span></span>
+            <span class="hud-icon"><svg class="hud-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
             <span class="btn-label">ดวงใจวันเกิด</span>
           </button>
 
@@ -101,7 +101,7 @@ export class HudOverlay {
 
       <!-- Bottom Hint -->
       <div class="hud-hints">
-        <span id="hud-hint-text">ลากเมาส์สำรวจดวงใจคริสตัลและ 5 ดาวเคราะห์ความทรงจำวันเกิด · คลิกดาวเคราะห์ (เริ่มที่ดาวศุกร์) เพื่อดูความทรงจำ · กด 'ท่องกาแล็กซี่ 3D' เพื่อดูมุมกว้าง</span>
+        <span id="hud-hint-text">ลากเพื่อหมุนดู · เริ่มจากแตะดาวศุกร์ แล้วไล่ไปทีละดวง · กด "ท่องกาแล็กซี่ 3D" เพื่อดูมุมกว้าง</span>
       </div>
 
       <!-- Bottom-Right Dock: Tools & Make a Wish Button -->
@@ -195,18 +195,18 @@ export class HudOverlay {
 
     if (isGalaxy) {
       btn.classList.add('is-galaxy-active');
-      btnIcon.textContent = '';
+      btnIcon.innerHTML = '<svg class="hud-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
       btnText.textContent = 'ดวงใจสุริยะ';
       brandIcon.textContent = '';
-      brandSub.textContent = 'มหากาแล็กซี่สีม่วงแห่งความทรงจำ · 120,000+ ดวงดาว';
-      hintText.innerHTML = '<b>โหมดท่องกาแล็กซี่:</b> ลากเมาส์หมุนสำรวจทางช้างเผือกสีม่วง · คลิกดาวเคราะห์หรือหัวใจเพื่อวาร์ปเปิดความทรงจำ';
+      brandSub.textContent = 'กาแล็กซีของเรา · ดาวกว่าแสนดวง';
+      hintText.innerHTML = 'ลากเพื่อหมุนดูกาแล็กซี · แตะดาวเคราะห์หรือหัวใจเพื่อเปิดความทรงจำ';
     } else {
       btn.classList.remove('is-galaxy-active');
-      btnIcon.textContent = '';
+      btnIcon.innerHTML = '<svg class="hud-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c0-1.4 1.6-2 2.6-1 1.6 1.6.2 4.4-2.1 4.4-3 0-4.6-3.6-2.7-6 2.4-3 7.6-2.3 8.9 1.6 1.4 4.2-1.9 8.4-6.4 8.4C7.4 19.4 4 15.8 4 11.6 4 7.2 7.6 4 11.6 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       btnText.textContent = 'ท่องกาแล็กซี่ 3D';
       brandIcon.textContent = '';
       brandSub.textContent = PLANET_CONFIG.subtitle;
-      hintText.innerHTML = 'ลากเมาส์หมุนสำรวจดวงใจเรืองแสงและดาวเคราะห์แห่งความรัก · คลิกดาวเคราะห์เพื่อเปิดอ่าน';
+      hintText.innerHTML = 'ลากเพื่อหมุนดู · แตะดาวเคราะห์เพื่อเปิดความทรงจำ';
     }
   }
 

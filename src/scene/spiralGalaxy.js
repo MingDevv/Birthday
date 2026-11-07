@@ -89,7 +89,7 @@ export function createSpiralGalaxy(scene, quality = {}) {
   const colorCosmicRose = new THREE.Color(0xff6f9f);  // H-alpha emission knot
   const colorUltraviolet = new THREE.Color(0xb98cff); // Violet accent
   const colorDeepIndigo = new THREE.Color(0x7f9cf0);  // Faint outer disc
-  const colorAmber = new THREE.Color(0xffd29a);       // Old bulge stars
+  const colorAmber = new THREE.Color(0xf3ead8);       // Old inner-disc stars (soft cream)
   const colorWhite = new THREE.Color(0xffffff);       // Pure Diamond Starlight
 
   for (let i = 0; i < parameters.count; i++) {
