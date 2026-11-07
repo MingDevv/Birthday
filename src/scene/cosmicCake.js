@@ -162,7 +162,8 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
       const a = (i / 10) * Math.PI / 2;
       pts.push(new THREE.Vector2(radius - bevel + Math.sin(a) * bevel, height / 2 - bevel + Math.cos(a) * bevel));
     }
-    pts.push(new THREE.Vector2(radius * 1.004, -height / 2 + 0.25), new THREE.Vector2(radius * 0.99, -height / 2), new THREE.Vector2(0, -height / 2));
+    pts.push(new THREE.Vector2(radius * 1.004, -height / 2 + 0.25), new THREE.Vector2(radius * 0.99, -height / 2), new THREE.Vector2(0.001, -height / 2));
+    pts.reverse(); // bottom -> top so the faces point outward (Round 16 fix)
     const geo = new THREE.LatheGeometry(pts, 128);
     geo.computeVertexNormals();
     return geo;
@@ -262,9 +263,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
   materialsToDispose.push(pearlMat);
 
   const pearlRims = [
-    { radius: 17.15, count: 32, y: -5.7 }, // bottom tier rim
-    { radius: 13.15, count: 26, y: 1.25 }, // middle tier rim
-    { radius: 9.15,  count: 20, y: 7.25 }  // top tier rim
+    { radius: 17.2, count: 64, y: -13.45 }, // bottom tier base
+    { radius: 13.2, count: 50, y: -5.45 },  // middle tier base
+    { radius: 9.2,  count: 36, y: 1.55 }    // top tier base
   ];
   const totalPearls = pearlRims.reduce((sum, r) => sum + r.count, 0);
   const pearlsMesh = new THREE.InstancedMesh(pearlGeo, pearlMat, totalPearls);
@@ -297,27 +298,108 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     clearcoatRoughness: 0.1
   });
   materialsToDispose.push(dripMat);
-  const dripCount = 12;
-  for (let i = 0; i < dripCount; i++) {
-    const angle = (i / dripCount) * Math.PI * 2;
-    const length = 1.0 + ((i * 5) % 4) * 0.38;
-    const dripGeo = new THREE.CapsuleGeometry(0.28, length, 6, 8);
-    geometriesToDispose.push(dripGeo);
-    const drip = new THREE.Mesh(dripGeo, dripMat);
-    drip.position.set(
-      Math.cos(angle) * 8.95,
-      7.0 - length / 2,
-      Math.sin(angle) * 8.95
-    );
-    group.add(drip);
+  // Round 16: poured ganache with real drips over each tier, whipped cream kisses on top
+  function createDripCollar(radius, topY, color, drips, seed) {
+    const segs = 256;
+    const r = radius * 1.012;
+    const mat = new THREE.MeshPhysicalMaterial({ color, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.5 });
+    materialsToDispose.push(mat);
+    const dropAt = (a) => {
+      let d = 0.55 + 0.25 * Math.sin(a * 3 + seed);
+      for (let k = 0; k < drips; k++) {
+        const center = (k / drips) * Math.PI * 2 + Math.sin(k * 12.9898 + seed) * 0.12;
+        const len = 1.2 + Math.abs(Math.sin(k * 78.233 + seed)) * 2.6;
+        const w = 0.075 + Math.abs(Math.sin(k * 3.1 + seed)) * 0.05;
+        let diff = Math.atan2(Math.sin(a - center), Math.cos(a - center));
+        d = Math.max(d, len * Math.exp(-(diff * diff) / (2 * w * w)));
+      }
+      return d;
+    };
+    // side skin: top edge at topY, bottom edge follows the drips
+    const positions = [];
+    const index = [];
+    for (let i = 0; i <= segs; i++) {
+      const a = (i / segs) * Math.PI * 2;
+      const c = Math.cos(a), sn = Math.sin(a);
+      positions.push(c * r, topY, sn * r, c * r, topY - dropAt(a), sn * r);
+    }
+    for (let i = 0; i < segs; i++) {
+      const a0 = i * 2, b0 = a0 + 1, a1 = a0 + 2, b1 = a0 + 3;
+      index.push(a0, a1, b0, b0, a1, b1);
+    }
+    const sideGeo = new THREE.BufferGeometry();
+    sideGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    sideGeo.setIndex(index);
+    sideGeo.computeVertexNormals();
+    geometriesToDispose.push(sideGeo);
+    const side = new THREE.Mesh(sideGeo, mat);
+    side.material.side = THREE.DoubleSide;
+    group.add(side);
+    // rounded lip where the ganache rolls over the edge
+    const lipGeo = new THREE.TorusGeometry(r - 0.12, 0.3, 12, 160);
+    geometriesToDispose.push(lipGeo);
+    const lip = new THREE.Mesh(lipGeo, mat);
+    lip.rotation.x = Math.PI / 2;
+    lip.position.y = topY - 0.05;
+    group.add(lip);
+    // pooled top
+    const capGeo = new THREE.CircleGeometry(r - 0.1, 128);
+    geometriesToDispose.push(capGeo);
+    const cap = new THREE.Mesh(capGeo, mat);
+    cap.rotation.x = -Math.PI / 2;
+    cap.position.y = topY + 0.22;
+    group.add(cap);
+    // round drop at the end of every drip
+    const tipGeo = new THREE.SphereGeometry(0.28, 12, 10);
+    geometriesToDispose.push(tipGeo);
+    for (let k = 0; k < drips; k++) {
+      const center = (k / drips) * Math.PI * 2 + Math.sin(k * 12.9898 + seed) * 0.12;
+      const tip = new THREE.Mesh(tipGeo, mat);
+      tip.position.set(Math.cos(center) * (r + 0.05), topY - dropAt(center) + 0.12, Math.sin(center) * (r + 0.05));
+      tip.scale.set(1.15, 1.25, 0.8);
+      tip.lookAt(0, tip.position.y, 0);
+      group.add(tip);
+    }
   }
+  createDripCollar(17, -5.8, 0xfbf6f0, 18, 1.3);   // white chocolate over lilac
+  createDripCollar(13, 1.2, 0xfbf6f0, 14, 4.1);    // white chocolate over lavender
+  createDripCollar(9, 7.2, 0xa98ee8, 11, 7.7);     // violet over cream
+
+  // whipped cream kisses around each top edge
+  const kissPts = [];
+  for (let i = 0; i <= 14; i++) {
+    const t = i / 14;
+    const rr = 0.85 * Math.pow(1 - t, 0.85) * (1 + 0.12 * Math.sin(t * Math.PI * 6));
+    kissPts.push(new THREE.Vector2(Math.max(0.001, rr), t * 1.4));
+  }
+  const kissGeo = new THREE.LatheGeometry(kissPts, 24);
+  geometriesToDispose.push(kissGeo);
+  const kissMat = new THREE.MeshPhysicalMaterial({ color: 0xfffaf4, roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color(0xffffff), envMapIntensity: 0.35 });
+  materialsToDispose.push(kissMat);
+  const kissRings = [{ r: 15.4, y: -5.5, n: 30 }, { r: 12.0, y: 1.5, n: 22 }, { r: 7.9, y: 7.5, n: 16 }];
+  const kissTotal = kissRings.reduce((a, k) => a + k.n, 0);
+  const kisses = new THREE.InstancedMesh(kissGeo, kissMat, kissTotal);
+  kisses.name = 'cakeWhippedKisses';
+  let kissIndex = 0;
+  const km = new THREE.Matrix4();
+  const kq = new THREE.Quaternion();
+  for (const ring of kissRings) {
+    for (let i = 0; i < ring.n; i++) {
+      const a = (i / ring.n) * Math.PI * 2 + 0.11;
+      kq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a * 3.7);
+      km.compose(new THREE.Vector3(Math.cos(a) * ring.r, ring.y, Math.sin(a) * ring.r), kq, new THREE.Vector3(1, 1, 1));
+      kisses.setMatrixAt(kissIndex++, km);
+    }
+  }
+  kisses.instanceMatrix.needsUpdate = true;
+  group.add(kisses);
 
   // =========================================================================
   // 5. Floating Stars around the cake
   // =========================================================================
   const starGeo = new THREE.OctahedronGeometry(0.38, 0);
   geometriesToDispose.push(starGeo);
-  const starMat = new THREE.MeshBasicMaterial({ color: 0xffecb3 });
+  const starMat = new THREE.MeshBasicMaterial({ color: 0xe9e2ff });
   materialsToDispose.push(starMat);
   const floatingStars = [];
   const starCount = 10;
@@ -358,9 +440,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     const angle = (i / 10) * Math.PI * 2 + 4.9;
     const height = 4.8 + ((i * 7) % 5) * 0.12;
     candlePositions.push({
-      x: Math.cos(angle) * 11.5,
-      z: Math.sin(angle) * 11.5,
-      baseY: 2.8,
+      x: Math.cos(angle) * 10.6,
+      z: Math.sin(angle) * 10.6,
+      baseY: 1.4,
       height,
       radius: 0.42,
       ring: 'tier2'
@@ -371,9 +453,9 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
     const angle = (i / 6) * Math.PI * 2 + 4.0;
     const height = 5.2 + ((i * 3) % 4) * 0.14;
     candlePositions.push({
-      x: Math.cos(angle) * 6.0,
-      z: Math.sin(angle) * 6.0,
-      baseY: 7.2,
+      x: Math.cos(angle) * 5.2,
+      z: Math.sin(angle) * 5.2,
+      baseY: 7.4,
       height,
       radius: 0.40,
       ring: 'tier3'

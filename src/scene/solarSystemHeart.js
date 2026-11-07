@@ -1467,14 +1467,18 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       shapeCanvas.height = 280;
       const context = shapeCanvas.getContext('2d', { willReadFrequently: true });
 
-      // Draw romantic Heart Shape centered at (400, 140)
+      // Classic heart curve, fully inside the canvas and centred at (400, 140)
       context.fillStyle = '#fff';
       context.beginPath();
-      context.moveTo(400, 245);
-      context.bezierCurveTo(340, 190, 200, 120, 200, 55);
-      context.bezierCurveTo(200, 0, 300, -10, 400, 65);
-      context.bezierCurveTo(500, -10, 600, 0, 600, 55);
-      context.bezierCurveTo(600, 120, 460, 190, 400, 245);
+      for (let k = 0; k <= 200; k += 1) {
+        const t = (k / 200) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3);
+        const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+        const px = 400 + hx * 7.6;
+        const py = 140 - (hy + 2.5) * 7.6;
+        if (k === 0) context.moveTo(px, py); else context.lineTo(px, py);
+      }
+      context.closePath();
       context.fill();
 
       const imgDataHeart = context.getImageData(0, 0, 800, 280);
@@ -1666,11 +1670,16 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       points.position.copy(heartGroup.position);
       if (cam) points.quaternion.copy(cam.quaternion);
 
+      const camDir = new THREE.Vector3();
+      const screenCentre = new THREE.Vector3();
       const updateBillboardScale = () => {
         if (!cam) return;
-        points.position.copy(heartGroup.position);
+        // Always centred on screen, at the heart's distance from the camera
+        const dist = cam.position.distanceTo(heartGroup.getWorldPosition(screenCentre));
+        cam.getWorldDirection(camDir);
+        screenCentre.copy(cam.position).addScaledVector(camDir, dist);
+        points.position.copy(rootGroup.worldToLocal(screenCentre));
         points.quaternion.copy(cam.quaternion);
-        const dist = cam.position.distanceTo(points.position);
         const fovRad = THREE.MathUtils.degToRad(cam.fov);
         const vHeight = 2 * dist * Math.tan(fovRad / 2);
         const vWidth = vHeight * cam.aspect;
@@ -1764,15 +1773,18 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           heartGroup.visible = true;
           const p = THREE.MathUtils.clamp((effect.elapsed - burstStart) / effect.burst, 0, 1);
           const ease = p * p * (3 - 2 * p);
+          // fold into wherever the cat actually is, in the particles' own space
+          effect.points.updateMatrixWorld(true);
+          const heartLocal = effect.points.worldToLocal(heartGroup.getWorldPosition(new THREE.Vector3()));
           for (let i = 0; i < count; i += 1) {
             const i3 = i * 3;
             // a soft outward breath, then everything folds into the heart
             const puff = Math.sin(p * Math.PI) * (6 + effect.randoms[i] * 10);
             const lx = effect.letterTargets[i3], ly = effect.letterTargets[i3 + 1];
             const len = Math.hypot(lx, ly) || 1;
-            positions[i3] = THREE.MathUtils.lerp(lx, 0, ease) + (lx / len) * puff;
-            positions[i3 + 1] = THREE.MathUtils.lerp(ly, 0, ease) + (ly / len) * puff;
-            positions[i3 + 2] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 2], 0, ease);
+            positions[i3] = THREE.MathUtils.lerp(lx, heartLocal.x, ease) + (lx / len) * puff;
+            positions[i3 + 1] = THREE.MathUtils.lerp(ly, heartLocal.y, ease) + (ly / len) * puff;
+            positions[i3 + 2] = THREE.MathUtils.lerp(effect.letterTargets[i3 + 2], heartLocal.z, ease);
           }
           effect.material.opacity = THREE.MathUtils.clamp(1.0 - p * 1.5, 0, 1);
         } else {

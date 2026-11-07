@@ -141,38 +141,14 @@ function createTextTexture(isExtrusion = false) {
     ctx.fillStyle = '#db2777'; // vivid pink body
     ctx.fillText(TEXT, x, y);
   } else {
-    // Outer halo
-    ctx.shadowColor = 'rgba(244, 114, 182, 0.6)';
-    ctx.shadowBlur = 24;
-
-    // Edge border: vivid rose
-    ctx.lineWidth = 32;
-    ctx.strokeStyle = '#e11d48';
-    ctx.strokeText(TEXT, x, y);
-
-    // Fine rose gold rim
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = '#fda4af';
-    ctx.strokeText(TEXT, x, y);
-
-    // Front Warm Cream to Rose Gold Gradient
-    const grad = ctx.createLinearGradient(0, y - 180, 0, y + 180);
-    grad.addColorStop(0, '#ffffff');      // bright white apex
-    grad.addColorStop(0.25, '#fff1e6');   // warm cream
-    grad.addColorStop(0.65, '#fbcfe8');   // soft pastel pink
-    grad.addColorStop(1.0, '#f472b6');    // rose gold base
-    ctx.fillStyle = grad;
+    // Round 16: flat, soft and minimal: white Mali lettering, a quiet violet glow
+    ctx.shadowColor = 'rgba(185, 140, 255, 0.85)';
+    ctx.shadowBlur = 60;
+    ctx.fillStyle = '#f6f1ff';
     ctx.fillText(TEXT, x, y);
-
-    // Top highlight specular line
-    ctx.shadowBlur = 0;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.strokeText(TEXT, x, y);
-
-    // Celestial crown
-    ctx.font = '110px sans-serif';
-    ctx.fillText('', x, y - 215);
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText(TEXT, x, y);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -193,9 +169,9 @@ function createCircularGlowTexture() {
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createRadialGradient(256, 256, 12, 256, 256, 256);
-  grad.addColorStop(0, 'rgba(192, 132, 252, 0.42)');  // vibrant lavender core
-  grad.addColorStop(0.35, 'rgba(244, 114, 182, 0.22)'); // soft rose-pink
-  grad.addColorStop(0.7, 'rgba(126, 34, 206, 0.08)');  // deep cosmic violet
+  grad.addColorStop(0, 'rgba(185, 140, 255, 0.22)');
+  grad.addColorStop(0.45, 'rgba(185, 140, 255, 0.07)');
+  grad.addColorStop(0.8, 'rgba(185, 140, 255, 0.02)');
   grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 512, 512);
@@ -262,7 +238,7 @@ export function buildNameMesh({ isArrival = false } = {}) {
   });
 
   const textPlane = new THREE.PlaneGeometry(TEXT_WIDTH, TEXT_HEIGHT);
-  const layerCount = 10;
+  const layerCount = 1; // Round 16: no slab extrusion
   const layerSpacing = 0.65;
   const fallbackPlanes = [];
   for (let i = 0; i < layerCount; i++) {
@@ -305,7 +281,7 @@ export function buildNameMesh({ isArrival = false } = {}) {
   const emberData = [];
   const emberPalette = [
     new THREE.Color(0xb98cff), // Violet accent
-    new THREE.Color(0xfde68a), // Soft Gold
+    new THREE.Color(0xf4f1ff), // White
     new THREE.Color(0xffffff), // White Star
     new THREE.Color(0xcfdcff)  // Blue-white
   ];
@@ -339,7 +315,8 @@ export function buildNameMesh({ isArrival = false } = {}) {
   let vectorLoaded = false;
 
   // Load vector glyphs
-  loadGlyphGeometries().then((glyphGeometries) => {
+  // Round 16: the extruded slab glyphs are retired; the flat lettering is the look.
+  Promise.resolve(null).then((glyphGeometries) => {
     if (!glyphGeometries) return;
     glyphGeometries.forEach((geo, idx) => {
       // Mesh with dual materials: [front, side/bevel]
@@ -413,7 +390,7 @@ export function createGiant3DNameText(scene) {
       const targets = [emberMat, glowMat, planeFrontMat, planeExtrusionMat];
       currentTween = gsap.to(targets, {
         opacity: (_idx, target) => {
-          if (target === glowMat) return 0.35;
+          if (target === glowMat) return 0.2;
           if (target === emberMat) return 0.85;
           return meshData.vectorLoaded ? 0 : 1.0;
         },

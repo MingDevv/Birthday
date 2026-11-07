@@ -83,13 +83,13 @@ export function createSpiralGalaxy(scene, quality = {}) {
   const speeds = new Float32Array(parameters.count);
 
   // Hubble Astrophotography Palette
-  const colorCoreLilac = new THREE.Color(0xfff1dc);   // Cream inner disc
+  const colorCoreLilac = new THREE.Color(0xf6f2ff);   // Cream inner disc
   const colorSapphire = new THREE.Color(0xc6d8ff);    // Young blue-white arm stars
   const colorCyanBright = new THREE.Color(0x0ea5e9);  // Vivid Cyan Starburst
   const colorCosmicRose = new THREE.Color(0xff6f9f);  // H-alpha emission knot
   const colorUltraviolet = new THREE.Color(0xb98cff); // Violet accent
   const colorDeepIndigo = new THREE.Color(0x7f9cf0);  // Faint outer disc
-  const colorAmber = new THREE.Color(0xf3ead8);       // Old inner-disc stars (soft cream)
+  const colorAmber = new THREE.Color(0xece6f7);       // Old inner-disc stars (soft cream)
   const colorWhite = new THREE.Color(0xffffff);       // Pure Diamond Starlight
 
   for (let i = 0; i < parameters.count; i++) {
@@ -242,9 +242,9 @@ export function createSpiralGalaxy(scene, quality = {}) {
   coreCanvas.height = 256;
   const coreContext = coreCanvas.getContext('2d');
   const coreGradient = coreContext.createRadialGradient(128, 128, 0, 128, 128, 128);
-  coreGradient.addColorStop(0, 'rgba(255, 236, 205, 0.5)');
-  coreGradient.addColorStop(0.18, 'rgba(255, 205, 150, 0.22)');
-  coreGradient.addColorStop(0.55, 'rgba(200, 170, 140, 0.06)');
+  coreGradient.addColorStop(0, 'rgba(246, 242, 255, 0.5)');
+  coreGradient.addColorStop(0.18, 'rgba(205, 185, 255, 0.2)');
+  coreGradient.addColorStop(0.55, 'rgba(150, 120, 220, 0.05)');
   coreGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   coreContext.fillStyle = coreGradient;
   coreContext.fillRect(0, 0, 256, 256);
@@ -430,7 +430,7 @@ export function createSpiralGalaxy(scene, quality = {}) {
       // Plan Round 13: the dark dust lanes are galaxy-view furniture. Outside
       // the galaxy view they used to scratch across the new nebula backdrop as
       // near-black arcs — fade them out whenever the galaxy view is not active.
-      const laneTargetOpacity = galaxyViewActive ? 0.48 : 0.0;
+      const laneTargetOpacity = galaxyViewActive ? 0.12 : 0.0;
       for (const laneMat of dustLaneMaterials) {
         laneMat.opacity += (laneTargetOpacity - laneMat.opacity) * Math.min(1, delta * 3);
       }

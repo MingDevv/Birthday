@@ -40,10 +40,10 @@ export function createStarGate(scene, qualityConfig = null) {
   const gCol = new Float32Array(galaxyCount * 3);
   const gSize = new Float32Array(galaxyCount);
   const gRand = new Float32Array(galaxyCount);
-  const cCore = new THREE.Color(0xffd9a3);
-  const cDisc = new THREE.Color(0xfff2e2);
+  const cCore = new THREE.Color(0xeee6ff);
+  const cDisc = new THREE.Color(0xf6f3ff);
   const cArm = new THREE.Color(0xc4d6ff);
-  const cHalpha = new THREE.Color(0xff7aa8);
+  const cHalpha = new THREE.Color(0xd7b2ff);
   const cViolet = new THREE.Color(0xb98cff);
   const GAL_R = 46;
   const arms = 2;
@@ -74,7 +74,7 @@ export function createStarGate(scene, qualityConfig = null) {
       col.copy(cDisc).lerp(cArm, Math.min(1, t * 1.4));
       // dust lane: just inside the leading edge of each arm, stars are dimmed and reddened
       const lane = inArm && spread > -0.55 && spread < -0.22 && t > 0.15;
-      if (lane) col.multiplyScalar(0.18).lerp(new THREE.Color(0x3a2418), 0.4);
+      if (lane) col.multiplyScalar(0.18).lerp(new THREE.Color(0x1c1630), 0.4);
       const k = Math.random();
       if (inArm && !lane && Math.abs(spread) < 0.2 && t > 0.25 && k < 0.08) col.copy(cHalpha);
       else if (inArm && !lane && t > 0.3 && k < 0.025) col.copy(cViolet);
@@ -141,9 +141,9 @@ export function createStarGate(scene, qualityConfig = null) {
   coreCanvas.width = coreCanvas.height = 256;
   const cctx = coreCanvas.getContext('2d');
   const cg = cctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  cg.addColorStop(0, 'rgba(255, 244, 225, 1)');
-  cg.addColorStop(0.12, 'rgba(255, 214, 160, 0.55)');
-  cg.addColorStop(0.4, 'rgba(200, 160, 120, 0.12)');
+  cg.addColorStop(0, 'rgba(250, 247, 255, 1)');
+  cg.addColorStop(0.12, 'rgba(214, 196, 255, 0.5)');
+  cg.addColorStop(0.4, 'rgba(160, 130, 230, 0.1)');
   cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
   cctx.fillStyle = cg;
   cctx.fillRect(0, 0, 256, 256);
