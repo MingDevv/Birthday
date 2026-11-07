@@ -35,11 +35,15 @@ import { createProgressManager } from './core/progress.js';
 import { createGuideDirector } from './ui/guideDirector.js';
 import { GUIDE_COPY, formatCopy } from './config/guideCopy.js';
 import { ledger } from './ui/guideLedger.js';
+import { initLockGate } from './ui/lockGate.js';
 import './style.css';
 
 async function initializeApp() {
 let guideDirector = null;
 let nebula = null;
+// 🔒 Front-door lock (Plan Round 13b): nothing of the gift loads until the
+// passcode is entered — QA/dev URL params bypass the gate automatically.
+await initLockGate();
 const queryFlags = getQueryFlags();
 const uiDirector = createUIDirector({ root: document.body, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
 const flow = createFlow({
