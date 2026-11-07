@@ -362,8 +362,6 @@ function showEpilogueActions() {
     { id: 'sky', label: 'ท้องฟ้าคืนที่ข้าวหอมเกิด', primary: true },
     { id: 'galaxy', label: 'ท่องกาแล็กซี 3D' },
     { id: 'wish', label: 'อธิษฐาน ดูพลุ' },
-    { id: 'memory', label: 'ดูความทรงจำอีกครั้ง' },
-    { id: 'cake', label: 'เป่าเทียนอีกครั้ง' },
     { id: 'capture', label: 'เก็บภาพไว้' }
   ];
   const left = items.filter((item) => !featuresUsed.has(item.id)).length;
@@ -374,15 +372,6 @@ function showEpilogueActions() {
   panel.querySelector('[data-action="sky"]').addEventListener('click', () => { birthSky.show(); setTimeout(refresh, 600); });
   panel.querySelector('[data-action="galaxy"]').addEventListener('click', () => { featuresUsed.add('galaxy'); toggleGalaxyView(); refresh(); });
   panel.querySelector('[data-action="wish"]').addEventListener('click', () => { hud.onMakeWish?.(); refresh(); });
-  panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
-    featuresUsed.add('memory');
-    uiDirector.hide('epilogue-actions');
-    finaleSequenceStarted = false;
-    solarSystem.setStage('explore');
-    flow.go('EXPLORE');
-    flyToPlanet(1);
-  });
-  panel.querySelector('[data-action="cake"]').addEventListener('click', () => { featuresUsed.add('cake'); startFinaleSequence(true); });
   panel.querySelector('[data-action="capture"]').addEventListener('click', () => { featuresUsed.add('capture'); captureRequestPending = true; refresh(); });
   return handle;
 }
