@@ -494,6 +494,35 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   heartLight.position.set(0, 0, 0);
   heartGroup.add(heartLight);
 
+  // Gyroscope Halo Rings (Plan Round 13): two additive rose/lavender rings
+  // precessing on different axes — the centerpiece finally reads as a jewel
+  // floating in 3D space, not a flat sticker. Hidden on the cake topper stage.
+  const gyroRingPivots = [];
+  if (quality.tier !== 'low') {
+    const ringDefs = [
+      { radius: 13.2, tube: 0.17, color: 0xf9a8d4, tiltX: 1.32, tiltZ: 0.22, speed: 0.42, opacity: 0.62 },
+      { radius: 10.6, tube: 0.14, color: 0xc084fc, tiltX: 0.16, tiltZ: -0.42, speed: -0.3, opacity: 0.5 }
+    ];
+    for (const def of ringDefs) {
+      const pivot = new THREE.Group();
+      pivot.name = `heartGyroPivot-${def.radius}`;
+      heartGroup.add(pivot);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: def.color,
+        transparent: true,
+        opacity: def.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(def.radius, def.tube, 8, 128), ringMat);
+      ring.rotation.set(def.tiltX, 0, def.tiltZ);
+      ring.name = `heartGyroRing-${def.radius}`;
+      pivot.add(ring);
+      gyroRingPivots.push({ pivot, ring, mat: ringMat, speed: def.speed, baseOpacity: def.opacity });
+    }
+  }
+
   function createMemoryLine(startObject, endObject, color, name, pointCount = 40) {
     const positions = new Float32Array(pointCount * 3);
     const geometry = new THREE.BufferGeometry();
@@ -710,28 +739,40 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     rootGroup.add(orbitRibbon);
     orbitPathMaterials.set(pConfig.id, pathMat);
 
-    // 2. Orbital Stardust Sparkle Stream (อนุภาคดาวระยิบระยับวิ่งตามวงโคจร)
-    const orbitSparkCount = 1;
+    // 2. Orbital Stardust Comet Trail (Plan Round 13): a tapered stardust tail
+    // that chases each planet along its orbit — motion is finally visible.
+    const trailCounts = { low: 10, medium: 16, high: 24, ultra: 30 };
+    const orbitSparkCount = trailCounts[quality.tier] ?? 18;
     const orbitSparkGeo = new THREE.BufferGeometry();
     const orbitSparkPos = new Float32Array(orbitSparkCount * 3);
+    const orbitSparkCol = new Float32Array(orbitSparkCount * 3);
     const orbitSparkPhases = [];
+    const trailJitterRadial = [];
+    const trailJitterY = [];
+    const trailHeadColor = new THREE.Color(0xffe4f3);
+    const trailTailColor = new THREE.Color(0x58307c);
 
     for (let i = 0; i < orbitSparkCount; i++) {
-      const a = pConfig.initialAngle - 1.2;
-      const point = orbitPoint(a);
-      orbitSparkPos[i * 3] = point.x;
-      orbitSparkPos[i * 3 + 1] = point.y;
-      orbitSparkPos[i * 3 + 2] = point.z;
-      orbitSparkPhases.push((i / orbitSparkCount) * Math.PI * 2);
+      const taper = Math.pow(i / orbitSparkCount, 1.3);
+      orbitSparkPhases.push(pConfig.initialAngle - 0.06 - taper * 0.9 - Math.random() * 0.015);
+      trailJitterRadial.push((Math.random() - 0.5) * 1.1);
+      trailJitterY.push((Math.random() - 0.5) * 1.6);
+
+      const trailColor = trailHeadColor.clone().lerp(trailTailColor, taper);
+      orbitSparkCol[i * 3] = trailColor.r;
+      orbitSparkCol[i * 3 + 1] = trailColor.g;
+      orbitSparkCol[i * 3 + 2] = trailColor.b;
     }
 
     orbitSparkGeo.setAttribute('position', new THREE.BufferAttribute(orbitSparkPos, 3));
+    orbitSparkGeo.setAttribute('color', new THREE.BufferAttribute(orbitSparkCol, 3));
     const orbitSparkMat = new THREE.PointsMaterial({
-      size: 1.25,
+      size: 1.15,
       map: glowTex,
-      color: 0xe9d5ff,
+      color: 0xffffff,
+      vertexColors: true,
       transparent: true,
-      opacity: 0.36,
+      opacity: 0.42,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -743,8 +784,10 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       points: orbitSparkPoints,
       radius: pConfig.orbitRadius,
       inclination: pConfig.inclination,
-      speed: pConfig.orbitSpeed * 0.55,
+      speed: pConfig.orbitSpeed,
       phases: orbitSparkPhases,
+      jitterRadial: trailJitterRadial,
+      jitterY: trailJitterY,
       count: orbitSparkCount,
       tilt,
       eccentricity
@@ -773,11 +816,21 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     planetNode.add(planetMesh);
 
     let atmosphere = null;
-    if (pConfig.type === 'earth' || pConfig.type === 'venus') {
+    // Plan Round 13: every major planet gets a Fresnel rim so all five read as
+    // glowing celestial jewels — colors follow each planet's identity.
+    const atmosphereProfiles = {
+      venus: { color: 0xffe6bd, opacity: 0.25 },
+      earth: { color: 0x63caff, opacity: 0.42 },
+      mars: { color: 0xffa17a, opacity: 0.16 },
+      jupiter: { color: 0xffd9a6, opacity: 0.15 },
+      saturn: { color: 0xffe3a1, opacity: 0.15 }
+    };
+    const atmosphereProfile = atmosphereProfiles[pConfig.type];
+    if (atmosphereProfile) {
       const atmosphereMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          uColor: { value: new THREE.Color(pConfig.type === 'earth' ? 0x63caff : 0xffe6bd) },
-          uOpacity: { value: pConfig.type === 'earth' ? 0.42 : 0.25 }
+          uColor: { value: new THREE.Color(atmosphereProfile.color) },
+          uOpacity: { value: atmosphereProfile.opacity }
         },
         vertexShader: `varying vec3 vNormalView; varying vec3 vViewDirection; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vNormalView=normalize(normalMatrix*normal); vViewDirection=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
         fragmentShader: `uniform vec3 uColor; uniform float uOpacity; varying vec3 vNormalView; varying vec3 vViewDirection; void main(){ float rim=pow(1.0-max(dot(normalize(vNormalView),normalize(vViewDirection)),0.0),2.6); gl_FragColor=vec4(uColor,rim*uOpacity); }`,
@@ -1161,6 +1214,9 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
 
     setStage(stageName) {
       currentStage = stageName;
+      // Plan Round 13: gyro halo rings belong to the explore/finale heart —
+      // the cake topper stays clean and readable.
+      gyroRingPivots.forEach((entry) => { entry.ring.visible = stageName !== 'cake'; });
       if (stageName === 'cake') {
         finaleMode = true;
         heartGroup.name = 'heartTopper';
@@ -1647,6 +1703,13 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       heartLight.intensity = (1.45 + beat * 1.2) * (currentStage === 'cake' ? 0.35 : 1.0);
       auraSprite.scale.set((16 + beat * 2) * currentHeartScale, (16 + beat * 2) * currentHeartScale, 1);
 
+      // Gyroscope halo precession (Plan Round 13) — rings breathe with the beat
+      for (const entry of gyroRingPivots) {
+        if (!entry.ring.visible) continue;
+        if (!reducedMotion && effectsEnabled) entry.pivot.rotation.y += delta * entry.speed;
+        entry.mat.opacity = entry.baseOpacity + (effectsEnabled ? beat * 0.55 : 0);
+      }
+
       // Pulse spark particles gently
       if (sparkPoints.visible) {
         const positions = sparkPoints.geometry.attributes.position.array;
@@ -1756,17 +1819,17 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         }
       });
 
-      // 3. Flowing Orbital Stardust Streams
+      // 3. Flowing Orbital Stardust Comet Trails (Plan Round 13)
       if (currentStage !== 'cake') {
         orbitalParticleSystems.forEach(ops => {
           if (!ops.points.visible) return;
           const posArr = ops.points.geometry.attributes.position.array;
           for (let i = 0; i < ops.count; i++) {
             const a = ops.phases[i] + orbitTime * ops.speed;
-            const radius = ops.radius * (1 + ops.eccentricity * Math.cos(a));
+            const radius = (ops.radius + ops.jitterRadial[i]) * (1 + ops.eccentricity * Math.cos(a));
             const point = new THREE.Vector3(
               Math.cos(a) * radius,
-              Math.sin(a) * (ops.radius * ops.inclination),
+              Math.sin(a) * (ops.radius * ops.inclination) + ops.jitterY[i],
               Math.sin(a) * radius
             ).applyEuler(ops.tilt);
             posArr[i * 3] = point.x;
@@ -1775,8 +1838,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           }
           ops.points.geometry.attributes.position.needsUpdate = true;
           ops.points.material.opacity = currentStage.startsWith('finale')
-            ? 0.12
-            : 0.36 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
+            ? 0.14
+            : 0.42 + Math.sin(realTime * 1.2 + ops.radius) * 0.08;
         });
       }
 

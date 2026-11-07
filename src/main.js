@@ -12,6 +12,7 @@ import gsap from 'gsap';
 import { MEMORIES_LIST, PLANET_CONFIG } from './config/memoriesData.js';
 import { createGalaxySkybox } from './scene/galaxySkybox.js';
 import { createSpiralGalaxy } from './scene/spiralGalaxy.js';
+import { createNebulaBackdrop } from './scene/nebulaBackdrop.js';
 import { createSolarSystemHeart, loadPlanetTextures } from './scene/solarSystemHeart.js';
 import { createFireworksSystem } from './scene/fireworks.js';
 import { createCosmicCake } from './scene/cosmicCake.js';
@@ -38,6 +39,7 @@ import './style.css';
 
 async function initializeApp() {
 let guideDirector = null;
+let nebula = null;
 const queryFlags = getQueryFlags();
 const uiDirector = createUIDirector({ root: document.body, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
 const flow = createFlow({
@@ -56,6 +58,7 @@ const flow = createFlow({
     if (previous === 'FINALE_CAKE' && next !== 'FINALE_CAKE') {
       cancelCelebration();
     }
+    nebula?.setMode(next === 'FINALE_CAKE' ? 'cake' : 'space');
     if (next === 'EPILOGUE') {
       hasCompletedFinaleOnce = true;
     }
@@ -248,6 +251,10 @@ scene.add(roseRim);
 const soundManager = new SoundManager();
 soundManager.isMuted = queryFlags.mute;
 const galaxy = createGalaxySkybox(scene, currentQuality);
+nebula = createNebulaBackdrop(scene, currentQuality, {
+  reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  effectsEnabled: !queryFlags.fxOff
+});
 const spiralGalaxy = createSpiralGalaxy(scene, currentQuality);
 const solarSystem = createSolarSystemHeart(scene, currentQuality, { effectsEnabled: !queryFlags.fxOff, camera });
 const cosmicCake = createCosmicCake(scene, currentQuality, { enabled: !queryFlags.fxOff });
@@ -2001,6 +2008,7 @@ function animate() {
   tiltState.appliedY = tiltState.currentY;
 
   galaxy.update(delta, time);
+  nebula.update(delta, time);
   spiralGalaxy.update(delta, time, camera);
   const musicBass = soundManager.getMusicBassEnergy();
   solarSystem.update(delta, orbitClock.time, time, musicBass, camera);

@@ -1,7 +1,7 @@
 const TIERS = {
-  ultra: { pixelRatio: 2, galaxyStars: 153000, backgroundStars: 20400, samples: 4, bloomStrength: 0.24 },
-  high: { pixelRatio: 1.75, galaxyStars: 114750, backgroundStars: 15300, samples: 4, bloomStrength: 0.22 },
-  medium: { pixelRatio: 1.35, galaxyStars: 61200, backgroundStars: 8500, samples: 0, bloomStrength: 0.16 },
+  ultra: { pixelRatio: 2, galaxyStars: 153000, backgroundStars: 20400, samples: 4, bloomStrength: 0.32 },
+  high: { pixelRatio: 1.75, galaxyStars: 114750, backgroundStars: 15300, samples: 4, bloomStrength: 0.3 },
+  medium: { pixelRatio: 1.35, galaxyStars: 61200, backgroundStars: 8500, samples: 0, bloomStrength: 0.18 },
   low: { pixelRatio: 1, galaxyStars: 27200, backgroundStars: 4250, samples: 0, bloomStrength: 0.1 }
 };
 

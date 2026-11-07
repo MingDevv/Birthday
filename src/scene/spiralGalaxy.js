@@ -424,6 +424,14 @@ export function createSpiralGalaxy(scene, quality = {}) {
       const cameraDistance = camera ? camera.position.length() : 120;
       coreMaterial.opacity = galaxyViewActive ? THREE.MathUtils.smoothstep(cameraDistance, 90, 220) * 0.18 : 0;
 
+      // Plan Round 13: the dark dust lanes are galaxy-view furniture. Outside
+      // the galaxy view they used to scratch across the new nebula backdrop as
+      // near-black arcs — fade them out whenever the galaxy view is not active.
+      const laneTargetOpacity = galaxyViewActive ? 0.48 : 0.0;
+      for (const laneMat of dustLaneMaterials) {
+        laneMat.opacity += (laneTargetOpacity - laneMat.opacity) * Math.min(1, delta * 3);
+      }
+
       // Ultra-slow cosmic rotation
       galaxyGroup.rotation.y += delta * 0.005;
 
