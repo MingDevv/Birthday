@@ -78,16 +78,13 @@ export async function initLockGate() {
       position: fixed; inset: 0; z-index: 2147483000;
       display: flex; align-items: center; justify-content: center;
       padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-      background:
-        radial-gradient(ellipse 120% 90% at 50% -10%, rgba(88, 28, 135, .55), transparent 60%),
-        radial-gradient(ellipse 100% 70% at 50% 110%, rgba(157, 23, 77, .38), transparent 55%),
-        linear-gradient(180deg, #07031a 0%, #10042e 55%, #1b0533 100%);
+      background: #05040a;
       font-family: 'IBM Plex Sans Thai Looped', sans-serif;
       transition: opacity .7s ease;
     }
     #lock-gate.lock-gate-out { opacity: 0; pointer-events: none; }
     .lock-gate-stars {
-      position: absolute; inset: 0; pointer-events: none;
+      position: absolute; inset: 0; pointer-events: none; opacity: .6;
       background-image:
         radial-gradient(1.4px 1.4px at 12% 22%, rgba(255,255,255,.9), transparent 55%),
         radial-gradient(1.1px 1.1px at 78% 14%, rgba(216,180,254,.85), transparent 55%),
@@ -103,38 +100,36 @@ export async function initLockGate() {
       display: flex; flex-direction: column; align-items: center; gap: 14px;
       padding: clamp(24px, 5vw, 38px);
       border-radius: 26px;
-      background: rgba(24, 10, 48, .62);
-      border: 1px solid rgba(192, 132, 252, .35);
-      box-shadow: 0 24px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
-      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      background: #110e19;
+      border: 0;
+      box-shadow: 0 24px 70px rgba(0,0,0,.5);
       text-align: center;
     }
     .lock-gate-heart { font-size: clamp(40px, 9vw, 54px); line-height: 1; filter: drop-shadow(0 0 18px rgba(244,114,182,.65)); }
     .lock-gate-title {
-      margin: 0; font-size: clamp(20px, 4.6vw, 26px); font-weight: 700; color: #fff4fd;
-      letter-spacing: .2px; text-shadow: 0 0 24px rgba(168,85,247,.55);
+      margin: 0; font-family: 'Mali', sans-serif; font-size: clamp(22px, 5vw, 28px); font-weight: 700; color: #f4eefc;
+      line-height: 1.35; text-wrap: balance;
     }
-    .lock-gate-sub { margin: 0; font-size: clamp(14px, 3.4vw, 16px); color: #e6d5f7; line-height: 1.65; }
-    .lock-gate-hint { font-size: .86em; color: #c0a5e8; }
+    .lock-gate-sub { margin: 0; font-size: clamp(15px, 3.4vw, 16px); color: #f4eefc; line-height: 1.65; }
+    .lock-gate-hint { font-size: .88em; color: rgba(244,238,252,.65); }
     .lock-gate-input {
       width: 100%; box-sizing: border-box; min-height: 56px;
       padding: 14px 18px; border-radius: 16px;
-      border: 2px solid rgba(192,132,252,.45);
-      background: rgba(12, 5, 28, .75); color: #ffe9fb;
+      border: 2px solid transparent;
+      background: #1b1626; color: #f4eefc;
       font-family: inherit; font-size: 22px; font-weight: 600; letter-spacing: .22em;
       text-align: center; outline: none;
     }
-    .lock-gate-input:focus { border-color: rgba(244,114,182,.95); box-shadow: 0 0 0 4px rgba(244,114,182,.18); }
+    .lock-gate-input:focus { border-color: #b98cff; }
     .lock-gate-btn {
       width: 100%; min-height: 52px; border: none; border-radius: 16px; cursor: pointer;
-      font-family: inherit; font-size: 17px; font-weight: 700; color: #2b0a3d;
-      background: linear-gradient(135deg, #f9a8d4, #c084fc 55%, #f472b6);
-      box-shadow: 0 10px 30px rgba(216, 84, 204, .38);
+      font-family: inherit; font-size: 17px; font-weight: 600; color: #160b26;
+      background: #b98cff; border-radius: 999px;
       transition: transform .15s ease, box-shadow .15s ease;
     }
-    .lock-gate-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(216, 84, 204, .5); }
+    .lock-gate-btn:hover { transform: translateY(-1px); background: #c9a4ff; }
     .lock-gate-btn:active { transform: translateY(0); }
-    .lock-gate-error { margin: 0; min-height: 1.4em; font-size: 14px; color: #fda4af; font-weight: 600; }
+    .lock-gate-error { margin: 0; min-height: 1.4em; font-size: 14px; color: #f2b8c6; font-weight: 500; }
     .lock-gate-card.lock-gate-shake { animation: lock-gate-shake .45s ease; }
     @keyframes lock-gate-shake {
       0%, 100% { transform: translateX(0); }

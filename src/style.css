@@ -2800,3 +2800,11 @@ body.birth-sky-open [class^="ui-"] { visibility: hidden; }
 .hud-svg { width: 18px; height: 18px; display: block; }
 #galaxy-btn-icon, .hud-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }
 .memory-tag-bar, .memory-tag-badge, .memory-tag-bar * { letter-spacing: 0 !important; text-transform: none !important; }
+
+/* Round 17 — memory card actions wrap on phones; quiet hint */
+@media (max-width: 640px) {
+  .memory-actions { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; overflow: visible !important; position: static !important; }
+  .memory-actions > *:first-child { grid-column: 1 / -1; order: 3; }
+  .memory-actions button { width: 100%; min-width: 0; white-space: normal; }
+}
+.polaroid-read-hint, .memory-read-hint, .memory-first-guide { border: 0 !important; background: none !important; color: var(--ink-soft) !important; }

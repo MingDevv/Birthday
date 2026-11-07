@@ -742,8 +742,13 @@ export function createCosmicCake(scene, quality = { tier: 'high' }, { enabled = 
 
       revealProgress = (reducedMotion || isQaStatic) ? 1 : Math.min(1, revealProgress + delta / 1.4);
       if (cakeMessage) {
-        cakeMessageReveal = (reducedMotion || isQaStatic) ? 1 : Math.min(1, cakeMessageReveal + delta / 0.85);
+        // Round 17: the secret message appears only after the candles are out, so it
+        // never sits under the blow buttons
+        const messageTarget = blown ? 1 : 0;
+        cakeMessageReveal = (reducedMotion || isQaStatic) ? messageTarget
+          : THREE.MathUtils.clamp(cakeMessageReveal + Math.sign(messageTarget - cakeMessageReveal) * delta / 0.85, 0, 1);
         cakeMessage.scale.x = Math.max(0.01, cakeMessageReveal);
+        cakeMessage.visible = cakeMessageReveal > 0.02;
       }
 
       // Smooth rise of the cake group from -30 to -3

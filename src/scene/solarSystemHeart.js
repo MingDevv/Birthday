@@ -522,7 +522,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   // precessing on different axes — the centerpiece finally reads as a jewel
   // floating in 3D space, not a flat sticker. Hidden on the cake topper stage.
   const gyroRingPivots = [];
-  if (quality.tier !== 'low') {
+  if (false) { // Round 17: no rings around the cat
     const ringDefs = [
       { radius: 13.2, tube: 0.09, color: 0xeee8ff, tiltX: 1.32, tiltZ: 0.22, speed: 0.42, opacity: 0.62 },
       { radius: 10.6, tube: 0.08, color: 0xb98cff, tiltX: 0.16, tiltZ: -0.42, speed: -0.3, opacity: 0.5 }
@@ -564,6 +564,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
   }
 
   function createFinalHeartLine() {
+    return; // Round 17: the heart outline around the planets is retired
     const pointCount = quality.tier === 'low' ? 96 : quality.tier === 'medium' ? 128 : 176;
     const points = [];
     for (let index = 0; index <= pointCount; index += 1) {
@@ -748,32 +749,61 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     // where LineBasicMaterial linewidth is ignored (Plan Round 9: 0.24, Saturn 0.32).
     const curvePoints = Array.from({ length: 192 }, (_, i) => orbitPoint((i / 192) * Math.PI * 2));
     const orbitCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'centripetal');
-    const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.3 : 0.22, 8, true);
+    // Round 17: each orbit is a ring of star dust, soft like Saturn's rings.
+    // Same material interface as before (opacity, uPhase) so every stage toggle still works.
+    const dustPerOrbit = quality.tier === 'low' ? 700 : quality.tier === 'medium' ? 1300 : 2200;
+    const dustCount = Math.round(dustPerOrbit * (0.75 + idx * 0.12));
+    const dPos = new Float32Array(dustCount * 3);
+    const dU = new Float32Array(dustCount);
+    const dSize = new Float32Array(dustCount);
+    const dRand = new Float32Array(dustCount);
+    const bandWidth = 0.55 + idx * 0.12;
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+    for (let i = 0; i < dustCount; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const base = orbitPoint(a);
+      const radial = new THREE.Vector3(base.x, 0, base.z).normalize();
+      base.addScaledVector(radial, gauss() * bandWidth);
+      base.y += gauss() * bandWidth * 0.35;
+      base.toArray(dPos, i * 3);
+      dU[i] = a / (Math.PI * 2);
+      dSize[i] = 0.55 + Math.pow(Math.random(), 5) * 1.6;
+      dRand[i] = Math.random();
+    }
+    const pathGeo = new THREE.BufferGeometry();
+    pathGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+    pathGeo.setAttribute('aU', new THREE.BufferAttribute(dU, 1));
+    pathGeo.setAttribute('aSize', new THREE.BufferAttribute(dSize, 1));
+    pathGeo.setAttribute('aRand', new THREE.BufferAttribute(dRand, 1));
 
-    // Round 14: a filament with depth. The far side of each orbit dims, the tube
-    // is brightest where it faces the camera, and a comet-like trail in the
-    // planet's own colour follows the planet around its path.
     const pathMat = new THREE.ShaderMaterial({
       uniforms: {
-        uColor: { value: new THREE.Color(0xe4def2) },
-        uTrailColor: { value: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xffffff), 0.35) },
+        uColor: { value: new THREE.Color(0xeee9fa) },
+        uTrailColor: { value: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xffffff), 0.45) },
         uOpacity: { value: 0.2 },
         uPhase: { value: 0 },
-        uRadius: { value: pConfig.orbitRadius }
+        uRadius: { value: pConfig.orbitRadius },
+        uTime: { value: 0 },
+        uPx: { value: Math.min(window.devicePixelRatio || 1, 2) * 2.2 }
       },
       vertexShader: `
+        attribute float aU;
+        attribute float aSize;
+        attribute float aRand;
+        uniform float uRadius;
+        uniform float uPx;
+        uniform float uTime;
         varying float vU;
         varying float vRel;
-        varying float vFacing;
-        uniform float uRadius;
+        varying float vTw;
         void main() {
-          vU = uv.x;
+          vU = aU;
           vec4 viewPos = modelViewMatrix * vec4(position, 1.0);
           vec4 originView = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
           vRel = (viewPos.z - originView.z) / uRadius;
-          vec3 n = normalize(normalMatrix * normal);
-          vFacing = abs(dot(n, normalize(-viewPos.xyz)));
+          vTw = 0.75 + 0.25 * sin(uTime * (1.2 + aRand * 2.5) + aRand * 40.0);
           gl_Position = projectionMatrix * viewPos;
+          gl_PointSize = clamp(uPx * aSize * (170.0 / -viewPos.z), 1.2, 10.0);
         }
       `,
       fragmentShader: `
@@ -783,14 +813,16 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         uniform float uPhase;
         varying float vU;
         varying float vRel;
-        varying float vFacing;
+        varying float vTw;
         void main() {
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          if (d > 1.0) discard;
+          float dot = exp(-d * d * 4.0);
           float behind = fract(uPhase - vU);
-          float trail = exp(-behind * 9.0);
-          float depth = mix(0.32, 1.0, smoothstep(-1.0, 0.9, vRel));
-          float core = 0.35 + 0.65 * vFacing;
-          float a = uOpacity * (2.1 + trail * 5.5) * depth * core;
-          vec3 col = mix(uColor, uTrailColor, clamp(trail * 1.4, 0.0, 1.0));
+          float trail = exp(-behind * 10.0);
+          float depth = mix(0.35, 1.0, smoothstep(-1.0, 0.9, vRel));
+          float a = dot * uOpacity * (4.2 + trail * 8.0) * depth * vTw;
+          vec3 col = mix(uColor, uTrailColor, clamp(trail * 1.5, 0.0, 1.0));
           gl_FragColor = vec4(col * a, a);
         }
       `,
@@ -800,7 +832,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
       toneMapped: false
     });
     pathMat.opacity = 0.2;
-    const orbitRibbon = new THREE.Mesh(pathGeo, pathMat);
+    const orbitRibbon = new THREE.Points(pathGeo, pathMat);
+    orbitRibbon.frustumCulled = false;
     orbitRibbon.name = `orbitPath-${pConfig.id}`;
     rootGroup.add(orbitRibbon);
     orbitPathMaterials.set(pConfig.id, pathMat);
@@ -1328,8 +1361,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         });
         sparkPoints.visible = true;
         memoryLineRecords.forEach((record) => { record.line.visible = true; });
-        if (!finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
-        if (finalHeartLine) finalHeartLine.visible = true;
+        // Round 17: the big heart outline around the planets is retired
         planetsList.forEach((planet) => {
           if (planet.beaconSprite) planet.beaconSprite.visible = false;
           if (planet.labelSprite) planet.labelSprite.visible = false;
@@ -1354,8 +1386,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         });
         sparkPoints.visible = true;
         memoryLineRecords.forEach((record) => { record.line.visible = true; });
-        if (!finalHeartLine && planetsList.every((planet) => planet.mesh.userData.visited)) createFinalHeartLine();
-        if (finalHeartLine) finalHeartLine.visible = true;
+        // Round 17: the big heart outline around the planets is retired
         planetsList.forEach((planet) => {
           if (planet.beaconSprite) planet.beaconSprite.visible = false;
           if (planet.labelSprite) planet.labelSprite.visible = false;
@@ -1910,7 +1941,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
           }
         }
 
-        if (orbitMat?.uniforms) orbitMat.uniforms.uOpacity.value = orbitMat.opacity;
+        if (orbitMat?.uniforms) { orbitMat.uniforms.uOpacity.value = orbitMat.opacity; orbitMat.uniforms.uTime.value = realTime; }
         // Orbital particle system visibility (spark running on visited and next orbits)
         const ops = orbitalParticleSystems[p.id - 1];
         if (ops && ops.points) {
