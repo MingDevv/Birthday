@@ -46,16 +46,16 @@ export class PolaroidModal {
           </div>
 
           <!-- 3D Polaroid Photo Frame with Parallax Tilt -->
-          <div class="polaroid-photo-frame" id="polaroid-frame" title="แตะเพื่อดูภาพเต็ม 🔍">
+          <div class="polaroid-photo-frame" id="polaroid-frame" title="แตะเพื่อดูภาพเต็ม">
             <div class="polaroid-photo-placeholder" id="photo-placeholder">
-              <span class="placeholder-icon">💖</span>
+              <span class="placeholder-icon"></span>
               <span class="placeholder-title" id="placeholder-text">ความทรงจำแสนพิเศษ</span>
             </div>
             <img id="polaroid-img" class="polaroid-img" alt="ความทรงจำ" />
             <div class="polaroid-collage-grid hidden" id="polaroid-collage"></div>
             <div class="photo-shine-overlay"></div>
-            <div class="photo-heart-badge" id="photo-badge">01 ♥</div>
-            <div class="photo-zoom-hint" id="photo-zoom-hint">🔍 แตะดูรูปเต็ม</div>
+            <div class="photo-heart-badge" id="photo-badge">01</div>
+            <div class="photo-zoom-hint" id="photo-zoom-hint">แตะดูรูปเต็ม</div>
           </div>
 
           <!-- Content Body -->
@@ -72,7 +72,7 @@ export class PolaroidModal {
 
             <!-- Special Finale Box on Memory 05 -->
             <div id="finale-wish-box" class="finale-wish-box hidden">
-              <div class="wish-ribbon">👑 ${PLANET_CONFIG.wishTitle}</div>
+              <div class="wish-ribbon">${PLANET_CONFIG.wishTitle}</div>
               <p class="wish-body" id="wish-body">${PLANET_CONFIG.wishBody}</p>
               <div class="wish-sig" id="wish-sig">${PLANET_CONFIG.signature}</div>
             </div>
@@ -86,11 +86,11 @@ export class PolaroidModal {
                 <span>ความทรงจำถัดไป ➔</span>
               </button>
               <button class="action-btn capture-memory-btn" id="modal-capture-btn" type="button">
-                <span>เก็บภาพความทรงจำ 📸</span>
+                <span>เก็บภาพความทรงจำ</span>
               </button>
             </div>
             <div class="memory-first-guide hidden" id="memory-first-guide">
-              อ่านจบแล้วกด "ความทรงจำถัดไป" หรือ ✕ เพื่อกลับ ✨
+              อ่านจบแล้วกด "ความทรงจำถัดไป" หรือ ✕ เพื่อกลับ
             </div>
           </div>
         </div>
@@ -242,7 +242,7 @@ export class PolaroidModal {
     // Populate data
     this.container.querySelector('#memory-tag').textContent = memory.tag || `MEMORY 0${memory.id}`;
     this.container.querySelector('#memory-date').textContent = memory.date || '';
-    this.container.querySelector('#photo-badge').textContent = `${memory.badge} ♥`;
+    this.container.querySelector('#photo-badge').textContent = `${memory.badge}`;
     this.container.querySelector('#memory-title').textContent = memory.title;
     this.container.querySelector('#memory-thai-sub').textContent = memory.thaiSubtitle || '';
     this.container.querySelector('#memory-desc').textContent = memory.description;
@@ -311,7 +311,7 @@ export class PolaroidModal {
 
     if (memory.id === 5) {
       finaleBox.classList.remove('hidden');
-      nextBtn.innerHTML = '<span>ไปเป่าเค้กวันเกิด 🎂✨</span>';
+      nextBtn.innerHTML = '<span>ไปเป่าเค้กวันเกิด</span>';
       nextBtn.classList.add('btn-finale-cake');
       const wishText = Array.from(PLANET_CONFIG.wishBody);
       wishBody.textContent = '';

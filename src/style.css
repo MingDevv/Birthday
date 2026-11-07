@@ -2493,3 +2493,261 @@ body.guide-tour-active .guide-edge-arrow { display: none !important; }
     padding: 1.25rem 1.15rem env(safe-area-inset-bottom);
   }
 }
+
+/* ==========================================================================
+   Round 14 — "Observatory" restyle
+   One near-black ground, one ink, one violet accent. No gradients, no glows,
+   no glass. Headings in Noto Serif Thai. Overrides the rules above.
+   ========================================================================== */
+:root {
+  --ground: #05040a;
+  --surface: #110e19;
+  --surface-2: #1b1626;
+  --ink: #f4eefc;
+  --ink-soft: rgba(244, 238, 252, 0.72);
+  --accent: #b98cff;
+  --accent-ink: #160b26;
+  --serif: 'Noto Serif Thai', 'Prompt', serif;
+  --primary-pink: var(--accent);
+  --secondary-lilac: var(--ink);
+  --glass-bg: rgba(17, 14, 25, 0.94);
+  --glass-border: transparent;
+  --glass-glow: transparent;
+}
+
+html, body { background: var(--ground); }
+body::before, body::after { background: none !important; }
+
+h1, h2, h3,
+.intro-title, .hud-main-title, .popup-title, .wish-banner-title,
+.guide-help-title, .finale-letter-card, .lock-gate-title {
+  font-family: var(--serif) !important;
+  letter-spacing: -0.01em;
+}
+
+/* Gradient text → solid ink, the name in the accent */
+.intro-number, .intro-title, .hud-main-title, .wish-banner-title, .popup-title, .guide-text,
+.arrival-caption .name-emph, .hud-name-emph {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+.intro-number, .intro-title, .hud-main-title, .wish-banner-title, .popup-title, .guide-text { color: var(--ink) !important; }
+.arrival-caption .name-emph, .hud-name-emph { color: var(--accent) !important; }
+
+/* Primary actions: flat accent pill */
+.intro-enter-btn, .wish-btn, .next-memory-btn, .next-memory-btn.btn-finale-cake,
+.popup-action-btn, .lock-gate-btn, .guide-tour-btn-next, .ui-epilogue-actions button.is-primary {
+  background: var(--accent) !important;
+  color: var(--accent-ink) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  font-weight: 600 !important;
+  transition: transform .18s ease, background-color .18s ease !important;
+}
+.intro-enter-btn:hover, .wish-btn:hover, .next-memory-btn:hover, .popup-action-btn:hover,
+.lock-gate-btn:hover, .guide-tour-btn-next:hover, .ui-epilogue-actions button.is-primary:hover {
+  background: #c9a4ff !important;
+  transform: translateY(-1px);
+}
+.intro-enter-btn:active, .wish-btn:active, .next-memory-btn:active, .popup-action-btn:active,
+.ui-epilogue-actions button:active { transform: translateY(1px) scale(.98); }
+
+/* Secondary controls: a tone step, no outline glow */
+.hud-galaxy-btn, .hud-galaxy-btn:hover, .hud-next-chip, .guide-open-card-pill, .finale-wish-box,
+.guide-edge-arrow, .ui-epilogue-actions button {
+  background: var(--surface-2) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink) !important;
+}
+.hud-galaxy-btn:hover, .ui-epilogue-actions button:not(.is-primary):hover { background: #251e33 !important; }
+.ui-epilogue-actions button { border-radius: 999px !important; font-family: 'Prompt', sans-serif; }
+.ui-epilogue-actions { width: min(260px, calc(100vw - 32px)); }
+
+/* Panels: solid surfaces instead of glowing glass */
+.arrival-popup-card, .hud-glass, .hud-panel, .glass-panel, .guide-coach, .guide-tour-card,
+.guide-help-sheet, .polaroid-card, .memory-card, .lock-gate-card, .finale-letter-card {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .45) !important;
+}
+[class*="hud-"], [class*="guide-"], [class*="popup"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.asset-loading-bar { background: var(--accent) !important; }
+
+/* Emoji slots that are now empty */
+.bday-decor, .emblem-pig, .emblem-crown, .wish-star, .btn-sparkle, .btn-icon:empty, .wish-banner-sparkle,
+.guide-icon, .guide-arrow:empty, .guide-help-icon, .chip-arrow:empty, #galaxy-btn-icon, #hud-brand-icon,
+.placeholder-icon:empty, .lock-gate-heart:empty, .hud-planet-icon:empty { display: none !important; }
+.pointer-finger:empty::before { content: '↓'; font: 600 28px/1 'Prompt', sans-serif; color: var(--accent); }
+
+/* Progress hearts → plain dots */
+.heart-dot {
+  display: inline-block;
+  width: 12px; height: 12px;
+  margin: 0 5px 0 0;
+  border-radius: 50%;
+  background: rgba(244, 238, 252, .22);
+  filter: none !important;
+  font-size: 0;
+  vertical-align: middle;
+}
+.heart-dot:hover { background: rgba(244, 238, 252, .45); filter: none !important; transform: scale(1.15); }
+.heart-dot.heart-active { background: var(--accent); filter: none !important; transform: none; }
+
+/* ---------- Birth sky view ---------- */
+body.birth-sky-open #webgl-canvas,
+body.birth-sky-open .hud-container,
+body.birth-sky-open [class^="ui-"] { visibility: hidden; }
+.birth-sky {
+  position: fixed; inset: 0;
+  z-index: calc(var(--z-system) + 10);
+  background: #020205;
+  color: var(--ink);
+  font-family: 'Prompt', sans-serif;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  user-select: none;
+}
+.birth-sky.is-open { opacity: 1; }
+.bs-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.bs-canvas:active { cursor: grabbing; }
+.bs-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bs-label {
+  position: absolute; left: 0; top: 0;
+  white-space: nowrap;
+  font-size: 13px;
+  color: rgba(244, 238, 252, .62);
+  transition: opacity .6s ease;
+  will-change: transform;
+}
+.bs-label--constellation { font-family: var(--serif); font-size: 14px; letter-spacing: .02em; color: rgba(214, 206, 236, .0); transition: color 1.6s ease, opacity .6s ease; }
+.bs-label--constellation.is-on { color: rgba(214, 206, 236, .5); }
+.bs-label--star { font-size: 12px; color: rgba(244, 238, 252, .55); padding-top: 26px; }
+.bs-label--planet { font-size: 13px; color: rgba(255, 240, 214, .8); padding-top: 34px; }
+.bs-label--compass { font-size: 13px; font-weight: 500; color: rgba(244, 238, 252, .7); }
+.bs-label--accent { font-family: var(--serif); font-size: 17px; font-weight: 600; color: var(--accent); padding-top: 44px; }
+.bs-label--accent:not(.is-on) { opacity: 0 !important; }
+
+.bs-head {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top)); left: max(24px, env(safe-area-inset-left));
+  max-width: min(560px, calc(100vw - 48px));
+  pointer-events: none;
+}
+.bs-nw { display: inline-block; }
+.bs-head h2 { text-wrap: balance; font: 600 clamp(28px, 4.2vw, 52px)/1.1 var(--serif); color: var(--ink); }
+.bs-head p { margin-top: 10px; font-size: clamp(14px, 1.3vw, 16px); line-height: 1.5; color: var(--ink-soft); }
+.bs-close {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top)); right: max(24px, env(safe-area-inset-right));
+  min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink);
+  font: 500 14px 'Prompt', sans-serif; cursor: pointer;
+  transition: background-color .18s ease, transform .18s ease;
+}
+.bs-close:hover { background: #251e33; }
+.bs-close:active { transform: scale(.97); }
+.bs-close:focus-visible, .bs-time input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.bs-note {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: calc(max(24px, env(safe-area-inset-bottom)) + 124px);
+  width: min(340px, calc(100vw - 48px));
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(17, 14, 25, .9);
+  opacity: 0; transform: translateY(14px);
+  transition: opacity .9s ease, transform .9s ease;
+  pointer-events: none;
+}
+.birth-sky.is-noted .bs-note { opacity: 1; transform: none; }
+.bs-note h3 { font: 600 22px/1.2 var(--serif); color: var(--accent); }
+.bs-note p { margin-top: 8px; font-size: 15px; line-height: 1.6; color: var(--ink); }
+.bs-note strong { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.bs-time {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left)); right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "clock label" "clock range" "clock ends";
+  column-gap: 20px; row-gap: 2px;
+  align-items: center;
+  max-width: 720px;
+}
+.bs-clock { grid-area: clock; font: 600 clamp(40px, 5vw, 64px)/1 var(--serif); font-variant-numeric: tabular-nums; color: var(--ink); }
+.bs-time label { grid-area: label; font-size: 14px; color: var(--ink-soft); }
+.bs-time input { grid-area: range; width: 100%; accent-color: var(--accent); height: 28px; cursor: pointer; }
+.bs-ends { grid-area: ends; display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.bs-credit {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right)); bottom: max(28px, env(safe-area-inset-bottom));
+  max-width: 300px; text-align: right;
+  font-size: 11px; line-height: 1.5; color: rgba(244, 238, 252, .4);
+  pointer-events: none;
+}
+@media (max-width: 1100px) { .bs-credit { display: none; } }
+@media (max-width: 640px) {
+  .bs-head { top: max(18px, env(safe-area-inset-top)); left: 16px; right: 16px; max-width: none; padding-right: 96px; }
+  .bs-head h2 { font-size: 27px; }
+  .bs-head p { font-size: 13px; }
+  .bs-close { top: max(16px, env(safe-area-inset-top)); right: 16px; padding: 0 14px; font-size: 13px; }
+  .bs-note { left: 16px; right: 16px; width: auto; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 112px); padding: 14px 16px; }
+  .bs-note h3 { font-size: 19px; }
+  .bs-note p { font-size: 14px; }
+  .bs-time { left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); column-gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .birth-sky, .bs-note { transition: none; }
+}
+
+/* Round 14 — intro: one large serif title, plain supporting line, one action */
+.intro-screen-overlay { background: rgba(4, 3, 9, .62) !important; }
+.intro-emblem, .intro-tag { display: none !important; }
+.intro-title {
+  font: 600 clamp(40px, 6.4vw, 84px)/1.08 var(--serif) !important;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px !important;
+  text-wrap: balance;
+}
+.intro-birthday-badge, .intro-sub-badge {
+  background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important;
+  font: 400 clamp(16px, 1.6vw, 20px)/1.5 'Prompt', sans-serif !important;
+  color: var(--ink-soft) !important; letter-spacing: 0 !important;
+  margin-bottom: 36px !important;
+}
+.intro-enter-btn { padding: 18px 40px !important; font-size: 18px !important; animation: none !important; }
+.intro-sound-hint, .intro-idle-cta {
+  color: var(--ink-soft) !important; text-shadow: none !important; font-weight: 400 !important;
+  letter-spacing: 0 !important; animation: none !important; font-size: 14px !important;
+}
+.intro-number { font-family: var(--serif) !important; }
+
+/* Round 14 — coach, tour and toast: solid surfaces, no yellow outline glow */
+.guide-tour-card, .guide-toast, .guide-coach, .guide-bubble, [class*="guide-coach"], .guide-open-card-pill, .guide-open-card-pill:hover {
+  background: var(--surface) !important;
+  border: 0 !important;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5) !important;
+  color: var(--ink) !important;
+}
+.guide-tour-step-badge {
+  color: var(--ink-soft) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}

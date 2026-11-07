@@ -23,10 +23,10 @@ const NEBULA_FRAGMENT_OCTAVES = { low: 3, medium: 3, high: 4, ultra: 4 };
 const DUST_COUNTS = { low: 260, medium: 520, high: 900, ultra: 1300 };
 
 const dustPalette = [
-  new THREE.Color(0xd8b4fe), // Lavender
-  new THREE.Color(0xf472b6), // Soft Rose
-  new THREE.Color(0xc084fc), // Radiant Lilac
-  new THREE.Color(0xfff0fb)  // Diamond Starlight
+  new THREE.Color(0xf4f1ff), // White
+  new THREE.Color(0xcfdcff), // Blue-white
+  new THREE.Color(0xffe6c4), // Warm star
+  new THREE.Color(0xb98cff)  // Violet accent
 ];
 
 export function createNebulaBackdrop(scene, quality = { tier: 'high' }, { reducedMotion = false, effectsEnabled = true } = {}) {
@@ -98,17 +98,19 @@ export function createNebulaBackdrop(scene, quality = { tier: 'high' }, { reduce
         float clouds = smoothstep(0.44, 0.96, n1 * 0.72 + n2 * 0.40);
         clouds *= 0.62 + 0.38 * band;
 
-        // Cosmic Purple Dream palette (กติกา 8) — a DEEP-space whisper: the sky
-        // must stay darker than every planet and every text overlay on top of it.
-        vec3 deep = vec3(0.010, 0.005, 0.030);
-        vec3 purple = vec3(0.072, 0.026, 0.165);
-        vec3 lavender = vec3(0.185, 0.100, 0.325);
-        vec3 rose = vec3(0.290, 0.062, 0.190);
+        // Observatory palette: near-black space, neutral-blue dust, a little
+        // hydrogen-alpha pink and a violet accent. Dark dust lanes cut the glow.
+        vec3 deep = vec3(0.006, 0.006, 0.014);
+        vec3 dust = vec3(0.040, 0.042, 0.066);
+        vec3 violet = vec3(0.070, 0.040, 0.120);
+        vec3 halpha = vec3(0.150, 0.030, 0.075);
 
+        float lanes = smoothstep(0.50, 0.78, fbm(dir * 9.0 + warp * 2.0));
         vec3 col = deep;
-        col = mix(col, purple, smoothstep(0.10, 0.75, clouds));
-        col = mix(col, lavender, smoothstep(0.58, 1.0, clouds) * 0.45);
-        col = mix(col, rose, smoothstep(0.64, 1.0, n2) * 0.16 * clouds);
+        col = mix(col, dust, smoothstep(0.20, 0.85, clouds) * 0.85);
+        col = mix(col, violet, smoothstep(0.62, 1.0, clouds) * 0.55);
+        col = mix(col, halpha, smoothstep(0.70, 1.0, n2) * 0.30 * clouds);
+        col *= 1.0 - 0.6 * lanes * band;
 
         // Cake mode: warm the whole sky gently toward celebration rose
         col = mix(col, vec3(0.235, 0.075, 0.165), uRoseBoost * 0.30 * clouds);

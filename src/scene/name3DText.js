@@ -172,7 +172,7 @@ function createTextTexture(isExtrusion = false) {
 
     // Celestial crown
     ctx.font = '110px sans-serif';
-    ctx.fillText('👑', x, y - 215);
+    ctx.fillText('', x, y - 215);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -219,8 +219,8 @@ export function buildNameMesh({ isArrival = false } = {}) {
 
   // Front Material: Warm Cream + Rose Gold, balanced emissive without blowout
   const frontMat = new THREE.MeshPhysicalMaterial({
-    color: 0xfff4ea,
-    emissive: 0xffc4da,
+    color: 0xf7f2ff,
+    emissive: 0xb8a4e6,
     emissiveIntensity: isArrival ? 0.38 : 0.40,
     roughness: 0.18,
     metalness: 0.25,
@@ -231,8 +231,8 @@ export function buildNameMesh({ isArrival = false } = {}) {
 
   // Side/Extrusion Material: Vivid Pink with luminous edge
   const sideMat = new THREE.MeshPhysicalMaterial({
-    color: 0xff4f8c,
-    emissive: 0xdb2777,
+    color: 0x7a52c7,
+    emissive: 0x3a2170,
     emissiveIntensity: isArrival ? 0.68 : 0.60,
     roughness: 0.25,
     metalness: 0.18,
@@ -304,10 +304,10 @@ export function buildNameMesh({ isArrival = false } = {}) {
   const emberColors = new Float32Array(emberCount * 3);
   const emberData = [];
   const emberPalette = [
-    new THREE.Color(0xff4f8c), // Vivid Pink
+    new THREE.Color(0xb98cff), // Violet accent
     new THREE.Color(0xfde68a), // Soft Gold
     new THREE.Color(0xffffff), // White Star
-    new THREE.Color(0xc084fc)  // Lavender
+    new THREE.Color(0xcfdcff)  // Blue-white
   ];
   for (let i = 0; i < emberCount; i++) {
     const x = (Math.random() - 0.5) * TEXT_WIDTH * 1.15;

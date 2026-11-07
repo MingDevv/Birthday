@@ -25,7 +25,7 @@ function createSmoothNebulaTexture(colorA = '#38bdf8', colorB = '#a855f7') {
   grad.addColorStop(0, 'rgba(255, 255, 255, 0.65)');
   grad.addColorStop(0.2, colorA);
   grad.addColorStop(0.55, colorB);
-  grad.addColorStop(0.85, 'rgba(70, 20, 120, 0.08)');
+  grad.addColorStop(0.85, 'rgba(40, 40, 70, 0.06)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
@@ -83,13 +83,13 @@ export function createSpiralGalaxy(scene, quality = {}) {
   const speeds = new Float32Array(parameters.count);
 
   // Hubble Astrophotography Palette
-  const colorCoreLilac = new THREE.Color(0xf5d0fe);   // Lilac Inner Arm
-  const colorSapphire = new THREE.Color(0x38bdf8);    // Electric Sapphire Blue
+  const colorCoreLilac = new THREE.Color(0xfff1dc);   // Cream inner disc
+  const colorSapphire = new THREE.Color(0xc6d8ff);    // Young blue-white arm stars
   const colorCyanBright = new THREE.Color(0x0ea5e9);  // Vivid Cyan Starburst
-  const colorCosmicRose = new THREE.Color(0xf472b6);  // H-II Emission Rose
-  const colorUltraviolet = new THREE.Color(0xc084fc); // Ultraviolet Lilac
-  const colorDeepIndigo = new THREE.Color(0x6366f1);  // Midnight Indigo
-  const colorAmber = new THREE.Color(0xfbbf24);       // Warm Amber Starlight
+  const colorCosmicRose = new THREE.Color(0xff6f9f);  // H-alpha emission knot
+  const colorUltraviolet = new THREE.Color(0xb98cff); // Violet accent
+  const colorDeepIndigo = new THREE.Color(0x7f9cf0);  // Faint outer disc
+  const colorAmber = new THREE.Color(0xffd29a);       // Old bulge stars
   const colorWhite = new THREE.Color(0xffffff);       // Pure Diamond Starlight
 
   for (let i = 0; i < parameters.count; i++) {
@@ -131,15 +131,18 @@ export function createSpiralGalaxy(scene, quality = {}) {
 
     // Multi-gradient Hubble Color Mapping
     const mixedColor = new THREE.Color();
-    if (normDist < 0.22) {
-      mixedColor.copy(colorCoreLilac).lerp(colorSapphire, normDist / 0.22);
-    } else if (normDist < 0.48) {
-      mixedColor.copy(colorSapphire).lerp(colorCosmicRose, (normDist - 0.22) / 0.26);
-    } else if (normDist < 0.75) {
-      mixedColor.copy(colorCosmicRose).lerp(colorUltraviolet, (normDist - 0.48) / 0.27);
+    // Real spiral-galaxy colours: old gold bulge, white inner disc, young blue arms
+    if (normDist < 0.14) {
+      mixedColor.copy(colorAmber).lerp(colorCoreLilac, normDist / 0.14);
+    } else if (normDist < 0.5) {
+      mixedColor.copy(colorCoreLilac).lerp(colorSapphire, (normDist - 0.14) / 0.36);
     } else {
-      mixedColor.copy(colorUltraviolet).lerp(colorDeepIndigo, (normDist - 0.75) / 0.25);
+      mixedColor.copy(colorSapphire).lerp(colorDeepIndigo, (normDist - 0.5) / 0.5);
     }
+    // Hydrogen-alpha knots along the arms, a few violet ones for Khao Hom
+    const knot = Math.random();
+    if (normDist > 0.2 && knot < 0.05) mixedColor.copy(colorCosmicRose);
+    else if (normDist > 0.2 && knot < 0.075) mixedColor.copy(colorUltraviolet);
 
     // Occasional bright diamond & amber star jewels
     if (Math.random() < 0.08) {
@@ -239,9 +242,9 @@ export function createSpiralGalaxy(scene, quality = {}) {
   coreCanvas.height = 256;
   const coreContext = coreCanvas.getContext('2d');
   const coreGradient = coreContext.createRadialGradient(128, 128, 0, 128, 128, 128);
-  coreGradient.addColorStop(0, 'rgba(255, 220, 248, 0.42)');
-  coreGradient.addColorStop(0.18, 'rgba(235, 145, 218, 0.2)');
-  coreGradient.addColorStop(0.55, 'rgba(168, 85, 247, 0.06)');
+  coreGradient.addColorStop(0, 'rgba(255, 236, 205, 0.5)');
+  coreGradient.addColorStop(0.18, 'rgba(255, 205, 150, 0.22)');
+  coreGradient.addColorStop(0.55, 'rgba(200, 170, 140, 0.06)');
   coreGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   coreContext.fillStyle = coreGradient;
   coreContext.fillRect(0, 0, 256, 256);
@@ -337,10 +340,10 @@ export function createSpiralGalaxy(scene, quality = {}) {
 
   const crossPalette = [
     new THREE.Color(0xffffff), // Diamond White
-    new THREE.Color(0x38bdf8), // Electric Sapphire
-    new THREE.Color(0xfef08a), // Warm Gold
-    new THREE.Color(0xf472b6), // Soft Rose
-    new THREE.Color(0xf5d0fe)  // Lilac Glint
+    new THREE.Color(0xc6d8ff), // Blue-white
+    new THREE.Color(0xffe2b0), // Warm Gold
+    new THREE.Color(0xffc2d6), // Pale rose
+    new THREE.Color(0xb98cff)  // Violet glint
   ];
 
   for (let k = 0; k < crossCount; k++) {

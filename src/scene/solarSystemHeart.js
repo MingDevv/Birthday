@@ -632,8 +632,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     {
       id: 1,
       name: 'ดาวศุกร์ (Venus)',
-      badgeTitle: '♀️ ดาวศุกร์ (Venus)',
-      badgeSub: 'The First Day 🌸',
+      badgeTitle: 'ดาวศุกร์ (Venus)',
+      badgeSub: 'The First Day',
       type: 'venus',
       radius: 3.2,
       orbitRadius: 25,
@@ -646,8 +646,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     {
       id: 2,
       name: 'โลก & ดวงจันทร์ (Earth & Moon)',
-      badgeTitle: '🌍 โลก & ดวงจันทร์ (Earth & Moon)',
-      badgeSub: 'Our Safe Zone ☕',
+      badgeTitle: 'โลก & ดวงจันทร์ (Earth & Moon)',
+      badgeSub: 'Our Safe Zone',
       type: 'earth',
       radius: 4.0,
       orbitRadius: 38,
@@ -661,8 +661,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     {
       id: 3,
       name: 'ดาวอังคาร (Mars)',
-      badgeTitle: '♂️ ดาวอังคาร (Mars)',
-      badgeSub: 'The Journey 🌊',
+      badgeTitle: 'ดาวอังคาร (Mars)',
+      badgeSub: 'The Journey',
       type: 'mars',
       radius: 2.9,
       orbitRadius: 52,
@@ -675,8 +675,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     {
       id: 4,
       name: 'ดาวพฤหัสบดี (Jupiter)',
-      badgeTitle: '♃ ดาวพฤหัสบดี (Jupiter)',
-      badgeSub: 'Beside You Always 🧸',
+      badgeTitle: 'ดาวพฤหัสบดี (Jupiter)',
+      badgeSub: 'Beside You Always',
       type: 'jupiter',
       radius: 6.8,
       orbitRadius: 66,
@@ -689,8 +689,8 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     {
       id: 5,
       name: 'ดาวเสาร์ (Saturn)',
-      badgeTitle: '🪐 ดาวเสาร์ (Saturn)',
-      badgeSub: 'Happy Birthday My Universe 👑',
+      badgeTitle: 'ดาวเสาร์ (Saturn)',
+      badgeSub: 'Happy Birthday My Universe',
       type: 'saturn',
       radius: 5.4,
       orbitRadius: 82,
@@ -727,7 +727,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
     const pathGeo = new THREE.TubeGeometry(orbitCurve, 384, idx === 4 ? 0.32 : 0.24, 6, true);
 
     const pathMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(pConfig.color).lerp(new THREE.Color(0xc084fc), 0.35),
+      color: new THREE.Color(0xdcd6ee), // one quiet orbit colour for every planet
       transparent: true,
       opacity: 0.20,
       blending: THREE.AdditiveBlending,
@@ -938,7 +938,7 @@ export function createSolarSystemHeart(scene, quality = { tier: 'high' }, { effe
         beaconContext.textAlign = 'center';
         beaconContext.textBaseline = 'middle';
         beaconContext.font = next ? '700 48px Prompt, sans-serif' : '600 44px Prompt, sans-serif';
-        const prefix = visited ? '✓' : next ? '👉' : String(pConfig.id).padStart(2, '0');
+        const prefix = visited ? '✓' : next ? '' : String(pConfig.id).padStart(2, '0');
         beaconContext.fillText(`${prefix} · ${beaconName}`, 256, 64, 440);
       }
       beaconTexture.needsUpdate = true;

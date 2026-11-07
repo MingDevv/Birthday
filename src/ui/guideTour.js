@@ -18,27 +18,27 @@ export function startFirstRunTour({
     {
       targetId: '#tracker-hearts',
       title: 'ตัวนับดาวเคราะห์ (0/5)',
-      text: copy.tour?.stepHearts || 'แตะหัวใจเพื่อวาร์ปไปดาวนั้น · เต็มทั้ง 5 ดวงจะมีเซอร์ไพรส์ 💜'
+      text: copy.tour?.stepHearts || 'แตะหัวใจเพื่อวาร์ปไปดาวนั้น · เต็มทั้ง 5 ดวงจะมีเซอร์ไพรส์'
     },
     {
       targetId: '#btn-toggle-galaxy',
       title: 'ท่องกาแล็กซี่ 3D',
-      text: copy.tour?.stepGalaxy || 'ดูจักรวาลมุมกว้างและชื่อ 3D ในอวกาศลึก 🌌'
+      text: copy.tour?.stepGalaxy || 'ดูจักรวาลมุมกว้างและชื่อ 3D ในอวกาศลึก'
     },
     {
       targetId: '#btn-reset-cam',
       title: 'ดวงใจวันเกิด',
-      text: copy.tour?.stepReset || 'กลับมาที่หัวใจตรงกลางเสมอ 🎯'
+      text: copy.tour?.stepReset || 'กลับมาที่หัวใจตรงกลางเสมอ'
     },
     {
       targetId: '#vinyl-widget',
       title: 'เพลงประกอบ',
-      text: copy.tour?.stepMusic || 'เปิด/ปิดเพลงประกอบ 🔊'
+      text: copy.tour?.stepMusic || 'เปิด/ปิดเพลงประกอบ'
     },
     {
       targetId: '#btn-make-wish',
       title: 'อธิษฐานขอพรวันเกิด',
-      text: copy.tour?.stepWish || 'กดแล้วมีพลุขอพรวันเกิด ✨'
+      text: copy.tour?.stepWish || 'กดแล้วมีพลุขอพรวันเกิด'
     },
     {
       targetId: '.mobile-tools-toggle, #btn-tilt, .cinema-record-button',
@@ -141,7 +141,7 @@ export function startFirstRunTour({
       <div class="guide-tour-desc">${step.text}</div>
       <div class="guide-tour-actions">
         <button class="guide-tour-btn-skip" id="tour-skip-btn">ข้ามทัวร์</button>
-        <button class="guide-tour-btn-next" id="tour-next-btn">${isLast ? 'เข้าใจแล้ว ✨' : 'ถัดไป ➔'}</button>
+        <button class="guide-tour-btn-next" id="tour-next-btn">${isLast ? 'เข้าใจแล้ว' : 'ถัดไป ➔'}</button>
       </div>
     `;
 

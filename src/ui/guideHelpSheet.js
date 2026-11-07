@@ -23,49 +23,49 @@ export function createGuideHelpSheet({
   function buildItems() {
     const items = [
       {
-        icon: '💫',
+        icon: '',
         name: 'สำรวจจักรวาล',
         desc: 'ลากเมาส์หรือนิ้วเพื่อหมุน · บีบนิ้ว/เลื่อนล้อเพื่อซูม',
         actionLabel: null,
         onAction: null
       },
       {
-        icon: '🪐',
+        icon: '',
         name: '5 ดาวเคราะห์ความทรงจำ',
         desc: 'แตะดาวที่เรืองแสง เพื่อดูความทรงจำของดวงนั้น',
         actionLabel: 'ไปดาวถัดไป ➔',
         onAction: () => onGoNextPlanet?.()
       },
       {
-        icon: '💜',
+        icon: '',
         name: 'ตัวนับหัวใจ (0/5)',
         desc: 'แตะรูปหัวใจมุมซ้ายบนเพื่อวาร์ปไปดาวนั้นทันที',
         actionLabel: null,
         onAction: null
       },
       {
-        icon: '🌌',
+        icon: '',
         name: 'ท่องกาแล็กซี่ 3D',
         desc: 'สลับมุมกว้างเพื่อชมทางช้างเผือกและชื่อ 3D',
         actionLabel: 'ลองเลย',
         onAction: () => onToggleGalaxy?.()
       },
       {
-        icon: '🎯',
+        icon: '',
         name: 'ดวงใจวันเกิด',
         desc: 'รีเซ็ตมุมกล้องกลับมาที่หัวใจคริสตัลตรงกลาง',
         actionLabel: 'ลองเลย',
         onAction: () => onResetCamera?.()
       },
       {
-        icon: '🔊',
+        icon: '',
         name: 'เพลงประกอบ',
         desc: 'แตะแผ่นเสียงเพื่อเปิดหรือปิดเพลง',
         actionLabel: 'สลับเพลง',
         onAction: () => onToggleSound?.()
       },
       {
-        icon: '🎂',
+        icon: '',
         name: 'อธิษฐานขอพรวันเกิด',
         desc: 'จุดพลุดาวกระจายพร้อมข้อความอวยพรสุดพิเศษ',
         actionLabel: 'ขอพรเลย',
@@ -77,7 +77,7 @@ export function createGuideHelpSheet({
     const hasTilt = document.querySelector('#btn-tilt') !== null;
     if (hasTilt) {
       items.push({
-        icon: '📱',
+        icon: '',
         name: 'โหมดเอียงเครื่อง',
         desc: 'ขยับมุมมองกล้องตามการเอียงของมือถือ',
         actionLabel: null,
@@ -88,7 +88,7 @@ export function createGuideHelpSheet({
     const hasCinema = document.querySelector('.cinema-record-button') !== null;
     if (hasCinema) {
       items.push({
-        icon: '🎬',
+        icon: '',
         name: 'บันทึกวิดีโอ',
         desc: 'อัดคลิปการเดินทางในจักรวาลไว้เป็นที่ระลึก',
         actionLabel: null,
@@ -105,7 +105,7 @@ export function createGuideHelpSheet({
     backdropEl.className = 'guide-help-backdrop hidden';
     backdropEl.setAttribute('role', 'dialog');
     backdropEl.setAttribute('aria-modal', 'true');
-    backdropEl.setAttribute('aria-label', copy.help?.title || 'คู่มือเล็กๆ ✨');
+    backdropEl.setAttribute('aria-label', copy.help?.title || 'คู่มือเล็กๆ');
 
     const items = buildItems();
     const itemsHtml = items.map((item, idx) => `
@@ -125,7 +125,7 @@ export function createGuideHelpSheet({
       <div class="guide-help-sheet">
         <div class="guide-help-header">
           <div>
-            <h2 class="guide-help-title">${copy.help?.title || 'คู่มือเล็กๆ ✨'}</h2>
+            <h2 class="guide-help-title">${copy.help?.title || 'คู่มือเล็กๆ'}</h2>
             <div class="guide-help-subtitle">${copy.help?.subtitle || 'รวมวิธีเล่นและปุ่มทั้งหมดในจักรวาลดาวลูกหมู'}</div>
           </div>
           <button class="guide-help-close" id="guide-help-close-btn" title="ปิดคู่มือ" aria-label="ปิดคู่มือ">✕</button>

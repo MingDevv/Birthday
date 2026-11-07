@@ -36,6 +36,7 @@ import { createGuideDirector } from './ui/guideDirector.js';
 import { GUIDE_COPY, formatCopy } from './config/guideCopy.js';
 import { ledger } from './ui/guideLedger.js';
 import { initLockGate } from './ui/lockGate.js';
+import { createBirthSky } from './scene/birthSky.js';
 import './style.css';
 
 async function initializeApp() {
@@ -120,7 +121,7 @@ renderer.shadowMap.enabled = false;
 
 const scene = new THREE.Scene();
 // Deep Cosmic Purple & Midnight Indigo space
-scene.background = new THREE.Color(0x060212);
+scene.background = new THREE.Color(0x040308);
 scene.fog = null;
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 const environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
@@ -356,7 +357,7 @@ function showEpilogueActions() {
   uiDirector.hide('epilogue-actions');
   const panel = document.createElement('div');
   panel.className = 'ui-epilogue-actions';
-  panel.innerHTML = '<button type="button" data-action="memory">ดูความทรงจำอีกครั้ง</button><button type="button" data-action="cake">เป่าเทียนอีกครั้ง</button><button type="button" data-action="capture">เก็บภาพ</button>';
+  panel.innerHTML = '<button type="button" data-action="sky" class="is-primary">ท้องฟ้าคืนที่ข้าวหอมเกิด</button><button type="button" data-action="memory">ดูความทรงจำอีกครั้ง</button><button type="button" data-action="cake">เป่าเทียนอีกครั้ง</button><button type="button" data-action="capture">เก็บภาพ</button>';
   const handle = uiDirector.show({ id: 'epilogue-actions', zone: 'bottom-left', layer: 'action', exclusive: false, element: panel, states: ['EPILOGUE'] });
   panel.querySelector('[data-action="memory"]').addEventListener('click', () => {
     uiDirector.hide('epilogue-actions');
@@ -365,6 +366,7 @@ function showEpilogueActions() {
     flow.go('EXPLORE');
     flyToPlanet(1);
   });
+  panel.querySelector('[data-action="sky"]').addEventListener('click', () => birthSky.show());
   panel.querySelector('[data-action="cake"]').addEventListener('click', () => startFinaleSequence(true));
   panel.querySelector('[data-action="capture"]').addEventListener('click', () => { captureRequestPending = true; });
   return handle;
@@ -422,7 +424,7 @@ function dismissFinaleAfterCake() {
     const text = document.createElement('p');
     const hint = document.createElement('span');
     hint.className = 'finale-letter-hint';
-    hint.textContent = 'แตะเพื่อข้าม ✨';
+    hint.textContent = 'แตะเพื่อข้าม';
     letter.append(text, hint);
     let index = 0;
     const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 8000, element: letter, states: ['FINALE_LETTER'] });
@@ -582,7 +584,7 @@ function showCakeActions() {
   const blowButton = document.createElement('button');
   blowButton.type = 'button';
   blowButton.className = 'cake-blow-button';
-  blowButton.textContent = 'เป่าเทียน 🎂';
+  blowButton.textContent = 'เป่าเทียน';
   const micButton = document.createElement('button');
   micButton.type = 'button';
   micButton.className = 'cake-mic-button secondary';
@@ -772,6 +774,12 @@ const name3DText = createGiant3DNameText(scene);
 const starGate = createStarGate(scene, currentQuality);
 let isWarpActive = false;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const birthSky = createBirthSky({
+  reducedMotion: prefersReducedMotion || queryFlags.fxOff,
+  onOpen: () => { document.body.classList.add('birth-sky-open'); },
+  onClose: () => { document.body.classList.remove('birth-sky-open'); clock.getDelta(); }
+});
+if (queryFlags.qaScene === 'birth-sky') setTimeout(() => birthSky.show(), 300);
 const frameGovernor = createFrameGovernor({
   renderer,
   composer,
@@ -897,7 +905,7 @@ function startCinematicApproach(onComplete) {
   const skipBtn = document.createElement('button');
   skipBtn.id = 'btn-skip-flight';
   skipBtn.className = 'skip-flight-btn ui-action-slot';
-  skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง ⏩</span>';
+  skipBtn.innerHTML = '<span>ข้ามฉากเดินทาง</span>';
   const skipHandle = uiDirector.show({ id: 'skip-flight', zone: 'bottom-center', layer: 'action', exclusive: true, element: skipBtn, states: ['FLIGHT'] });
 
   soundManager.playWarpRiser(2.4);
@@ -1769,7 +1777,7 @@ window.addEventListener('pointerup', (e) => {
     const wishCard = document.createElement('div');
     wishCard.className = 'shooting-wish-card ui-captions';
     wishCard.setAttribute('role', 'status');
-    wishCard.textContent = `ขอพรหนึ่งข้อ ✨ ${message}`;
+    wishCard.textContent = `ขอพรหนึ่งข้อ ${message}`;
     uiDirector.show({ id: 'shooting-wish', zone: 'center-stage', layer: 'toast', exclusive: true, ttl: 2600, element: wishCard });
     return;
   }
@@ -1863,7 +1871,7 @@ function downloadBirthdaySnapshot() {
       context.fillStyle = '#fff0f8';
       context.shadowColor = 'rgba(0,0,0,.8)';
       context.shadowBlur = 8;
-      context.fillText('Happy Birthday ข้าวหอม 💗', frame.width / 2, frame.height - margin * 1.6);
+      context.fillText('Happy Birthday ข้าวหอม', frame.width / 2, frame.height - margin * 1.6);
       frame.toBlob((result) => {
         if (!result) return;
         const url = URL.createObjectURL(result);
@@ -1993,7 +2001,7 @@ function animate() {
     const world = message?.getWorldPosition(new THREE.Vector3());
     window.__qaCakeMessage = message ? { visible: message.visible, world: world.toArray(), screen: world.clone().project(camera).toArray() } : null;
   }
-  if (document.hidden || webglContextLost) return;
+  if (document.hidden || webglContextLost || birthSky.isOpen) return;
   stats?.begin();
 
   const delta = Math.min(clock.getDelta(), 0.1);

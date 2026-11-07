@@ -27,45 +27,45 @@ export class IntroScreen {
 
     this.container.innerHTML = `
       <div class="intro-backdrop-decorations">
-        <span class="bday-decor d-1">🐷</span>
-        <span class="bday-decor d-2">✨</span>
-        <span class="bday-decor d-3">🎂</span>
-        <span class="bday-decor d-4">👑</span>
-        <span class="bday-decor d-5">💜</span>
-        <span class="bday-decor d-6">🌟</span>
+        <span class="bday-decor d-1"></span>
+        <span class="bday-decor d-2"></span>
+        <span class="bday-decor d-3"></span>
+        <span class="bday-decor d-4"></span>
+        <span class="bday-decor d-5"></span>
+        <span class="bday-decor d-6"></span>
       </div>
 
       <div class="intro-content">
         <!-- Floating Celestial Piggy & Crown Emblem -->
         <div class="intro-emblem">
-          <span class="emblem-pig">🐷</span>
-          <span class="emblem-crown">👑</span>
+          <span class="emblem-pig"></span>
+          <span class="emblem-crown"></span>
         </div>
 
         <!-- 3-2-1 Countdown Display -->
         <div id="intro-countdown-wrap" class="intro-countdown-wrap">
-          <div class="intro-sub-badge">🎁 กำลังเปิดประตูสู่ดาวลูกหมู...</div>
+          <div class="intro-sub-badge">กำลังเปิดประตูสู่ดาวลูกหมู...</div>
           <div id="intro-number" class="intro-number">3</div>
         </div>
 
         <!-- Greeting & Enter Button (Shown after countdown) -->
         <div id="intro-greeting-wrap" class="intro-greeting-wrap hidden">
-          <div class="intro-tag">✨ HAPPY 16th BIRTHDAY ✨</div>
-          <h1 class="intro-title">ยินดีต้อนรับสู่ดาวลูกหมู 🐷✨</h1>
-          <div class="intro-birthday-badge">🎂 สุขสันต์วันเกิดครบรอบ 16 ปี ข้าวหอม 💜</div>
+          <div class="intro-tag">HAPPY 16th BIRTHDAY</div>
+          <h1 class="intro-title">ยินดีต้อนรับสู่ดาวลูกหมู</h1>
+          <div class="intro-birthday-badge">สุขสันต์วันเกิดครบรอบ 16 ปี ข้าวหอม</div>
 
           <button id="btn-enter-galaxy" class="intro-enter-btn">
-            <span class="btn-icon">🚀</span>
+            <span class="btn-icon"></span>
             <span>ออกเดินทางสู่ดาวลูกหมู</span>
-            <span class="btn-sparkle">✨</span>
+            <span class="btn-sparkle"></span>
           </button>
-          <div class="intro-sound-hint" id="intro-sound-hint">เปิดเสียงไว้ด้วยนะ จะมีเพลงให้ฟังตลอดทาง 🔊</div>
-          <div class="intro-idle-cta hidden" id="intro-idle-cta">แตะปุ่มเพื่อออกเดินทางได้เลย 🚀</div>
+          <div class="intro-sound-hint" id="intro-sound-hint">เปิดเสียงไว้ด้วยนะ จะมีเพลงให้ฟังตลอดทาง</div>
+          <div class="intro-idle-cta hidden" id="intro-idle-cta">แตะปุ่มเพื่อออกเดินทางได้เลย</div>
         </div>
 
         <!-- Small Skip Button -->
         <button id="btn-skip-countdown" class="intro-skip-btn">
-          ข้ามการนับถอยหลัง ⏩
+          ข้ามการนับถอยหลัง
         </button>
       </div>
     `;
@@ -105,7 +105,7 @@ export class IntroScreen {
         count--;
         this.countdownTimer = setTimeout(tick, 1000);
       } else {
-        numEl.textContent = '🎉';
+        numEl.textContent = '';
         numEl.classList.remove('pop-anim');
         void numEl.offsetWidth;
         numEl.classList.add('pop-anim');

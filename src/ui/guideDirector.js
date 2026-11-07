@@ -204,7 +204,7 @@ export function createGuideDirector({
     const pointer3D = document.createElement('div');
     pointer3D.className = 'guide-3d-pointer';
     pointer3D.innerHTML = `
-      <span class="pointer-finger">👇</span>
+      <span class="pointer-finger"></span>
       <span class="pointer-label">${labelText || planet.config.name}</span>
     `;
     document.body.appendChild(pointer3D);

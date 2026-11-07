@@ -108,7 +108,7 @@ export function showArrivalCelebrationFlow(soundManager, {
 
     const caption = document.createElement('div');
     caption.className = 'ui-captions arrival-caption arrival-lower-third';
-    caption.innerHTML = '<span>สุขสันต์วันเกิดนะ<strong class="name-emph">ข้าวหอม</strong> ขอให้วัย 16 ปีนี้เต็มไปด้วยรอยยิ้ม ความสุข<br>และการเติบโตที่เปล่งประกายที่สุดในจักรวาล 💜</span>';
+    caption.innerHTML = '<span>สุขสันต์วันเกิดนะ<strong class="name-emph">ข้าวหอม</strong> ขอให้วัย 16 ปีนี้เต็มไปด้วยรอยยิ้ม ความสุข<br>และการเติบโตที่เปล่งประกายที่สุดในจักรวาล</span>';
 
     const handle = uiDirector.show({
       id: 'arrival-caption',
@@ -179,7 +179,7 @@ export function showGuideCardPrompt(uiDirector, { reducedMotion = false, onSelec
   guideEl.id = 'guide-open-card';
   guideEl.className = 'guide-open-card-pill';
   guideEl.setAttribute('role', 'status');
-  guideEl.innerHTML = '<span class="guide-icon">🌸</span><span class="guide-text">แตะดาวศุกร์ดวงแรกเลย</span><span class="guide-arrow">👉✨</span>';
+  guideEl.innerHTML = '<span class="guide-icon"></span><span class="guide-text">แตะดาวศุกร์ดวงแรกเลย</span><span class="guide-arrow"></span>';
 
   const handle = uiDirector.show({
     id: 'arrival-guide',

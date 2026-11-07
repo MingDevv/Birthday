@@ -61,12 +61,12 @@ export async function initLockGate() {
   gate.innerHTML = `
     <div class="lock-gate-stars"></div>
     <form class="lock-gate-card" autocomplete="off">
-      <div class="lock-gate-heart">💜</div>
+      <div class="lock-gate-heart"></div>
       <h1 class="lock-gate-title">จักรวาลดวงนี้เปิดให้คนพิเศษเท่านั้น</h1>
       <p class="lock-gate-sub">ใส่ <strong>วันเกิดของคนที่ส่งลิงก์นี้มาให้คุณ</strong><br><span class="lock-gate-hint">(ตัวเลขวัน/เดือน/ปี เช่น 010142 หรือ 1/1/42)</span></p>
       <input id="lock-gate-input" class="lock-gate-input" inputmode="numeric" autocomplete="off"
         placeholder="เช่น 010142" aria-label="รหัสลับปลดล็อก" maxlength="12" />
-      <button type="submit" class="lock-gate-btn">ปลดล็อกจักรวาล ✨</button>
+      <button type="submit" class="lock-gate-btn">ปลดล็อกจักรวาล</button>
       <p class="lock-gate-error" id="lock-gate-error" role="alert"></p>
     </form>
   `;
@@ -158,7 +158,7 @@ export async function initLockGate() {
     if (checking) return;
     const code = normalizeCode(input.value);
     if (!code) {
-      errorEl.textContent = 'ใส่รหัสเป็นตัวเลขนะ 💫';
+      errorEl.textContent = 'ใส่รหัสเป็นตัวเลขนะ';
       return;
     }
     checking = true;
@@ -176,7 +176,7 @@ export async function initLockGate() {
       form.classList.remove('lock-gate-shake');
       void form.offsetWidth; // restart the shake animation
       form.classList.add('lock-gate-shake');
-      errorEl.textContent = 'ยังไม่ใช่จ้าา… ลองนึกวันเกิดของเขาดีๆ 💫';
+      errorEl.textContent = 'ยังไม่ใช่จ้าา… ลองนึกวันเกิดของเขาดีๆ';
       input.select();
       checking = false;
     }

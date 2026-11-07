@@ -37,7 +37,7 @@ export class HudOverlay {
         <div class="hud-left-panel">
           <div class="hud-brand">
             <div class="hud-title-wrap">
-              <span class="hud-planet-icon" id="hud-brand-icon">🎂</span>
+              <span class="hud-planet-icon" id="hud-brand-icon"></span>
               <h1 class="hud-main-title"><span class="hud-title-desktop">${PLANET_CONFIG.mainTitle.replace(PLANET_CONFIG.recipientName, `<span class="hud-name-emph">${PLANET_CONFIG.recipientName}</span>`)}</span><span class="hud-title-mobile"><span class="hud-name-emph">${PLANET_CONFIG.recipientName}</span></span></h1>
             </div>
             <p class="hud-subtitle" id="hud-brand-sub">${PLANET_CONFIG.subtitle}</p>
@@ -46,19 +46,19 @@ export class HudOverlay {
           <!-- 5 Memory Beacons Heart Tracker neatly stacked underneath -->
           <div class="hud-beacons-tracker">
             <div class="tracker-header">
-              <span class="tracker-title">🎂 ดาวเคราะห์วันเกิด 16 ปี</span>
+              <span class="tracker-title">ดาวเคราะห์วันเกิด 16 ปี</span>
               <span id="tracker-count" class="tracker-count">0 / 5</span>
             </div>
             <div class="tracker-hearts" id="tracker-hearts" title="คลิกรูปหัวใจเพื่อวาร์ปไปสู่ดาวเคราะห์ความทรงจำ">
-              <span class="heart-dot clickable" data-id="1" title="01. ♀️ ดาวศุกร์ (Venus) · The First Day">🤍</span>
-              <span class="heart-dot clickable" data-id="2" title="02. 🌍 โลก & ดวงจันทร์ (Earth & Moon) · Safe Zone">🤍</span>
-              <span class="heart-dot clickable" data-id="3" title="03. ♂️ ดาวอังคาร (Mars) · The Journey">🤍</span>
-              <span class="heart-dot clickable" data-id="4" title="04. ♃ ดาวพฤหัสบดี (Jupiter) · Beside You">🤍</span>
-              <span class="heart-dot clickable" data-id="5" title="05. 🪐 ดาวเสาร์ (Saturn) · My Universe">🤍</span>
+              <span class="heart-dot clickable" data-id="1" title="01. ดาวศุกร์ (Venus) · The First Day"></span>
+              <span class="heart-dot clickable" data-id="2" title="02. โลก & ดวงจันทร์ (Earth & Moon) · Safe Zone"></span>
+              <span class="heart-dot clickable" data-id="3" title="03. ดาวอังคาร (Mars) · The Journey"></span>
+              <span class="heart-dot clickable" data-id="4" title="04. ดาวพฤหัสบดี (Jupiter) · Beside You"></span>
+              <span class="heart-dot clickable" data-id="5" title="05. ดาวเสาร์ (Saturn) · My Universe"></span>
             </div>
             <!-- Next Planet Action Chip (Chip "ต่อไป →") -->
             <div class="hud-next-chip hidden" id="hud-next-chip" role="button" tabindex="0" title="แตะเพื่อบินไปดาวดวงนี้ทันที">
-              <span class="chip-arrow">👉</span>
+              <span class="chip-arrow"></span>
               <span class="chip-label" id="hud-next-chip-text">ต่อไป: 01 ดาวศุกร์</span>
             </div>
           </div>
@@ -67,18 +67,18 @@ export class HudOverlay {
         <div class="hud-top-actions">
           <!-- Toggle Galaxy / Center Mode Button -->
           <button id="btn-toggle-galaxy" class="hud-icon-btn hud-galaxy-btn" title="สลับมุมมองท่องกาแล็กซี่ 3D หรือศูนย์กลางดวงใจวันเกิด">
-            <span id="galaxy-btn-icon">🌌</span>
+            <span id="galaxy-btn-icon"></span>
             <span class="btn-label" id="galaxy-btn-text">ท่องกาแล็กซี่ 3D</span>
           </button>
 
           <!-- Reset Center View Button -->
           <button id="btn-reset-cam" class="hud-icon-btn" title="กลับมาที่หัวใจกลาง" aria-label="กลับมาที่หัวใจกลาง">
-            <span>🎯</span>
+            <span></span>
             <span class="btn-label">ดวงใจวันเกิด</span>
           </button>
 
           <!-- Floating Vinyl Record Music Player Widget -->
-          <div class="vinyl-widget" id="vinyl-widget" role="button" tabindex="0" title="แตะเพื่อเปิดเพลง 🔊" aria-label="แตะเพื่อเปิดเพลง 🔊">
+          <div class="vinyl-widget" id="vinyl-widget" role="button" tabindex="0" title="แตะเพื่อเปิดเพลง" aria-label="แตะเพื่อเปิดเพลง">
             <div class="vinyl-disc" id="vinyl-disc">
               <div class="vinyl-groove"></div>
               <div class="vinyl-center"></div>
@@ -93,7 +93,7 @@ export class HudOverlay {
           </div>
 
           <!-- Help Guide Button (?) -->
-          <button id="btn-guide-help" class="hud-icon-btn hud-help-btn" title="คู่มือการใช้งาน ✨" aria-label="คู่มือการใช้งาน">
+          <button id="btn-guide-help" class="hud-icon-btn hud-help-btn" title="คู่มือการใช้งาน" aria-label="คู่มือการใช้งาน">
             <span>?</span>
           </button>
         </div>
@@ -101,16 +101,16 @@ export class HudOverlay {
 
       <!-- Bottom Hint -->
       <div class="hud-hints">
-        <span id="hud-hint-text">💫 ลากเมาส์สำรวจดวงใจคริสตัลและ 5 ดาวเคราะห์ความทรงจำวันเกิด · คลิกดาวเคราะห์ (เริ่มที่ดาวศุกร์) เพื่อดูความทรงจำ · กด 'ท่องกาแล็กซี่ 3D' เพื่อดูมุมกว้าง</span>
+        <span id="hud-hint-text">ลากเมาส์สำรวจดวงใจคริสตัลและ 5 ดาวเคราะห์ความทรงจำวันเกิด · คลิกดาวเคราะห์ (เริ่มที่ดาวศุกร์) เพื่อดูความทรงจำ · กด 'ท่องกาแล็กซี่ 3D' เพื่อดูมุมกว้าง</span>
       </div>
 
       <!-- Bottom-Right Dock: Tools & Make a Wish Button -->
       <div class="bottom-right-dock" id="bottom-right-dock">
         <div class="hud-wish-wrap">
           <button id="btn-make-wish" class="wish-btn" title="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)" aria-label="อธิษฐานขอพรวันเกิด (พลุ + ข้อความอวยพร)">
-            <span class="wish-star">🎂</span>
+            <span class="wish-star"></span>
             <span class="wish-text">อธิษฐานขอพรวันเกิด</span>
-            <span class="wish-star">🌠✨</span>
+            <span class="wish-star"></span>
           </button>
         </div>
       </div>
@@ -195,18 +195,18 @@ export class HudOverlay {
 
     if (isGalaxy) {
       btn.classList.add('is-galaxy-active');
-      btnIcon.textContent = '💖';
+      btnIcon.textContent = '';
       btnText.textContent = 'ดวงใจสุริยะ';
-      brandIcon.textContent = '🌌';
+      brandIcon.textContent = '';
       brandSub.textContent = 'มหากาแล็กซี่สีม่วงแห่งความทรงจำ · 120,000+ ดวงดาว';
-      hintText.innerHTML = '🌌 <b>โหมดท่องกาแล็กซี่:</b> ลากเมาส์หมุนสำรวจทางช้างเผือกสีม่วง · คลิกดาวเคราะห์หรือหัวใจเพื่อวาร์ปเปิดความทรงจำ';
+      hintText.innerHTML = '<b>โหมดท่องกาแล็กซี่:</b> ลากเมาส์หมุนสำรวจทางช้างเผือกสีม่วง · คลิกดาวเคราะห์หรือหัวใจเพื่อวาร์ปเปิดความทรงจำ';
     } else {
       btn.classList.remove('is-galaxy-active');
-      btnIcon.textContent = '🌌';
+      btnIcon.textContent = '';
       btnText.textContent = 'ท่องกาแล็กซี่ 3D';
-      brandIcon.textContent = '💖';
+      brandIcon.textContent = '';
       brandSub.textContent = PLANET_CONFIG.subtitle;
-      hintText.innerHTML = '💫 ลากเมาส์หมุนสำรวจดวงใจเรืองแสงและดาวเคราะห์แห่งความรัก · คลิกดาวเคราะห์เพื่อเปิดอ่าน';
+      hintText.innerHTML = 'ลากเมาส์หมุนสำรวจดวงใจเรืองแสงและดาวเคราะห์แห่งความรัก · คลิกดาวเคราะห์เพื่อเปิดอ่าน';
     }
   }
 
@@ -252,10 +252,10 @@ export class HudOverlay {
     heartDots.forEach(dot => {
       const id = parseInt(dot.getAttribute('data-id'), 10);
       if (visitedSet.has(id)) {
-        dot.textContent = '💜';
+        dot.textContent = '';
         dot.classList.add('heart-active');
       } else {
-        dot.textContent = '🤍';
+        dot.textContent = '';
         dot.classList.remove('heart-active');
       }
     });
@@ -286,8 +286,8 @@ export class HudOverlay {
       bars.classList.add('active');
     } else {
       statusLabel.textContent = 'แตะเพื่อเปิดเพลง';
-      vinylWidget.setAttribute('title', 'แตะเพื่อเปิดเพลง 🔊');
-      vinylWidget.setAttribute('aria-label', 'แตะเพื่อเปิดเพลง 🔊');
+      vinylWidget.setAttribute('title', 'แตะเพื่อเปิดเพลง');
+      vinylWidget.setAttribute('aria-label', 'แตะเพื่อเปิดเพลง');
       vinylWidget.classList.remove('playing');
       disc.classList.remove('spinning');
       bars.classList.remove('active');
