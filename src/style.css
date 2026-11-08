@@ -1658,6 +1658,8 @@ body[data-flow-state^='FINALE_'] .hud-container { opacity: 0; pointer-events: no
   .hud-wish-wrap { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); width: auto; }
   .hud-wish-wrap .wish-btn { width: auto; min-height: 42px; padding: 6px 12px; font-size: .78rem; }
   .ui-director-item.guide-open-card-pill { left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); width: min(43vw, 340px); justify-content: center; padding: 8px 12px; gap: 7px; transform: none; font-size: .82rem; }
+  /* coach bubbles must never cover the journey-bar CTA in phone landscape either */
+  .guide-bubble { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 74px) !important; max-width: min(60vw, 380px); }
 }
 
 /* Keep the interface aligned to a centered 9:16 recording canvas. */
@@ -2867,6 +2869,8 @@ body[data-flow-state='EXPLORE'] .bottom-right-dock { bottom: calc(max(18px, env(
   .ui-epilogue-actions button { min-height: 44px; font-size: 13px !important; padding: 0 12px !important; }
   .ui-epilogue-actions button.is-primary { grid-column: 1 / -1; }
   body[data-flow-state='EPILOGUE'] .bottom-right-dock { display: none !important; }
+  /* coach bubbles must never cover the journey-bar CTA on a narrow screen */
+  .guide-bubble { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 78px) !important; max-width: min(92vw, 380px); }
 }
 
 /* iPad and other tablets */
