@@ -431,11 +431,14 @@ function dismissFinaleAfterCake() {
     hint.textContent = 'แตะเพื่อข้าม';
     letter.append(text, hint);
     let index = 0;
-    const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: 8000, element: letter, states: ['FINALE_LETTER'] });
+    const chars = [...message];
+    // Type within ~6s, then leave a real reading window instead of a fixed 8s card lifetime
+    const typeInterval = Math.max(20, 6000 / chars.length);
+    const handle = uiDirector.show({ id: 'finale-letter', zone: 'center-stage', layer: 'cinematic', exclusive: true, ttl: chars.length * typeInterval + 9000, element: letter, states: ['FINALE_LETTER'] });
     const timer = window.setInterval(() => {
-      text.textContent = [...message].slice(0, ++index).join('');
-      if (index >= [...message].length) window.clearInterval(timer);
-    }, Math.max(20, 6000 / [...message].length));
+      text.textContent = chars.slice(0, ++index).join('');
+      if (index >= chars.length) window.clearInterval(timer);
+    }, typeInterval);
     letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
     handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
   };
