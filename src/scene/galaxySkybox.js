@@ -415,8 +415,17 @@ export function createGalaxySkybox(scene, quality = {}) {
 
       const startPos = camera.position.clone()
         .addScaledVector(camDir, dist)
-        .addScaledVector(camRight, (Math.random() - 0.5) * dist * 0.95)
+        .addScaledVector(camRight, (Math.random() - 0.5) * dist * 0.7)
         .addScaledVector(camUp, (0.22 + Math.random() * 0.45) * dist);
+      // Camera poses differ across scenes (wish push-in, finale, galaxy view):
+      // nudge the head toward the viewport center until the start projects in-view.
+      const ndc = startPos.clone().project(camera);
+      let guard = 0;
+      while (guard++ < 14 && ndc.z < 1 && (Math.abs(ndc.x) > 0.85 || ndc.y > 0.9 || ndc.y < -0.9)) {
+        startPos.addScaledVector(camUp, ndc.y > 0 ? -dist * 0.07 : dist * 0.07);
+        if (Math.abs(ndc.x) > 0.85) startPos.addScaledVector(camRight, ndc.x > 0 ? -dist * 0.07 : dist * 0.07);
+        ndc.copy(startPos).project(camera);
+      }
       slot.start.copy(startPos);
 
       const travelDist = 120 + Math.random() * 70;
@@ -458,8 +467,8 @@ export function createGalaxySkybox(scene, quality = {}) {
       slot.tailLength = 48;
       slot.headBaseScale = 3.6;
     } else {
-      // ambient
-      slot.speed = (1.3 + Math.random() * 0.6) * speedMult;
+      // ambient — slightly slower so a finger can actually catch one mid-flight
+      slot.speed = (1.3 + Math.random() * 0.6) * speedMult * 0.65;
       slot.tailLength = 42;
       slot.headBaseScale = 3.0;
     }
@@ -504,7 +513,7 @@ export function createGalaxySkybox(scene, quality = {}) {
     }
   }
 
-  function triggerGrandShower(count = 10) {
+  function triggerGrandShower(count = 10, camera = null) {
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
       const radiantDir = new THREE.Vector3(
@@ -512,11 +521,14 @@ export function createGalaxySkybox(scene, quality = {}) {
         -0.85,
         Math.sin(angle) * 0.7
       ).normalize();
+      // With a camera, spawn strictly inside the viewport (upper half) and slow
+      // enough that a finger can actually catch one; otherwise dome-wide + fast.
       spawnMeteor({
         type: 'cluster',
         radiantDir,
-        delay: Math.random() * 0.45,
-        speedMult: 1.2
+        camera,
+        delay: camera ? i * 0.22 : Math.random() * 0.45,
+        speedMult: camera ? 0.22 : 1.2
       });
     }
   }
@@ -559,17 +571,53 @@ export function createGalaxySkybox(scene, quality = {}) {
     group: galaxyGroup,
     starField,
     cancelCelebrationShower,
-    pickMeteor(raycaster) {
-      const activeHeads = meteorPool.filter((slot) => slot.active && slot.progress >= 0 && slot.progress < 1).map((slot) => slot.head);
-      const hit = raycaster.intersectObjects(activeHeads, false)[0];
-      if (!hit) return false;
-      const slot = meteorPool.find((entry) => entry.head === hit.object);
-      if (slot) {
-        slot.active = false;
-        slot.mat.opacity = 0;
-        slot.headMat.opacity = 0;
+    // QA/dev hook: NDC positions of every flying meteor head (empty pool = none airborne)
+    debugMeteorPositions(camera) {
+      const v = new THREE.Vector3();
+      return meteorPool
+        .filter((slot) => slot.active && slot.progress >= 0 && slot.progress < 1)
+        .map((slot) => {
+          slot.head.getWorldPosition(v);
+          v.project(camera);
+          return { x: v.x, y: v.y, z: v.z, progress: +slot.progress.toFixed(2), speed: +slot.speed.toFixed(2), start: slot.start.toArray().map((n) => +n.toFixed(1)), end: slot.end.toArray().map((n) => +n.toFixed(1)) };
+        });
+    },
+    pickMeteor(raycaster, pointerNdc = null) {
+      const activeSlots = meteorPool.filter((slot) => slot.active && slot.progress >= 0 && slot.progress < 1);
+      const hit = raycaster.intersectObjects(activeSlots.map((slot) => slot.head), false)[0];
+      if (hit) {
+        const slot = meteorPool.find((entry) => entry.head === hit.object);
+        if (slot) {
+          slot.active = false;
+          slot.mat.opacity = 0;
+          slot.headMat.opacity = 0;
+        }
+        return Boolean(slot);
       }
-      return Boolean(slot);
+      // Exact raycast misses almost always on touch: a meteor head is a few pixels
+      // while a finger covers ~40px. Accept the nearest flying meteor within that radius.
+      if (!pointerNdc || !raycaster.camera) return false;
+      const headPos = new THREE.Vector3();
+      let bestSlot = null;
+      let bestDist = Infinity;
+      for (const slot of activeSlots) {
+        slot.head.getWorldPosition(headPos);
+        headPos.project(raycaster.camera);
+        if (headPos.z > 1 || headPos.z < -1) continue;
+        const dx = (headPos.x - pointerNdc.x) * (raycaster.camera.aspect || 1);
+        const dy = headPos.y - pointerNdc.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSlot = slot;
+        }
+      }
+      const tolerance = 88 / Math.max(window.innerHeight || 1, 1); // ≈44 CSS px radius in NDC units
+      if (!bestSlot || bestDist > tolerance) return false;
+      bestSlot.active = false;
+      bestSlot.mat.opacity = 0;
+      bestSlot.headMat.opacity = 0;
+      return true;
     },
     setQuality(backgroundStars) {
       starGeo.setDrawRange(0, Math.min(backgroundStars, starCount));

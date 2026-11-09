@@ -440,7 +440,18 @@ function dismissFinaleAfterCake() {
       if (index >= chars.length) window.clearInterval(timer);
     }, typeInterval);
     letter.addEventListener('click', () => uiDirector.hide('finale-letter'));
-    handle.el.addEventListener('ui-director-removed', () => { window.clearInterval(timer); enterEpilogue(); }, { once: true });
+    // The guide copy promises "tap anywhere" — make the whole screen actually skip
+    const skipLetter = (event) => {
+      if (flow.state !== 'FINALE_LETTER') return;
+      if (event.target?.closest?.('.guide-bubble')) return;
+      uiDirector.hide('finale-letter');
+    };
+    window.addEventListener('pointerup', skipLetter);
+    handle.el.addEventListener('ui-director-removed', () => {
+      window.clearInterval(timer);
+      window.removeEventListener('pointerup', skipLetter);
+      enterEpilogue();
+    }, { once: true });
   };
 
   // Phase E3: Cake slowly sinks over 1.6s
@@ -891,7 +902,7 @@ function runCinemaDirector() {
     isGalaxyView = true;
     spiralGalaxy.setGalaxyView(true);
     name3DText.show();
-    galaxy.triggerGrandShower?.(10);
+    galaxy.triggerGrandShower?.(10, camera);
   }, [], revealAt + 3.1);
   tour.to({}, { duration: 3.0 }, revealAt + 3.2);
 }
@@ -1402,7 +1413,7 @@ const polaroidModal = new PolaroidModal({
   },
   onWish: () => {
     fireworks.triggerMakeAWish();
-    if (galaxy?.triggerGrandShower) galaxy.triggerGrandShower(10);
+    if (galaxy?.triggerGrandShower) galaxy.triggerGrandShower(10, camera);
   }
 });
 
@@ -1419,13 +1430,17 @@ const hud = new HudOverlay({
   onMakeWish: () => {
     featuresUsed.add('wish');
     soundManager.initAudioContext();
+    // The shower anchors to the camera frame — fire it once the push-in settles,
+    // otherwise spawns get frozen in world space the camera has already left.
+    const fireShower = () => galaxy?.triggerGrandShower?.(10, camera);
     if (!isGalaxyView && !isCinematicFlying) {
       gsap.to(camera.position, {
         x: 0,
         y: 28,
         z: 60,
         duration: 1.5,
-        ease: 'power2.out'
+        ease: 'power2.out',
+        onComplete: fireShower
       });
       gsap.to(controls.target, {
         x: 0,
@@ -1434,9 +1449,10 @@ const hud = new HudOverlay({
         duration: 1.5,
         ease: 'power2.out'
       });
+    } else {
+      fireShower();
     }
     fireworks.triggerMakeAWish();
-    if (galaxy?.triggerGrandShower) galaxy.triggerGrandShower(10);
   },
   onToggleSound: () => {
     return soundManager.toggleMute();
@@ -1814,7 +1830,7 @@ window.addEventListener('pointerup', (e) => {
   if (!updatePointer(e)) return;
   raycaster.setFromCamera(pointer, camera);
   const wishMessages = OPTIONAL_FEATURE_CONTENT.shootingStarMessages.filter((message) => typeof message === 'string' && message.trim());
-  if (shootingWishCard && flow.state === 'EXPLORE' && wishMessages.length && shootingStarClicks < 5 && !polaroidModal.isOpen && galaxy.pickMeteor(raycaster)) {
+  if (shootingWishCard && flow.state === 'EXPLORE' && wishMessages.length && shootingStarClicks < 5 && !polaroidModal.isOpen && galaxy.pickMeteor(raycaster, pointer)) {
     shootingStarClicks += 1;
     const message = wishMessages[(shootingStarClicks - 1) % wishMessages.length];
     const wishCard = document.createElement('div');
@@ -1942,6 +1958,7 @@ function animate() {
   window.__solarSystem = solarSystem;
   window.__starGate = starGate;
   window.__flow = flow;
+  window.__qaGalaxy = galaxy;
   if (!window.__qaSceneAudit) {
     window.__qaSceneAudit = () => {
       const visibleObjects = [];
